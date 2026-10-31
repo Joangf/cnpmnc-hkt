@@ -1,0 +1,1 @@
+"""Hospital ERP/HIS adapters."""

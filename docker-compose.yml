@@ -1,0 +1,175 @@
+name: healthcare
+
+x-backend-env: &backend-env
+  ENV: ${ENV:-dev}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-healthcare}:${POSTGRES_PASSWORD:-healthcare}@postgres:5432/${POSTGRES_DB:-healthcare}
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-change-me-in-any-shared-environment}
+  ERP_ADAPTER: http
+  ERP_BASE_URL: http://mock-erp:8100
+  ERP_WEBHOOK_SECRET: ${ERP_WEBHOOK_SECRET:-erp-webhook-secret}
+  PAYMENT_BASE_URL: http://mock-payment:8200
+  PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment-webhook-secret}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+  INTERNAL_BASE_URL: http://backend:8000
+  PAYMENT_REQUIRES_CONFIRMATION: ${PAYMENT_REQUIRES_CONFIRMATION:-true}
+  CANCELLATION_CUTOFF_HOURS: ${CANCELLATION_CUTOFF_HOURS:-24}
+  REFUND_ON_CANCELLATION: ${REFUND_ON_CANCELLATION:-true}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345!}
+  DEMO_PATIENT_EMAIL: ${DEMO_PATIENT_EMAIL:-patient@example.com}
+  DEMO_PATIENT_PASSWORD: ${DEMO_PATIENT_PASSWORD:-Patient12345!}
+  LOADTEST_PASSWORD: ${LOADTEST_PASSWORD:-LoadTest123!}
+  SEED_ON_START: "true"
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-healthcare}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-healthcare}
+      POSTGRES_DB: ${POSTGRES_DB:-healthcare}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mock-erp:
+    build: ./mock-erp
+    environment:
+      CLINIC_TIMEZONE: Asia/Ho_Chi_Minh
+      MOCK_ERP_MODE: ${MOCK_ERP_MODE:-sync}
+      MOCK_ERP_REJECT_RATE: ${MOCK_ERP_REJECT_RATE:-0.0}
+      MOCK_ERP_LATENCY_MS: ${MOCK_ERP_LATENCY_MS:-50}
+      ERP_WEBHOOK_URL: http://backend:8000/api/v1/integrations/erp/events
+      ERP_WEBHOOK_SECRET: ${ERP_WEBHOOK_SECRET:-erp-webhook-secret}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mock-payment:
+    build: ./mock-payment
+    environment:
+      MOCK_PAYMENT_PUBLIC_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}/mock-payment
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment-webhook-secret}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8200/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock-erp:
+        condition: service_healthy
+      mock-payment:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  web:
+    build: ./frontend
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      mock-payment:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:3.2.0
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./monitoring/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.4.2
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+  k6:
+    image: grafana/k6:0.54.0
+    profiles: ["loadtest"]
+    environment:
+      BASE_URL: http://web
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: "p(95),p(99),avg,max"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345!}
+      LOADTEST_PASSWORD: ${LOADTEST_PASSWORD:-LoadTest123!}
+    volumes:
+      - ./k6:/scripts:ro
+    depends_on:
+      - web
+      - prometheus
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:

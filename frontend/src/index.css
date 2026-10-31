@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Component classes for docs/design-guidelines.md: 3px ink lines, square corners, flat colour,
+   Figtree, 48px+ targets, dashed focus outline. */
+
+@layer base {
+  html {
+    @apply bg-white text-ink antialiased;
+  }
+  body {
+    @apply font-sans text-body;
+  }
+  :focus-visible {
+    @apply outline-3 outline-offset-4 outline-ink outline-dashed;
+  }
+  ::placeholder {
+    color: theme(colors.muted);
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-page px-4 py-8 sm:px-6 sm:py-12;
+  }
+  .page-title {
+    @apply text-[1.875rem] font-extrabold leading-tight tracking-[-0.01em] sm:text-h1;
+  }
+  .section-title {
+    @apply text-h2 font-extrabold;
+  }
+  .eyebrow {
+    @apply text-base font-extrabold uppercase tracking-label;
+  }
+  .caption {
+    @apply text-caption text-muted;
+  }
+  .link {
+    @apply font-semibold underline decoration-2 underline-offset-4 hover:text-cobalt;
+  }
+
+  /* Buttons: one Cobalt (primary) per screen; hover turns Sun with black text. */
+  .btn {
+    @apply inline-flex min-h-14 items-center justify-center gap-2 border-3 border-ink bg-white px-7 py-2 text-center text-base font-extrabold uppercase leading-tight tracking-label text-ink transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-cobalt text-white;
+  }
+  .btn-secondary {
+    @apply btn;
+  }
+  .btn-dark {
+    @apply btn bg-ink text-white;
+  }
+  .btn-danger {
+    @apply btn bg-alert text-white;
+  }
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .btn-dark:hover {
+    @apply bg-sun text-ink;
+  }
+  .btn-danger:hover {
+    @apply bg-alert-dark;
+  }
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-dark:disabled,
+  .btn-danger:disabled {
+    @apply cursor-not-allowed border-grey-400 bg-grey-200 text-grey-600;
+  }
+  .btn-sm {
+    @apply min-h-12 px-4 text-sm;
+  }
+
+  .card {
+    @apply border-3 border-ink bg-white p-5 sm:p-7;
+  }
+  /* Panels butt edge to edge and share their borders. */
+  .tile-grid {
+    @apply grid border-l-3 border-t-3 border-ink;
+  }
+  .tile-grid > * {
+    @apply border-b-3 border-r-3 border-ink;
+  }
+
+  .label {
+    @apply block text-caption font-extrabold uppercase tracking-label;
+  }
+  .input {
+    @apply mt-2 block min-h-14 w-full border-3 border-ink bg-white px-4 text-body text-ink;
+  }
+  textarea.input {
+    @apply py-3;
+  }
+  .input[aria-invalid='true'] {
+    @apply border-alert;
+  }
+  .field-hint {
+    @apply mt-2 text-caption text-muted;
+  }
+  .field-error {
+    @apply mt-2 text-caption font-semibold text-alert;
+  }
+
+  .chip {
+    @apply inline-flex min-h-12 items-center gap-2 border-2 border-ink bg-white px-5 text-base font-semibold text-ink transition-colors hover:bg-grey-100;
+  }
+  .chip[aria-pressed='true'] {
+    @apply bg-sun font-extrabold;
+  }
+  .tag {
+    @apply inline-flex items-center gap-1.5 border-2 border-ink bg-white px-3 py-1 text-sm font-semibold;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 border-2 border-ink px-2.5 py-1 text-sm font-extrabold leading-tight;
+  }
+
+  /* Booking slot picker */
+  .day {
+    @apply flex min-h-[68px] w-[76px] shrink-0 flex-col items-center justify-center border-2 border-ink bg-white text-[0.9375rem] font-semibold leading-tight hover:bg-grey-100;
+  }
+  .day[aria-pressed='true'] {
+    @apply bg-ink font-extrabold text-white;
+  }
+  .slot {
+    @apply inline-flex min-h-[52px] items-center justify-center gap-1 border-2 border-ink bg-white px-2 text-base font-semibold hover:bg-grey-100;
+  }
+  .slot[aria-pressed='true'] {
+    @apply bg-sun font-extrabold;
+  }
+
+  /* Tables: 3px under the header, 1px rows. */
+  .table {
+    @apply w-full text-left text-base;
+  }
+  .table th {
+    @apply border-b-3 border-ink px-3 py-3 text-caption font-extrabold uppercase tracking-label;
+  }
+  .table td {
+    @apply border-b border-ink px-3 py-3 align-middle;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+}

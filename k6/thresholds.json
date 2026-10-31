@@ -1,0 +1,8 @@
+{
+  "http_req_failed": ["rate<0.01"],
+  "http_req_duration{flow:browse}": ["p(95)<300", "p(99)<800"],
+  "http_req_duration{flow:symptom}": ["p(95)<400"],
+  "http_req_duration{flow:booking}": ["p(99)<1000"],
+  "http_req_duration{flow:admin}": ["p(95)<800"],
+  "checks": ["rate>0.99"]
+}

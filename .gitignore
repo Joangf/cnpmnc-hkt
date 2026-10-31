@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Env / local
+.env
+openapi.json
+.DS_Store
+.idea/
+.vscode/
+test-results/
+playwright-report/

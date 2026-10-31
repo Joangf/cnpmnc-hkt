@@ -1,0 +1,33 @@
+# Dev overrides (loaded automatically by `docker compose up`):
+# hot reload, source mounts, dev tooling in the backend image, exposed ports.
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--proxy-headers", "--forwarded-allow-ips", "*", "--reload"]
+    environment:
+      TEST_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-healthcare}:${POSTGRES_PASSWORD:-healthcare}@postgres:5432/healthcare_test
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      - ./backend/tests:/app/tests
+    ports:
+      - "8000:8000"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  mock-erp:
+    ports:
+      - "8100:8100"
+
+  mock-payment:
+    ports:
+      - "8200:8200"
