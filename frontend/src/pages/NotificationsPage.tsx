@@ -25,13 +25,13 @@ export default function NotificationsPage() {
       <ErrorAlert error={notifications.error} />
       {notifications.data?.items.length === 0 && <EmptyState>You have no notifications.</EmptyState>}
       {!!notifications.data?.items.length && (
-        <ul className="divide-y-3 divide-ink border-3 border-ink">
+        <ul className="card divide-y divide-line p-0 sm:p-0">
           {notifications.data.items.map((n) => (
             <li key={n.id} className="flex flex-wrap items-start justify-between gap-4 p-4 sm:p-5">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  {!n.read_at && <span className="badge bg-sun">New</span>}
-                  <span className="font-extrabold">{n.title}</span>
+                  {!n.read_at && <span className="badge bg-blush text-berry">New</span>}
+                  <span className="font-semibold">{n.title}</span>
                 </div>
                 <p className="mt-1">{n.content}</p>
                 <span className="caption">{formatDateTime(n.created_at)}</span>

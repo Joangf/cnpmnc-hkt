@@ -1,6 +1,6 @@
 # CareBook: Healthcare Appointment Platform
 
-A patient-facing discovery, booking and payment platform. It implements `business.md` (FRD v1.2) using the stack described in `implement.md`.
+A patient-facing discovery, booking and payment platform. It implements the requirements in [.claude/plans/business.md](.claude/plans/business.md) (FRD v1.2) with the stack described in [.claude/plans/implement.md](.claude/plans/implement.md). The UI follows [.claude/design/design-guidelines.md](.claude/design/design-guidelines.md). [.claude/plans/integration-status.md](.claude/plans/integration-status.md) lists which integrations are real and which are simulated.
 
 ## Quick start
 
@@ -30,14 +30,23 @@ Seeded accounts: `admin@example.com` / `Admin12345!` and `patient@example.com` /
 ## Layout
 
 ```
-backend/        FastAPI app: api/ (routers) -> services/ (logic) -> repositories/ (DB)
-                integrations/ (ERP + payment adapters), core/ (config, logging, metrics)
-mock-erp/       Simulated hospital ERP/HIS (schedules, bookings, signed status webhooks)
-mock-payment/   Sandbox payment gateway (checkout page, signed callbacks, refunds)
-frontend/       React + TS + Vite SPA, served by nginx, which also proxies /api
-k6/             Load scenarios (browse, symptoms, booking, contention, admin, mixed)
-monitoring/     Prometheus, Loki, Alloy, Grafana provisioning + dashboards
-docs/           integration-status.md: what is real and what is simulated
+backend/            FastAPI app: api/ (routers) -> services/ (logic) -> repositories/ (DB)
+                    integrations/ (ERP + payment adapters), core/ (config, logging, metrics),
+                    alembic/ (migrations), tests/
+frontend/           React + TS + Vite SPA, served by nginx, which also proxies /api
+                    src/ (pages, components, api client), e2e/ (Playwright)
+mock-erp/           Simulated hospital ERP/HIS (schedules, bookings, signed status webhooks)
+mock-payment/       Sandbox payment gateway (checkout page, signed callbacks, refunds)
+k6/                 Load scenarios (browse, symptoms, booking, contention, admin, mixed)
+monitoring/         Prometheus, Loki, Alloy, Grafana provisioning + dashboards
+postgres/init/      SQL run on first start (creates the healthcare_test database)
+scripts/            api_smoke.py, the API smoke test behind `make smoke`
+openapi.json        OpenAPI snapshot from `make openapi`; source for `make gen-client`
+.claude/plans/      business.md (FRD), implement.md (implementation plan) and
+                    integration-status.md (what is real and what is simulated)
+.claude/design/     Design boards (HTML, PDF, PNG) and design-guidelines.md, the text spec
+                    behind frontend/tailwind.config.js and frontend/src/index.css
+docker-compose.yml  Full stack; docker-compose.override.yml adds dev hot reload and ports
 ```
 
 ## Key design points

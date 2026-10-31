@@ -47,20 +47,20 @@ export default function AppointmentsPage() {
       <ErrorAlert error={appointments.error} />
       {appointments.data?.items.length === 0 && <EmptyState>No appointments here yet.</EmptyState>}
       {!!appointments.data?.items.length && (
-        <ul className="divide-y-3 divide-ink border-3 border-ink">
+        <ul className="space-y-3">
           {appointments.data.items.map((a) => {
             const when = dateParts(a.start_time)
             return (
               <li key={a.id}>
-                <Link to={`/appointments/${a.id}`} className="flex items-stretch hover:bg-grey-100 hover:text-ink">
-                  <div className="flex w-20 shrink-0 flex-col items-center justify-center border-r-3 border-ink py-4 text-center sm:w-28">
-                    <span className="eyebrow text-sm">{when.weekday}</span>
-                    <span className="text-[2rem] font-extrabold leading-none sm:text-[2.5rem]">{when.day}</span>
-                    <span className="text-caption font-semibold">{when.month}</span>
+                <Link to={`/appointments/${a.id}`} className="card flex items-center gap-4 p-4 text-ink no-underline transition-colors hover:border-berry hover:text-ink sm:gap-5 sm:p-5">
+                  <div className="flex h-20 w-[72px] shrink-0 flex-col items-center justify-center rounded-md bg-blush text-center text-berry sm:w-20">
+                    <span className="text-sm font-semibold">{when.weekday}</span>
+                    <span className="text-[1.75rem] font-bold leading-none">{when.day}</span>
+                    <span className="text-sm">{when.month}</span>
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-h2 font-extrabold">{when.time}</p>
+                      <p className="text-h2 font-semibold">{when.time}</p>
                       <p>
                         {a.doctor.name} · {a.department.name}
                       </p>
@@ -69,7 +69,7 @@ export default function AppointmentsPage() {
                     <div className="flex flex-col items-start gap-2 sm:items-end">
                       <StatusBadge status={a.status} />
                       <StatusBadge status={a.payment_status} kind="payment" />
-                      <span className="font-mono text-sm font-semibold">{a.booking_reference}</span>
+                      <span className="font-mono text-sm text-muted">{a.booking_reference}</span>
                     </div>
                   </div>
                 </Link>

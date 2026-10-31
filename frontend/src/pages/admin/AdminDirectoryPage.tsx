@@ -190,11 +190,11 @@ export default function AdminDirectoryPage() {
           <h2 className="section-title mb-3">{current.label}</h2>
           {!current.rows && <Spinner />}
           <ErrorAlert error={toggle.error} />
-          <ul className="divide-y divide-ink">
+          <ul className="divide-y divide-line">
             {current.rows?.map((row) => (
               <li key={row.id} className="flex items-center justify-between gap-3 py-3">
-                <div className={`min-w-0 ${row.is_active ? '' : 'text-grey-600'}`}>
-                  <div className="flex flex-wrap items-center gap-2 font-extrabold">
+                <div className={`min-w-0 ${row.is_active ? '' : 'text-muted'}`}>
+                  <div className="flex flex-wrap items-center gap-2 font-semibold">
                     {row.title}
                     {!row.is_active && <span className="tag">Inactive</span>}
                   </div>

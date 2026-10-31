@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Component classes for docs/design-guidelines.md: 3px ink lines, square corners, flat colour,
-   Figtree, 48px+ targets, dashed focus outline. */
+/* Component classes for .claude/design/design-guidelines.md: mostly white, berry for the one main action,
+   1px warm lines, gentle corners, soft shadows, Figtree, 48px+ targets, 3px pink focus ring. */
 
 @layer base {
   html {
@@ -12,8 +12,11 @@
   body {
     @apply font-sans text-body;
   }
+  a {
+    @apply text-berry hover:text-berry-dark;
+  }
   :focus-visible {
-    @apply outline-3 outline-offset-4 outline-ink outline-dashed;
+    @apply outline outline-[3px] outline-offset-2 outline-focus;
   }
   ::placeholder {
     color: theme(colors.muted);
@@ -36,71 +39,64 @@
     @apply mx-auto w-full max-w-page px-4 py-8 sm:px-6 sm:py-12;
   }
   .page-title {
-    @apply text-[1.875rem] font-extrabold leading-tight tracking-[-0.01em] sm:text-h1;
+    @apply text-[1.75rem] font-bold leading-tight tracking-[-0.01em] sm:text-h1;
   }
   .section-title {
-    @apply text-h2 font-extrabold;
+    @apply text-h2 font-semibold;
   }
+  /* The only capitals on a screen: tiny section labels. */
   .eyebrow {
-    @apply text-base font-extrabold uppercase tracking-label;
+    @apply text-sm font-semibold uppercase tracking-label text-berry;
   }
   .caption {
     @apply text-caption text-muted;
   }
   .link {
-    @apply font-semibold underline decoration-2 underline-offset-4 hover:text-cobalt;
+    @apply font-semibold text-berry underline underline-offset-4 hover:text-berry-dark;
+  }
+  /* Plain-coloured link for nav and titles. */
+  .link-plain {
+    @apply text-ink no-underline hover:text-berry;
   }
 
-  /* Buttons: one Cobalt (primary) per screen; hover turns Sun with black text. */
+  /* Buttons: one berry (primary) per screen. Labels say what happens next. */
   .btn {
-    @apply inline-flex min-h-14 items-center justify-center gap-2 border-3 border-ink bg-white px-7 py-2 text-center text-base font-extrabold uppercase leading-tight tracking-label text-ink transition-colors;
+    @apply inline-flex min-h-[52px] items-center justify-center gap-2 rounded-md px-[26px] py-2 text-center text-control font-semibold no-underline transition-colors;
   }
   .btn-primary {
-    @apply btn bg-cobalt text-white;
+    @apply btn bg-berry text-white shadow-button hover:bg-berry-dark hover:text-white;
   }
   .btn-secondary {
-    @apply btn;
-  }
-  .btn-dark {
-    @apply btn bg-ink text-white;
+    @apply btn border-1.5 border-berry bg-white text-berry hover:bg-blush hover:text-berry;
   }
   .btn-danger {
-    @apply btn bg-alert text-white;
-  }
-  .btn-primary:hover,
-  .btn-secondary:hover,
-  .btn-dark:hover {
-    @apply bg-sun text-ink;
-  }
-  .btn-danger:hover {
-    @apply bg-alert-dark;
+    @apply btn bg-alert text-white shadow-alert hover:bg-alert-dark hover:text-white;
   }
   .btn-primary:disabled,
   .btn-secondary:disabled,
-  .btn-dark:disabled,
   .btn-danger:disabled {
-    @apply cursor-not-allowed border-grey-400 bg-grey-200 text-grey-600;
+    @apply cursor-not-allowed border-transparent bg-disabled text-disabled-text shadow-none;
   }
   .btn-sm {
-    @apply min-h-12 px-4 text-sm;
+    @apply min-h-12 px-4 text-base;
   }
 
   .card {
-    @apply border-3 border-ink bg-white p-5 sm:p-7;
+    @apply rounded-lg border border-line bg-white p-5 shadow-card sm:p-6;
   }
-  /* Panels butt edge to edge and share their borders. */
-  .tile-grid {
-    @apply grid border-l-3 border-t-3 border-ink;
+  .panel {
+    @apply rounded-xl shadow-card;
   }
-  .tile-grid > * {
-    @apply border-b-3 border-r-3 border-ink;
+  /* Rounded square holding an icon or a number. */
+  .icon-tile {
+    @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-blush text-berry;
   }
 
   .label {
-    @apply block text-caption font-extrabold uppercase tracking-label;
+    @apply block text-caption font-semibold text-ink;
   }
   .input {
-    @apply mt-2 block min-h-14 w-full border-3 border-ink bg-white px-4 text-body text-ink;
+    @apply mt-2 block min-h-[52px] w-full rounded-md border-1.5 border-field bg-white px-3.5 text-control text-ink;
   }
   textarea.input {
     @apply py-3;
@@ -109,48 +105,47 @@
     @apply border-alert;
   }
   .field-hint {
-    @apply mt-2 text-caption text-muted;
+    @apply mt-2 text-sm text-muted;
   }
   .field-error {
-    @apply mt-2 text-caption font-semibold text-alert;
+    @apply mt-2 text-sm text-alert;
   }
 
   .chip {
-    @apply inline-flex min-h-12 items-center gap-2 border-2 border-ink bg-white px-5 text-base font-semibold text-ink transition-colors hover:bg-grey-100;
+    @apply inline-flex min-h-12 items-center gap-1.5 rounded-full border-1.5 border-line bg-white px-5 text-base font-medium text-ink transition-colors hover:border-berry;
   }
   .chip[aria-pressed='true'] {
-    @apply bg-sun font-extrabold;
+    @apply border-berry bg-blush font-semibold text-berry;
   }
   .tag {
-    @apply inline-flex items-center gap-1.5 border-2 border-ink bg-white px-3 py-1 text-sm font-semibold;
+    @apply inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-sm text-muted;
   }
   .badge {
-    @apply inline-flex items-center gap-1.5 border-2 border-ink px-2.5 py-1 text-sm font-extrabold leading-tight;
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold leading-tight;
   }
 
   /* Booking slot picker */
   .day {
-    @apply flex min-h-[68px] w-[76px] shrink-0 flex-col items-center justify-center border-2 border-ink bg-white text-[0.9375rem] font-semibold leading-tight hover:bg-grey-100;
+    @apply flex h-16 min-w-[76px] shrink-0 flex-col items-center justify-center rounded-md border-1.5 border-line bg-white text-[0.9375rem] font-medium leading-tight text-ink transition-colors hover:border-berry;
   }
   .day[aria-pressed='true'] {
-    @apply bg-ink font-extrabold text-white;
+    @apply border-berry bg-berry font-semibold text-white shadow-button;
   }
   .slot {
-    @apply inline-flex min-h-[52px] items-center justify-center gap-1 border-2 border-ink bg-white px-2 text-base font-semibold hover:bg-grey-100;
+    @apply inline-flex min-h-12 items-center justify-center gap-1 rounded-md border-1.5 border-line bg-white px-2 text-base font-medium text-ink transition-colors hover:border-berry;
   }
   .slot[aria-pressed='true'] {
-    @apply bg-sun font-extrabold;
+    @apply border-berry bg-blush font-semibold text-berry;
   }
 
-  /* Tables: 3px under the header, 1px rows. */
   .table {
     @apply w-full text-left text-base;
   }
   .table th {
-    @apply border-b-3 border-ink px-3 py-3 text-caption font-extrabold uppercase tracking-label;
+    @apply border-b border-line px-3 py-3 text-caption font-semibold text-muted;
   }
   .table td {
-    @apply border-b border-ink px-3 py-3 align-middle;
+    @apply border-b border-line px-3 py-3 align-middle;
   }
   .table tbody tr:last-child td {
     @apply border-b-0;

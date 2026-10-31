@@ -2,25 +2,30 @@ import type { AppointmentStatus, CheckInStatus, PaymentStatus } from '../api/typ
 import { humanize } from '../lib/format'
 import { IconAlert, IconCheck, IconClock, IconMinus, IconRefund, IconX, type IconComponent } from './icons'
 
-// Status = colour + icon + word. Bright fills carry black text; only Alert red carries white.
+// Status = colour + icon + word, on soft tints (strong colour is for urgent help only).
+const GOOD = 'bg-success-soft text-success'
+const WAIT = 'bg-notice-soft text-notice'
+const BAD = 'bg-alert-soft text-alert'
+const INFO = 'bg-mist text-info'
+const NEUTRAL = 'bg-surface text-muted'
 const STYLES: Record<string, { className: string; icon: IconComponent }> = {
-  PENDING: { className: 'bg-sun', icon: IconClock },
-  CONFIRMED: { className: 'bg-mint', icon: IconCheck },
-  COMPLETED: { className: 'bg-sky', icon: IconCheck },
-  REJECTED: { className: 'bg-alert text-white', icon: IconX },
-  CANCELLED: { className: 'bg-white', icon: IconX },
-  NO_SHOW: { className: 'bg-white', icon: IconX },
-  UNPAID: { className: 'bg-white', icon: IconMinus },
-  PAID: { className: 'bg-mint', icon: IconCheck },
-  FAILED: { className: 'bg-alert text-white', icon: IconAlert },
-  REFUNDED: { className: 'bg-white', icon: IconRefund },
-  CHECKED_IN: { className: 'bg-mint', icon: IconCheck },
-  NOT_CHECKED_IN: { className: 'bg-white', icon: IconMinus },
-  PUBLISHED: { className: 'bg-mint', icon: IconCheck },
-  HIDDEN: { className: 'bg-white', icon: IconMinus },
-  REMOVED: { className: 'bg-white', icon: IconX },
+  PENDING: { className: WAIT, icon: IconClock },
+  CONFIRMED: { className: GOOD, icon: IconCheck },
+  COMPLETED: { className: INFO, icon: IconCheck },
+  REJECTED: { className: BAD, icon: IconX },
+  CANCELLED: { className: NEUTRAL, icon: IconX },
+  NO_SHOW: { className: NEUTRAL, icon: IconX },
+  UNPAID: { className: NEUTRAL, icon: IconMinus },
+  PAID: { className: GOOD, icon: IconCheck },
+  FAILED: { className: BAD, icon: IconAlert },
+  REFUNDED: { className: INFO, icon: IconRefund },
+  CHECKED_IN: { className: GOOD, icon: IconCheck },
+  NOT_CHECKED_IN: { className: NEUTRAL, icon: IconMinus },
+  PUBLISHED: { className: GOOD, icon: IconCheck },
+  HIDDEN: { className: NEUTRAL, icon: IconMinus },
+  REMOVED: { className: NEUTRAL, icon: IconX },
 }
-const FALLBACK = { className: 'bg-white', icon: IconMinus }
+const FALLBACK = { className: NEUTRAL, icon: IconMinus }
 
 // FR-BOOK-07: always say clearly what a status means for the patient.
 const LABELS: Record<string, string> = {

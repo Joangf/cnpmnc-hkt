@@ -76,17 +76,17 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   const step = slot ? 4 : 3
 
   return (
-    <section className="border-3 border-ink bg-white" aria-labelledby={headingId}>
-      <div className="border-b-3 border-ink px-5 py-5 sm:px-6">
-        <p className="eyebrow text-sm" aria-live="polite">
+    <section className="panel border border-line bg-white" aria-labelledby={headingId}>
+      <div className="border-b border-line px-5 py-5 sm:px-6">
+        <p className="eyebrow" aria-live="polite">
           Step {step} of {STEPS.length} · {STEPS[step - 1]}
         </p>
-        <h2 id={headingId} className="mt-1 text-h2 font-extrabold">
+        <h2 id={headingId} className="mt-1 text-h2 font-semibold">
           Book an appointment
         </h2>
         <div className="mt-4 grid grid-cols-5 gap-1.5" aria-hidden="true">
           {STEPS.map((s, i) => (
-            <span key={s} className={`h-2.5 border-2 border-ink ${i < step ? 'bg-ink' : 'bg-white'}`} />
+            <span key={s} className={`h-1.5 rounded-full ${i < step ? 'bg-berry' : 'bg-blush'}`} />
           ))}
         </div>
       </div>
@@ -146,14 +146,14 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
           )}
           {groups.map((g) => (
             <div key={g.label} role="group" aria-label={g.label}>
-              <p className="eyebrow text-[0.9375rem]">{g.label}</p>
+              <p className="text-caption font-semibold">{g.label}</p>
               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {g.slots.map((s) => {
                   const selected = slot?.start_time === s.start_time
                   return (
                     <button key={s.start_time} type="button" className="slot" aria-pressed={selected} onClick={() => setSlot(s)}>
-                      {formatTime(s.start_time)}
                       {selected && <span aria-hidden="true">✓</span>}
+                      {formatTime(s.start_time)}
                     </button>
                   )
                 })}
@@ -168,28 +168,28 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
         </div>
 
         {slot && selectedType && (
-          <div className="space-y-5 border-t-3 border-ink pt-6">
+          <div className="space-y-5 border-t border-line pt-6">
             <Field label="Reason for visit (optional)" hint="Helps the doctor prepare. Only the hospital sees it.">
               <textarea className="input" rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
             </Field>
-            <dl className="divide-y divide-ink border-3 border-ink">
+            <dl className="divide-y divide-line overflow-hidden rounded-lg border border-line">
               <div className="flex justify-between gap-4 px-4 py-3">
-                <dt className="font-extrabold">When</dt>
+                <dt className="text-muted">When</dt>
                 <dd className="text-right">{formatDateTime(slot.start_time)}</dd>
               </div>
               <div className="flex justify-between gap-4 px-4 py-3">
-                <dt className="font-extrabold">Type</dt>
+                <dt className="text-muted">Type</dt>
                 <dd className="text-right">{selectedType.name}</dd>
               </div>
-              <div className="flex justify-between gap-4 bg-grey-100 px-4 py-3">
-                <dt className="font-extrabold">Total fee</dt>
-                <dd className="text-right font-extrabold">{formatMoney(fee, doctor.currency)}</dd>
+              <div className="flex justify-between gap-4 bg-surface px-4 py-3">
+                <dt className="font-semibold">Total fee</dt>
+                <dd className="text-right font-semibold">{formatMoney(fee, doctor.currency)}</dd>
               </div>
             </dl>
             <p className="caption">Your request goes to the hospital first. We confirm it as soon as they accept.</p>
             <ErrorAlert error={book.error} />
             {/* Primary action sticks to the bottom on small screens. */}
-            <div className="sticky bottom-0 -mb-2 bg-white py-2 lg:static">
+            <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-white px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6 lg:static lg:m-0 lg:border-0 lg:p-0">
               {user?.role === 'PATIENT' ? (
                 <button className="btn-primary w-full" disabled={book.isPending} onClick={() => book.mutate()}>
                   {book.isPending ? 'Submitting…' : 'Request booking'}

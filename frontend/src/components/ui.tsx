@@ -8,9 +8,9 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
   return <div className={`card ${className}`}>{children}</div>
 }
 
-const BAND_TONES = { sky: 'bg-sky', mint: 'bg-mint', sun: 'bg-sun', blush: 'bg-blush', white: 'bg-white' }
+const PANEL_TONES = { blush: 'bg-blush', mist: 'bg-mist', peach: 'bg-peach', white: 'bg-white' }
 
-/** Bordered panel with a colour band on top (the one loud block of a form page). */
+/** Card with a soft tinted header (form pages). */
 export function Panel({
   header,
   tone = 'white',
@@ -18,22 +18,22 @@ export function Panel({
   className = '',
 }: {
   header: ReactNode
-  tone?: keyof typeof BAND_TONES
+  tone?: keyof typeof PANEL_TONES
   children: ReactNode
   className?: string
 }) {
   return (
-    <section className={`border-3 border-ink bg-white ${className}`}>
-      <div className={`border-b-3 border-ink px-5 py-6 sm:px-7 ${BAND_TONES[tone]}`}>{header}</div>
-      <div className="p-5 sm:p-7">{children}</div>
+    <section className={`panel overflow-hidden border border-line bg-white ${className}`}>
+      <div className={`px-5 py-6 sm:px-8 sm:py-7 ${PANEL_TONES[tone]} ${tone === 'white' ? 'border-b border-line' : ''}`}>{header}</div>
+      <div className="p-5 sm:p-8">{children}</div>
     </section>
   )
 }
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-3 py-6 font-semibold" role="status">
-      <span aria-hidden="true" className="h-5 w-5 animate-spin border-3 border-ink border-t-sun" />
+    <div className="flex items-center gap-3 py-6 text-muted" role="status">
+      <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-blush border-t-berry" />
       {label}
     </div>
   )
@@ -44,8 +44,8 @@ export function ErrorAlert({ error }: { error: unknown }) {
   const message = error instanceof Error ? error.message : 'Something went wrong.'
   const requestId = error instanceof ApiError ? error.requestId : null
   return (
-    <div className="flex gap-3.5 border-3 border-ink bg-alert p-4 text-white" role="alert">
-      <IconAlert size={26} />
+    <div className="flex gap-3 rounded-lg border border-alert-line bg-alert-soft px-5 py-4 text-alert-strong" role="alert">
+      <IconAlert size={22} className="mt-0.5 text-alert" />
       <div>
         <p className="font-semibold">{message}</p>
         {requestId && <p className="mt-1 text-caption">Reference: {requestId}</p>}
@@ -55,14 +55,14 @@ export function ErrorAlert({ error }: { error: unknown }) {
 }
 
 type Tone = 'info' | 'warning' | 'danger' | 'success'
-const NOTICE_TONES: Record<Tone, { className: string; icon: IconComponent }> = {
-  info: { className: 'bg-white', icon: IconInfo },
-  warning: { className: 'bg-sun', icon: IconClock },
-  danger: { className: 'bg-alert text-white', icon: IconAlert },
-  success: { className: 'bg-mint', icon: IconCheck },
+const NOTICE_TONES: Record<Tone, { className: string; iconClass: string; icon: IconComponent }> = {
+  info: { className: 'border-info-line bg-mist text-info-strong', iconClass: 'text-info', icon: IconInfo },
+  warning: { className: 'border-notice-line bg-notice-soft text-notice-strong', iconClass: 'text-notice', icon: IconClock },
+  danger: { className: 'border-alert-line bg-alert-soft text-alert-strong', iconClass: 'text-alert', icon: IconAlert },
+  success: { className: 'border-success-line bg-success-soft text-success-strong', iconClass: 'text-success', icon: IconCheck },
 }
 
-/** Colour block + icon + bold lead: status is never colour alone. */
+/** Soft tint + icon + bold lead: status is never colour alone. */
 export function Notice({
   tone = 'info',
   title,
@@ -74,12 +74,12 @@ export function Notice({
   children?: ReactNode
   className?: string
 }) {
-  const { className: toneClass, icon: Icon } = NOTICE_TONES[tone]
+  const { className: toneClass, iconClass, icon: Icon } = NOTICE_TONES[tone]
   return (
-    <div className={`flex gap-3.5 border-3 border-ink p-4 sm:p-5 ${toneClass} ${className}`}>
-      <Icon size={26} />
+    <div className={`flex gap-3 rounded-[14px] border px-5 py-4 text-base leading-normal shadow-card ${toneClass} ${className}`}>
+      <Icon size={22} className={`mt-0.5 ${iconClass}`} />
       <div className="min-w-0 flex-1">
-        {title && <strong className="block font-extrabold">{title}</strong>}
+        {title && <strong className="block font-semibold">{title}</strong>}
         {children}
       </div>
     </div>
@@ -87,10 +87,10 @@ export function Notice({
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
-  return <p className="border-3 border-ink px-6 py-10 text-center text-muted">{children}</p>
+  return <p className="rounded-lg border border-dashed border-line bg-surface px-6 py-10 text-center text-muted">{children}</p>
 }
 
-/** Caps label above the control, then a hint or an error. The hint/error sit outside the <label>
+/** Label above the control, then a hint or an error. The hint/error sit outside the <label>
  * (so they aren't part of the accessible name) and are linked via aria-describedby. */
 export function Field({
   label,
@@ -133,8 +133,8 @@ export function Field({
 export function FilterChip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" className="chip" aria-pressed={pressed} onClick={onClick}>
-      {children}
       {pressed && <span aria-hidden="true">✓</span>}
+      {children}
     </button>
   )
 }
@@ -147,7 +147,7 @@ export function Pagination({ page, pageSize, total, onChange }: { page: number; 
       <button className="btn-secondary btn-sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
         Previous
       </button>
-      <span className="font-semibold">
+      <span className="text-muted">
         Page {page} of {pages}
       </span>
       <button className="btn-secondary btn-sm" disabled={page >= pages} onClick={() => onChange(page + 1)}>
@@ -160,7 +160,7 @@ export function Pagination({ page, pageSize, total, onChange }: { page: number; 
 export function Stars({ value }: { value: number }) {
   const rounded = Math.round(value)
   return (
-    <span role="img" aria-label={`${value.toFixed(1)} out of 5`} className="tracking-[0.08em]">
+    <span role="img" aria-label={`${value.toFixed(1)} out of 5`} className="tracking-[0.08em] text-notice">
       {'★'.repeat(rounded)}
       {'☆'.repeat(5 - rounded)}
     </span>

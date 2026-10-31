@@ -1,6 +1,6 @@
 import defaultTheme from 'tailwindcss/defaultTheme'
 
-// Tokens from docs/design-guidelines.md ("Bold blocks. Calm care.").
+// Tokens from .claude/design/design-guidelines.md ("Warm, simple, and human.").
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -9,33 +9,45 @@ export default {
       transparent: 'transparent',
       current: 'currentColor',
       white: '#FFFFFF',
-      ink: '#111111',
-      muted: '#3D3D3D',
-      sky: '#12B5E5',
-      mint: '#5EE07A',
-      sun: '#FFC72C',
-      blush: '#F6C9BD',
-      cobalt: '#1652C8',
-      alert: { DEFAULT: '#C8231B', dark: '#A11C15' },
-      grey: { 100: '#F2F2F2', 200: '#EDEDED', 400: '#8A8A8A', 600: '#5C5C5C' },
+      ink: '#2B1A22',
+      muted: '#5E4B53',
+      berry: { DEFAULT: '#8C1D4F', dark: '#6E163E' },
+      blush: '#FBE9EF',
+      mist: '#EAF2F8',
+      peach: '#FFF1E6',
+      surface: '#FAF6F2',
+      line: '#EADFD8',
+      field: '#D9CBC2',
+      focus: '#E59AB8',
+      success: { DEFAULT: '#1E7A4F', soft: '#E8F4EE', line: '#BFDFCD', strong: '#134D33' },
+      notice: { DEFAULT: '#A15C07', soft: '#FFF6E8', line: '#F1D9B5', strong: '#6B3D05' },
+      info: { DEFAULT: '#25507A', line: '#C9DCEA', strong: '#1E3A57' },
+      alert: { DEFAULT: '#B42318', dark: '#912018', soft: '#FEF3F2', line: '#F4C7C3', strong: '#7A271A' },
+      disabled: { DEFAULT: '#EEF1F3', text: '#6B7882' },
     },
-    // Square corners only; circles are reserved for avatars and illustration.
-    borderRadius: { none: '0', full: '9999px' },
-    // Flat colour fields: no drop shadows.
-    boxShadow: { none: 'none' },
+    // 12 buttons and inputs, 16 cards, 20 panels, full for chips.
+    borderRadius: { none: '0', sm: '6px', DEFAULT: '12px', md: '12px', lg: '16px', xl: '20px', full: '9999px' },
+    boxShadow: {
+      none: 'none',
+      card: '0 1px 2px rgba(43,26,34,0.05), 0 8px 24px rgba(43,26,34,0.08)',
+      button: '0 2px 8px rgba(140,29,79,0.25)',
+      alert: '0 2px 8px rgba(180,35,24,0.25)',
+    },
     extend: {
       fontFamily: { sans: ['"Figtree Variable"', 'Figtree', ...defaultTheme.fontFamily.sans] },
       fontSize: {
-        display: ['3.5rem', { lineHeight: '3.75rem', letterSpacing: '-0.02em' }],
-        h1: ['2.25rem', { lineHeight: '2.75rem', letterSpacing: '-0.01em' }],
-        h2: ['1.5rem', '2rem'],
+        hero: ['3.5rem', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
+        display: ['3rem', { lineHeight: '3.5rem', letterSpacing: '-0.02em' }],
+        h1: ['2rem', '2.5rem'],
+        h2: ['1.375rem', '1.875rem'],
         body: ['1.125rem', '1.75rem'],
+        control: ['1.0625rem', '1.5rem'],
         caption: ['0.9375rem', '1.375rem'],
       },
-      letterSpacing: { label: '0.06em', nav: '0.04em' },
-      borderWidth: { 3: '3px' },
-      outlineWidth: { 3: '3px' },
-      maxWidth: { page: '80rem' },
+      letterSpacing: { label: '0.08em' },
+      borderWidth: { 1.5: '1.5px' },
+      // 1200px content + 24px gutters.
+      maxWidth: { page: '78rem' },
     },
   },
   plugins: [],

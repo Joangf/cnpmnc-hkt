@@ -20,11 +20,11 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-lg">
       <Panel
-        tone="sky"
+        tone="blush"
         header={
           <>
             <h1 className="page-title">Sign in</h1>
-            <p className="mt-2">Book, pay for and manage your appointments.</p>
+            <p className="mt-2 text-muted">Book, pay for and manage your appointments.</p>
           </>
         }
       >

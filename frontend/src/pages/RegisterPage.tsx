@@ -39,11 +39,11 @@ export default function RegisterPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <Panel
-        tone="mint"
+        tone="blush"
         header={
           <>
             <h1 className="page-title">Create an account</h1>
-            <p className="mt-2">We only collect the information needed to book and manage your appointments.</p>
+            <p className="mt-2 text-muted">We only collect the information needed to book and manage your appointments.</p>
           </>
         }
       >

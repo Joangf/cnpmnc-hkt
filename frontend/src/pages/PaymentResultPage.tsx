@@ -7,10 +7,10 @@ import { ErrorAlert, Spinner } from '../components/ui'
 import { formatMoney } from '../lib/format'
 
 const RESULT: Partial<Record<PaymentStatus, { title: string; className: string; icon: IconComponent }>> = {
-  PAID: { title: 'Payment received', className: 'bg-mint', icon: IconCheck },
-  FAILED: { title: 'Payment failed', className: 'bg-alert text-white', icon: IconAlert },
-  PENDING: { title: 'Waiting for confirmation', className: 'bg-sun', icon: IconClock },
-  REFUNDED: { title: 'Payment refunded', className: 'bg-white', icon: IconRefund },
+  PAID: { title: 'Payment received', className: 'bg-success-soft text-success-strong', icon: IconCheck },
+  FAILED: { title: 'Payment failed', className: 'bg-alert-soft text-alert-strong', icon: IconAlert },
+  PENDING: { title: 'Waiting for confirmation', className: 'bg-notice-soft text-notice-strong', icon: IconClock },
+  REFUNDED: { title: 'Payment refunded', className: 'bg-mist text-info-strong', icon: IconRefund },
 }
 
 /** Return URL from the gateway (FR-PAY-05). The result shown is the one the backend validated. */
@@ -28,14 +28,14 @@ export default function PaymentResultPage() {
   if (payment.isLoading) return <Spinner label="Checking payment status…" />
   if (payment.error) return <ErrorAlert error={payment.error} />
   const p = payment.data!
-  const result = RESULT[p.status] ?? { title: 'Payment result', className: 'bg-white', icon: IconClock }
+  const result = RESULT[p.status] ?? { title: 'Payment result', className: 'bg-surface', icon: IconClock }
   const Icon = result.icon
 
   return (
     <div className="mx-auto max-w-xl">
-      <section className="border-3 border-ink">
-        <div className={`flex items-start gap-4 border-b-3 border-ink p-6 sm:p-8 ${result.className}`}>
-          <Icon size={36} />
+      <section className="panel overflow-hidden border border-line">
+        <div className={`flex items-start gap-4 p-6 sm:p-8 ${result.className}`}>
+          <Icon size={32} />
           <div>
             <p className="eyebrow">Payment result</p>
             <h1 className="page-title">{result.title}</h1>
@@ -47,7 +47,7 @@ export default function PaymentResultPage() {
           {p.status === 'PENDING' && <p>We are still waiting for confirmation from the payment provider. Check back shortly.</p>}
           {p.status === 'REFUNDED' && <p>This payment has been refunded.</p>}
           <p>
-            Booking reference <span className="font-mono font-extrabold tracking-[0.1em]">{p.booking_reference}</span>
+            Booking reference <span className="font-mono font-bold tracking-[0.1em] text-berry">{p.booking_reference}</span>
           </p>
           <Link className="btn-primary" to={`/appointments/${p.appointment_id}`}>
             View appointment

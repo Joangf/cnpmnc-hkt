@@ -9,10 +9,10 @@ const items = [
 
 export function AdminNav() {
   return (
-    <nav aria-label="Administration" className="mb-8 flex flex-wrap border-l-3 border-t-3 border-ink">
+    <nav aria-label="Administration" className="mb-8 flex flex-wrap gap-2">
       {items.map((i) => (
         <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) =>
-            `flex min-h-12 items-center border-b-3 border-r-3 border-ink px-5 font-extrabold uppercase tracking-label ${isActive ? 'bg-ink text-white hover:text-white' : 'bg-white hover:bg-sun hover:text-ink'}`
+            `chip no-underline ${isActive ? 'border-berry bg-blush font-semibold text-berry' : 'hover:text-berry'}`
           }>
           {i.label}
         </NavLink>

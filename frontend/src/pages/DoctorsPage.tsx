@@ -40,7 +40,7 @@ export default function DoctorsPage() {
     <div>
       <h1 className="page-title mb-6">Find a doctor</h1>
       <form
-        className="card flex flex-wrap items-end gap-5"
+        className="card flex flex-wrap items-end gap-4"
         onSubmit={(e) => {
           e.preventDefault()
           update({ q: q.trim() || undefined })
@@ -78,7 +78,7 @@ export default function DoctorsPage() {
         )}
         {doctors.data?.items.length === 0 && <EmptyState>No doctors match your filters. Try another specialty or location.</EmptyState>}
         {!!doctors.data?.items.length && (
-          <div className="tile-grid md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2">
             {doctors.data.items.map((d) => (
               <DoctorCard key={d.id} doctor={d} />
             ))}

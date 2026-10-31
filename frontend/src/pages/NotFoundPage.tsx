@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom'
 
 export default function NotFoundPage() {
   return (
-    <section className="mx-auto max-w-xl border-3 border-ink">
-      <div className="border-b-3 border-ink bg-blush p-6 sm:p-8">
-        <p className="text-display font-extrabold" aria-hidden="true">
+    <section className="panel mx-auto max-w-xl overflow-hidden border border-line">
+      <div className="bg-blush p-6 sm:p-8">
+        <p className="text-display font-bold text-berry" aria-hidden="true">
           404
         </p>
       </div>

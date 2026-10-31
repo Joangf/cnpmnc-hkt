@@ -19,39 +19,39 @@ export default function AdminDashboardPage() {
       <ErrorAlert error={summary.error} />
 
       {summary.data && (
-        <div className="tile-grid md:grid-cols-3">
-          <section className="bg-white p-6">
+        <div className="grid gap-5 md:grid-cols-3">
+          <section className="card">
             <h2 className="section-title mb-4">Appointments by status</h2>
             <ul className="space-y-2">
               {Object.entries(summary.data.appointments_by_status).map(([status, count]) => (
                 <li key={status} className="flex items-center justify-between gap-3">
                   <StatusBadge status={status} />
-                  <span className="text-h2 font-extrabold">{count}</span>
+                  <span className="text-h2 font-semibold">{count}</span>
                 </li>
               ))}
             </ul>
             <p className="caption mt-4">{summary.data.total_patients} registered patients</p>
           </section>
-          <section className="bg-white p-6">
+          <section className="card">
             <h2 className="section-title mb-4">Payments</h2>
-            <ul className="divide-y divide-ink">
+            <ul className="divide-y divide-line">
               {summary.data.payments_by_status.map((p) => (
                 <li key={p.status} className="flex justify-between gap-3 py-2">
                   <span>
                     {humanize(p.status)} ({p.count})
                   </span>
-                  <span className="font-extrabold">{formatMoney(p.total_amount)}</span>
+                  <span className="font-semibold">{formatMoney(p.total_amount)}</span>
                 </li>
               ))}
             </ul>
           </section>
-          <section className="bg-white p-6">
+          <section className="card">
             <h2 className="section-title mb-4">Top recommended specialties</h2>
-            <ol className="divide-y divide-ink">
+            <ol className="divide-y divide-line">
               {summary.data.top_specialties.map((s) => (
                 <li key={s.specialty_id} className="flex justify-between gap-3 py-2">
                   <span>{s.name}</span>
-                  <span className="font-extrabold">{s.count}</span>
+                  <span className="font-semibold">{s.count}</span>
                 </li>
               ))}
             </ol>

@@ -33,7 +33,7 @@ export default function HospitalsPage() {
     <div>
       <h1 className="page-title mb-6">Hospitals &amp; clinics</h1>
       <form
-        className="card flex flex-wrap items-end gap-5"
+        className="card flex flex-wrap items-end gap-4"
         onSubmit={(e) => {
           e.preventDefault()
           update({ q: q.trim() || undefined })
@@ -52,18 +52,18 @@ export default function HospitalsPage() {
         <ErrorAlert error={hospitals.error} />
         {hospitals.data?.items.length === 0 && <EmptyState>No facilities match your search.</EmptyState>}
         {!!hospitals.data?.items.length && (
-          <div className="tile-grid md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2">
             {hospitals.data.items.map((h) => (
-              <article key={h.id} className="flex min-w-0 flex-col gap-3 bg-white p-6 sm:p-7">
+              <article key={h.id} className="card flex min-w-0 flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="section-title">
-                    <Link to={`/hospitals/${h.id}`} className="hover:underline">
+                    <Link to={`/hospitals/${h.id}`} className="link-plain">
                       {h.name}
                     </Link>
                   </h2>
-                  <span className="tag shrink-0">{humanize(h.facility_type)}</span>
+                  <span className="tag shrink-0 bg-mist text-info">{humanize(h.facility_type)}</span>
                 </div>
-                <p>
+                <p className="caption">
                   {h.address}, {h.city}
                 </p>
                 {h.phone && (
@@ -79,7 +79,7 @@ export default function HospitalsPage() {
                   ))}
                 </div>
                 <Link to={`/hospitals/${h.id}`} className="link mt-auto inline-flex w-fit items-center gap-2 pt-2" aria-label={`Doctors and departments at ${h.name}`}>
-                  Doctors &amp; departments <IconArrowRight size={20} />
+                  Doctors &amp; departments <IconArrowRight size={18} />
                 </Link>
               </article>
             ))}

@@ -20,7 +20,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-8">
-      <Panel tone="sun" header={<h1 className="page-title">Reset your password</h1>}>
+      <Panel tone="blush" header={<h1 className="page-title">Reset your password</h1>}>
         <form
           className="space-y-5"
           onSubmit={(e) => {

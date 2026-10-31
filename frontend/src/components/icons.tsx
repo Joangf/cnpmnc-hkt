@@ -1,12 +1,12 @@
 import type { ReactNode, SVGProps } from 'react'
 
-// Line icons from the design kit: 24px grid, 2.5 stroke, round caps.
+// Line icons from the design kit: 24px grid, 2px stroke, round caps.
 // Icons support words and never replace them, so they are always hidden from assistive tech.
 
 type IconProps = Omit<SVGProps<SVGSVGElement>, 'children'> & { size?: number }
 export type IconComponent = (props: IconProps) => ReactNode
 
-function Icon({ size = 24, children, ...props }: IconProps & { children: ReactNode }) {
+function Icon({ size = 24, children, className = '', ...props }: IconProps & { children: ReactNode }) {
   return (
     <svg
       width={size}
@@ -14,13 +14,13 @@ function Icon({ size = 24, children, ...props }: IconProps & { children: ReactNo
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2.5}
+      strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
-      className="shrink-0"
       {...props}
+      className={`shrink-0 ${className}`}
     >
       {children}
     </svg>
@@ -107,12 +107,46 @@ export const IconArrowLeft: IconComponent = (p) => (
   </Icon>
 )
 
-/** Solid cross used in the logo block. */
-export function LogoMark({ size = 22 }: { size?: number }) {
+// Specialty tiles (homepage example board).
+export const IconHeart: IconComponent = (p) => (
+  <Icon {...p}>
+    <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
+  </Icon>
+)
+
+export const IconPerson: IconComponent = (p) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M5 21c0-4 3-7 7-7s7 3 7 7" />
+  </Icon>
+)
+
+export const IconFemale: IconComponent = (p) => (
+  <Icon {...p}>
+    <circle cx="12" cy="9" r="5" />
+    <path d="M12 14v7M9 18h6" />
+  </Icon>
+)
+
+export const IconBone: IconComponent = (p) => (
+  <Icon {...p}>
+    <path d="M7 4a2 2 0 1 0 0 4l10 8a2 2 0 1 0 0 4M17 4a2 2 0 1 1 0 4L7 16a2 2 0 1 1 0 4" />
+  </Icon>
+)
+
+export const IconStethoscope: IconComponent = (p) => (
+  <Icon {...p}>
+    <path d="M6 3v6a5 5 0 0 0 10 0V3M11 14v2a5 5 0 0 0 10 0v-2" />
+    <circle cx="21" cy="12" r="2" />
+  </Icon>
+)
+
+/** Rounded cross used in the logo tile. */
+export function LogoMark({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
-      <rect x="9" y="3" width="6" height="18" />
-      <rect x="3" y="9" width="18" height="6" />
+      <rect x="9" y="3" width="6" height="18" rx="1.5" />
+      <rect x="3" y="9" width="18" height="6" rx="1.5" />
     </svg>
   )
 }

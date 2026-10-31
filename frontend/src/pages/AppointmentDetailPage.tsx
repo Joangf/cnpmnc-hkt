@@ -50,9 +50,9 @@ export default function AppointmentDetailPage() {
         <IconArrowLeft size={20} /> My appointments
       </Link>
 
-      <section className="border-3 border-ink">
+      <section className="panel overflow-hidden border border-line">
         <div className="flex flex-col md:flex-row">
-          <div className="min-w-0 flex-1 space-y-2 border-b-3 border-ink p-6 sm:p-8 md:border-b-0 md:border-r-3">
+          <div className="min-w-0 flex-1 space-y-2 p-6 sm:p-8">
             <p className="eyebrow">{a.appointment_type.name}</p>
             <h1 className="page-title">{formatDateTime(a.start_time)}</h1>
             <p>
@@ -61,7 +61,7 @@ export default function AppointmentDetailPage() {
               </Link>{' '}
               · {a.department.name}
             </p>
-            <p className="text-muted">{a.hospital.name}</p>
+            <p className="caption">{a.hospital.name}</p>
             {/* BR-07: three independent statuses */}
             <div className="flex flex-wrap gap-2 pt-3">
               <StatusBadge status={a.status} />
@@ -73,13 +73,13 @@ export default function AppointmentDetailPage() {
             )}
           </div>
           {/* FR-CIN-01: reference to present at the hospital */}
-          <div className="flex flex-col items-center justify-center gap-2 bg-sun p-6 text-center sm:p-8 md:w-72">
+          <div className="flex flex-col items-center justify-center gap-2 bg-blush p-6 text-center sm:p-8 md:w-72">
             <p className="eyebrow">Booking reference</p>
-            <p className="break-all font-mono text-[1.75rem] font-extrabold tracking-[0.15em]">{a.booking_reference}</p>
-            <p className="text-caption">Show this code at reception. Staff record your check-in when you arrive.</p>
+            <p className="break-all font-mono text-[1.75rem] font-bold tracking-[0.15em] text-berry">{a.booking_reference}</p>
+            <p className="caption">Show this code at reception. Staff record your check-in when you arrive.</p>
           </div>
         </div>
-        <dl className="grid divide-y-3 divide-ink border-t-3 border-ink sm:auto-cols-fr sm:grid-flow-col sm:divide-x-3 sm:divide-y-0">
+        <dl className="grid divide-y divide-line border-t border-line sm:auto-cols-fr sm:grid-flow-col sm:divide-x sm:divide-y-0">
           {facts.map((f) => (
             <div key={f.label} className="min-w-0 p-5 sm:p-6">
               <dt className="label">{f.label}</dt>
@@ -103,7 +103,7 @@ export default function AppointmentDetailPage() {
       {a.payments.length > 0 && (
         <Card>
           <h2 className="section-title mb-3">Payments</h2>
-          <ul className="divide-y divide-ink">
+          <ul className="divide-y divide-line">
             {a.payments.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                 <span>
@@ -119,7 +119,7 @@ export default function AppointmentDetailPage() {
 
       <Card>
         <h2 className="section-title mb-3">History</h2>
-        <ol className="divide-y divide-ink">
+        <ol className="divide-y divide-line">
           {a.history.map((h, i) => (
             <li key={i} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 first:pt-0 last:pb-0">
               <span className="font-semibold">
@@ -150,7 +150,7 @@ function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
         <div>
           <h2 className="section-title">Payment</h2>
           <p className="mt-1">
-            Amount due: <strong className="text-h2 font-extrabold">{formatMoney(appointment.fee_amount, appointment.currency)}</strong>
+            Amount due: <strong className="text-h2 font-semibold">{formatMoney(appointment.fee_amount, appointment.currency)}</strong>
           </p>
         </div>
         <button className="btn-primary" disabled={pay.isPending} onClick={() => pay.mutate()}>
@@ -215,7 +215,7 @@ function ReviewCard({ appointmentId, onDone }: { appointmentId: number; onDone: 
             role="radio"
             aria-checked={rating === n}
             aria-label={`${n} star${n > 1 ? 's' : ''}`}
-            className={`flex h-12 w-12 items-center justify-center border-2 border-ink text-2xl ${n <= rating ? 'bg-sun' : 'bg-white hover:bg-grey-100'}`}
+            className={`flex h-12 w-12 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-white text-muted hover:border-berry'}`}
             onClick={() => setRating(n)}
           >
             {n <= rating ? '★' : '☆'}

@@ -45,13 +45,13 @@ export default function AdminReviewsPage() {
       <ErrorAlert error={reviews.error ?? moderate.error} />
       {reviews.data?.items.length === 0 && <EmptyState>No reviews.</EmptyState>}
       {!!reviews.data?.items.length && (
-      <ul className="divide-y-3 divide-ink border-3 border-ink">
+      <ul className="card divide-y divide-line p-0 sm:p-0">
         {reviews.data.items.map((r) => (
           <li key={r.id} className="p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <div className="font-extrabold">{r.doctor_name}</div>
-                <span className="font-extrabold">
+                <div className="font-semibold">{r.doctor_name}</div>
+                <span>
                   <Stars value={r.rating} />
                 </span>
                 {r.comment && <p className="mt-1">{r.comment}</p>}

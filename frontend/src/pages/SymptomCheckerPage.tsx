@@ -58,7 +58,7 @@ export default function SymptomCheckerPage() {
           {result.urgent_warning && (
             <Notice tone="danger" title="Seek urgent medical care">
               <p>{result.urgent_warning}</p>
-              <a href={`tel:${EMERGENCY_NUMBER}`} className="btn-secondary btn-sm mt-3">
+              <a href={`tel:${EMERGENCY_NUMBER}`} className="btn-danger btn-sm mt-3">
                 Call {EMERGENCY_NUMBER}
               </a>
             </Notice>
@@ -75,16 +75,16 @@ export default function SymptomCheckerPage() {
                 doctor is a good place to start.
               </p>
             ) : (
-              <ol className="divide-y-3 divide-ink border-3 border-ink">
+              <ol className="space-y-3">
                 {result.specialties.map((s, i) => (
-                  <li key={s.specialty_id} className={`flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6 ${i === 0 ? 'bg-mint' : ''}`}>
+                  <li key={s.specialty_id} className={`card flex flex-wrap items-center justify-between gap-4 ${i === 0 ? 'border-berry bg-blush' : ''}`}>
                     <div>
-                      <span className="text-h2 font-extrabold">
+                      <span className="text-h2 font-semibold">
                         {i + 1}. {s.name}
                       </span>
-                      <span className="mt-1 block text-caption">Based on: {s.matched_symptoms.join(', ')}</span>
+                      <span className="caption mt-1 block">Based on: {s.matched_symptoms.join(', ')}</span>
                     </div>
-                    <Link className="btn-secondary btn-sm" to={`/doctors?specialty_id=${s.specialty_id}`}>
+                    <Link className={`${i === 0 ? 'btn-primary' : 'btn-secondary'} btn-sm`} to={`/doctors?specialty_id=${s.specialty_id}`}>
                       See doctors
                     </Link>
                   </li>
@@ -96,11 +96,11 @@ export default function SymptomCheckerPage() {
           {result.departments.length > 0 && (
             <section>
               <h2 className="section-title mb-4">Where you can go</h2>
-              <ul className="divide-y divide-ink border-3 border-ink">
+              <ul className="card divide-y divide-line p-0 sm:p-0">
                 {result.departments.map((d) => (
                   <li key={d.department_id} className="flex flex-wrap items-center justify-between gap-3 p-4 sm:px-6">
                     <div>
-                      <div className="font-extrabold">{d.department_name}</div>
+                      <div className="font-semibold">{d.department_name}</div>
                       <div className="caption">
                         {d.hospital_name} · {d.city}
                       </div>
