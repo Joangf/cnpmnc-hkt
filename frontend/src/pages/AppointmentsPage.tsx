@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { StatusBadge } from '../components/StatusBadge'
-import { EmptyState, ErrorAlert, FilterChip, Pagination, Spinner } from '../components/ui'
+import { EmptyState, ErrorAlert, FilterChip, Pagination, Spinner, stagger } from '../components/ui'
 import { dateParts } from '../lib/format'
 
 const TABS = [
@@ -48,11 +48,11 @@ export default function AppointmentsPage() {
       {appointments.data?.items.length === 0 && <EmptyState>No appointments here yet.</EmptyState>}
       {!!appointments.data?.items.length && (
         <ul className="space-y-3">
-          {appointments.data.items.map((a) => {
+          {appointments.data.items.map((a, i) => {
             const when = dateParts(a.start_time)
             return (
-              <li key={a.id}>
-                <Link to={`/appointments/${a.id}`} className="card flex items-center gap-4 p-4 text-ink no-underline transition-colors hover:border-berry hover:text-ink sm:gap-5 sm:p-5">
+              <li key={a.id} className="reveal" style={stagger(i)}>
+                <Link to={`/appointments/${a.id}`} className="card-link flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
                   <div className="flex h-20 w-[72px] shrink-0 flex-col items-center justify-center rounded-md bg-blush text-center text-berry sm:w-20">
                     <span className="text-sm font-semibold">{when.weekday}</span>
                     <span className="text-[1.75rem] font-bold leading-none">{when.day}</span>

@@ -27,6 +27,7 @@
     ::before,
     ::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
@@ -61,10 +62,14 @@
 
   /* Buttons: one berry (primary) per screen. Labels say what happens next. */
   .btn {
-    @apply inline-flex min-h-[52px] items-center justify-center gap-2 rounded-md px-[26px] py-2 text-center text-control font-semibold no-underline transition-colors;
+    @apply inline-flex min-h-[52px] items-center justify-center gap-2 rounded-md px-[26px] py-2 text-center text-control font-semibold no-underline transition-[color,background-color,border-color,box-shadow,transform] duration-fast;
+  }
+  /* Press feedback: buttons sink slightly while held. */
+  .btn:active:not(:disabled) {
+    @apply scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-berry text-white shadow-button hover:bg-berry-dark hover:text-white;
+    @apply btn bg-berry text-white shadow-button hover:bg-berry-dark hover:text-white hover:shadow-button-hover;
   }
   .btn-secondary {
     @apply btn border-1.5 border-berry bg-white text-berry hover:bg-blush hover:text-berry;
@@ -87,6 +92,18 @@
   .panel {
     @apply rounded-xl shadow-card;
   }
+  /* A whole card that is a link: lifts 2px with a deeper shadow on hover, settles on press. */
+  .card-link {
+    @apply card text-ink no-underline transition-[border-color,box-shadow,transform] duration-base hover:-translate-y-0.5 hover:border-berry hover:text-ink hover:shadow-card-hover active:translate-y-0 active:shadow-card;
+  }
+  /* Entrance for content that appears (route change, results, revealed steps). */
+  .reveal {
+    @apply animate-rise;
+  }
+  /* The ✓ on a selected chip or slot. */
+  .check-pop {
+    @apply inline-block animate-pop;
+  }
   /* Rounded square holding an icon or a number. */
   .icon-tile {
     @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-blush text-berry;
@@ -96,7 +113,7 @@
     @apply block text-caption font-semibold text-ink;
   }
   .input {
-    @apply mt-2 block min-h-[52px] w-full rounded-md border-1.5 border-field bg-white px-3.5 text-control text-ink;
+    @apply mt-2 block min-h-[52px] w-full rounded-md border-1.5 border-field bg-white px-3.5 text-control text-ink transition-colors duration-fast hover:border-muted focus:border-berry;
   }
   textarea.input {
     @apply py-3;
@@ -112,7 +129,7 @@
   }
 
   .chip {
-    @apply inline-flex min-h-12 items-center gap-1.5 rounded-full border-1.5 border-line bg-white px-5 text-base font-medium text-ink transition-colors hover:border-berry;
+    @apply inline-flex min-h-12 items-center gap-1.5 rounded-full border-1.5 border-line bg-white px-5 text-base font-medium text-ink transition-[color,background-color,border-color,transform] duration-fast hover:border-berry active:scale-[0.97];
   }
   .chip[aria-pressed='true'] {
     @apply border-berry bg-blush font-semibold text-berry;
@@ -126,13 +143,13 @@
 
   /* Booking slot picker */
   .day {
-    @apply flex h-16 min-w-[76px] shrink-0 flex-col items-center justify-center rounded-md border-1.5 border-line bg-white text-[0.9375rem] font-medium leading-tight text-ink transition-colors hover:border-berry;
+    @apply flex h-16 min-w-[76px] shrink-0 flex-col items-center justify-center rounded-md border-1.5 border-line bg-white text-[0.9375rem] font-medium leading-tight text-ink transition-[color,background-color,border-color,box-shadow,transform] duration-fast hover:border-berry active:scale-[0.97];
   }
   .day[aria-pressed='true'] {
     @apply border-berry bg-berry font-semibold text-white shadow-button;
   }
   .slot {
-    @apply inline-flex min-h-12 items-center justify-center gap-1 rounded-md border-1.5 border-line bg-white px-2 text-base font-medium text-ink transition-colors hover:border-berry;
+    @apply inline-flex min-h-12 items-center justify-center gap-1 rounded-md border-1.5 border-line bg-white px-2 text-base font-medium text-ink transition-[color,background-color,border-color,transform] duration-fast hover:border-berry active:scale-[0.97];
   }
   .slot[aria-pressed='true'] {
     @apply border-berry bg-blush font-semibold text-berry;

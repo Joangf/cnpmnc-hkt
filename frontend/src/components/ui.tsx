@@ -4,6 +4,9 @@ import { IconAlert, IconCheck, IconClock, IconInfo, type IconComponent } from '.
 
 export const EMERGENCY_NUMBER = '115'
 
+/** Stagger list entrances by 40ms per item, capped so long lists never wait. */
+export const stagger = (index: number) => ({ animationDelay: `${Math.min(index, 8) * 40}ms` })
+
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <div className={`card ${className}`}>{children}</div>
 }
@@ -44,7 +47,7 @@ export function ErrorAlert({ error }: { error: unknown }) {
   const message = error instanceof Error ? error.message : 'Something went wrong.'
   const requestId = error instanceof ApiError ? error.requestId : null
   return (
-    <div className="flex gap-3 rounded-lg border border-alert-line bg-alert-soft px-5 py-4 text-alert-strong" role="alert">
+    <div className="reveal flex gap-3 rounded-lg border border-alert-line bg-alert-soft px-5 py-4 text-alert-strong" role="alert">
       <IconAlert size={22} className="mt-0.5 text-alert" />
       <div>
         <p className="font-semibold">{message}</p>
@@ -76,7 +79,7 @@ export function Notice({
 }) {
   const { className: toneClass, iconClass, icon: Icon } = NOTICE_TONES[tone]
   return (
-    <div className={`flex gap-3 rounded-[14px] border px-5 py-4 text-base leading-normal shadow-card ${toneClass} ${className}`}>
+    <div className={`reveal flex gap-3 rounded-[14px] border px-5 py-4 text-base leading-normal shadow-card ${toneClass} ${className}`}>
       <Icon size={22} className={`mt-0.5 ${iconClass}`} />
       <div className="min-w-0 flex-1">
         {title && <strong className="block font-semibold">{title}</strong>}
@@ -133,7 +136,11 @@ export function Field({
 export function FilterChip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" className="chip" aria-pressed={pressed} onClick={onClick}>
-      {pressed && <span aria-hidden="true">✓</span>}
+      {pressed && (
+        <span aria-hidden="true" className="check-pop">
+          ✓
+        </span>
+      )}
       {children}
     </button>
   )

@@ -64,7 +64,10 @@ export function Layout() {
             <>
               Notifications
               {unread > 0 && (
-                <span className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-berry px-1.5 text-xs font-semibold text-white">
+                <span
+                  key={unread}
+                  className="ml-2 inline-flex min-w-6 animate-pop items-center justify-center rounded-full bg-berry px-1.5 text-xs font-semibold text-white"
+                >
                   {unread}
                   <span className="sr-only"> unread</span>
                 </span>
@@ -152,7 +155,7 @@ export function Layout() {
         </div>
 
         {open && (
-          <nav id="mobile-menu" aria-label="Menu" className="border-b border-line shadow-card xl:hidden">
+          <nav id="mobile-menu" aria-label="Menu" className="animate-drop border-b border-line shadow-card xl:hidden">
             {[...mainLinks, ...accountLinks].map((l) => (
               <NavLink key={l.to} to={l.to} className={menuItemClass} onClick={() => setOpen(false)}>
                 <span>{l.label}</span>
@@ -176,7 +179,10 @@ export function Layout() {
       </header>
 
       <main id="main" className={`flex-1 ${isHome ? '' : 'page'}`}>
-        <Outlet />
+        {/* Each new page rises in gently; query-string changes (filters, paging) don't replay it. */}
+        <div key={pathname} className="reveal">
+          <Outlet />
+        </div>
       </main>
 
       <footer className="border-t border-line bg-surface">

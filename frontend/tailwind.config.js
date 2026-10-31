@@ -3,6 +3,8 @@ import defaultTheme from 'tailwindcss/defaultTheme'
 // Tokens from .claude/design/design-guidelines.md ("Warm, simple, and human.").
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Hover styles only on devices that can hover, so taps don't leave cards "stuck" lifted.
+  future: { hoverOnlyWhenSupported: true },
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     colors: {
@@ -32,6 +34,9 @@ export default {
       card: '0 1px 2px rgba(43,26,34,0.05), 0 8px 24px rgba(43,26,34,0.08)',
       button: '0 2px 8px rgba(140,29,79,0.25)',
       alert: '0 2px 8px rgba(180,35,24,0.25)',
+      // Hovered link cards and buttons: same warm shadow, a little deeper.
+      'card-hover': '0 2px 4px rgba(43,26,34,0.06), 0 14px 32px rgba(43,26,34,0.12)',
+      'button-hover': '0 4px 14px rgba(140,29,79,0.32)',
     },
     extend: {
       fontFamily: { sans: ['"Figtree Variable"', 'Figtree', ...defaultTheme.fontFamily.sans] },
@@ -48,6 +53,28 @@ export default {
       borderWidth: { 1.5: '1.5px' },
       // 1200px content + 24px gutters.
       maxWidth: { page: '78rem' },
+
+      // Motion: short, soft and functional (see "Motion" in the design guidelines).
+      transitionDuration: { DEFAULT: '200ms', fast: '120ms', base: '200ms', slow: '320ms' },
+      transitionTimingFunction: {
+        DEFAULT: 'cubic-bezier(0.2, 0, 0, 1)',
+        out: 'cubic-bezier(0.2, 0, 0, 1)',
+        in: 'cubic-bezier(0.4, 0, 1, 1)',
+      },
+      keyframes: {
+        fade: { from: { opacity: '0' }, to: { opacity: '1' } },
+        rise: { from: { opacity: '0', transform: 'translateY(8px)' }, to: { opacity: '1', transform: 'none' } },
+        drop: { from: { opacity: '0', transform: 'translateY(-6px)' }, to: { opacity: '1', transform: 'none' } },
+        pop: { '0%': { transform: 'scale(0.6)', opacity: '0' }, '60%': { transform: 'scale(1.15)', opacity: '1' }, '100%': { transform: 'scale(1)' } },
+      },
+      // `backwards` holds the first frame during a stagger delay but leaves nothing behind once done,
+      // so hover transforms on the same element still work.
+      animation: {
+        fade: 'fade 200ms cubic-bezier(0.2, 0, 0, 1) backwards',
+        rise: 'rise 320ms cubic-bezier(0.2, 0, 0, 1) backwards',
+        drop: 'drop 200ms cubic-bezier(0.2, 0, 0, 1) backwards',
+        pop: 'pop 240ms cubic-bezier(0.2, 0, 0, 1) backwards',
+      },
     },
   },
   plugins: [],

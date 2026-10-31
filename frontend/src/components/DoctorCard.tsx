@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import type { DoctorSummary } from '../api/types'
 import { formatMoney } from '../lib/format'
@@ -37,10 +38,10 @@ export function Rating({ avg, count }: { avg: string | number; count: number }) 
   )
 }
 
-export function DoctorCard({ doctor }: { doctor: DoctorSummary }) {
+export function DoctorCard({ doctor, style }: { doctor: DoctorSummary; style?: CSSProperties }) {
   const href = `/doctors/${doctor.id}`
   return (
-    <article className="card flex min-w-0 flex-col gap-5">
+    <article className="card reveal flex min-w-0 flex-col gap-5" style={style}>
       <div className="flex items-center gap-[18px]">
         <DoctorAvatar doctor={doctor} className="h-[76px] w-[76px]" />
         <div className="flex min-w-0 flex-col gap-1">

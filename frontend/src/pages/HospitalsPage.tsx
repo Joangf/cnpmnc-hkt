@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { IconArrowRight } from '../components/icons'
 import { SpecialtyFilter } from '../components/SpecialtyFilter'
-import { EmptyState, ErrorAlert, Pagination, Spinner } from '../components/ui'
+import { EmptyState, ErrorAlert, Pagination, Spinner, stagger } from '../components/ui'
 import { humanize, telHref } from '../lib/format'
 
 export default function HospitalsPage() {
@@ -53,8 +53,8 @@ export default function HospitalsPage() {
         {hospitals.data?.items.length === 0 && <EmptyState>No facilities match your search.</EmptyState>}
         {!!hospitals.data?.items.length && (
           <div className="grid gap-5 md:grid-cols-2">
-            {hospitals.data.items.map((h) => (
-              <article key={h.id} className="card flex min-w-0 flex-col gap-3">
+            {hospitals.data.items.map((h, i) => (
+              <article key={h.id} className="card reveal flex min-w-0 flex-col gap-3" style={stagger(i)}>
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="section-title">
                     <Link to={`/hospitals/${h.id}`} className="link-plain">

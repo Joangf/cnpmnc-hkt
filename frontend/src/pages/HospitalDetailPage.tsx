@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { DoctorCard } from '../components/DoctorCard'
-import { EmptyState, ErrorAlert, Spinner } from '../components/ui'
+import { EmptyState, ErrorAlert, stagger, Spinner } from '../components/ui'
 import { humanize, telHref } from '../lib/format'
 
 export default function HospitalDetailPage() {
@@ -61,8 +61,8 @@ export default function HospitalDetailPage() {
         {doctors.data?.items.length === 0 && <EmptyState>No doctors listed here yet.</EmptyState>}
         {!!doctors.data?.items.length && (
           <div className="grid gap-5 md:grid-cols-2">
-            {doctors.data.items.map((d) => (
-              <DoctorCard key={d.id} doctor={d} />
+            {doctors.data.items.map((d, i) => (
+              <DoctorCard key={d.id} doctor={d} style={stagger(i)} />
             ))}
           </div>
         )}

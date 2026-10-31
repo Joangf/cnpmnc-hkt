@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { DoctorCard } from '../components/DoctorCard'
 import { SpecialtyFilter } from '../components/SpecialtyFilter'
-import { EmptyState, ErrorAlert, Pagination, Spinner } from '../components/ui'
+import { EmptyState, ErrorAlert, stagger, Pagination, Spinner } from '../components/ui'
 
 export default function DoctorsPage() {
   const [params, setParams] = useSearchParams()
@@ -79,8 +79,8 @@ export default function DoctorsPage() {
         {doctors.data?.items.length === 0 && <EmptyState>No doctors match your filters. Try another specialty or location.</EmptyState>}
         {!!doctors.data?.items.length && (
           <div className="grid gap-5 md:grid-cols-2">
-            {doctors.data.items.map((d) => (
-              <DoctorCard key={d.id} doctor={d} />
+            {doctors.data.items.map((d, i) => (
+              <DoctorCard key={d.id} doctor={d} style={stagger(i)} />
             ))}
           </div>
         )}

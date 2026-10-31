@@ -77,5 +77,36 @@ Five steps, under two minutes. Progress reads "Step 3 of 5 · Pick a time". Back
 - Mobile-first at 390px. Hero stacks: text above image. Nav collapses to a menu button. Main action sticks to the bottom. Tap-to-call on every phone number.
 - Show licence number and specialty board. Explain why each sensitive field is asked. Link the privacy notice at the details step. Never show symptoms in notifications. Confirm by SMS with a reference code.
 
+## Motion
+Motion is soft and short. It confirms what the patient did or shows what just appeared. It never decorates, never loops, and never delays a task. Tokens live in `frontend/tailwind.config.js` (`transitionDuration`, `transitionTimingFunction`, `keyframes`, `animation`); classes live in `frontend/src/index.css`.
+
+| Token | Value | Use |
+|---|---|---|
+| `duration-fast` | 120ms | Colour and press feedback on buttons, chips, slots, inputs |
+| `duration-base` (default) | 200ms | Card hover lift, icon and arrow nudges |
+| `duration-slow` | 320ms | Entrances and the booking progress bar |
+| `ease-out` (default) | cubic-bezier(0.2, 0, 0, 1) | Everything that enters or responds |
+| `ease-in` | cubic-bezier(0.4, 0, 1, 1) | Reserved for exits |
+
+| Pattern | Spec | Where |
+|---|---|---|
+| Press | Buttons scale to 0.98 while held; chips, days and slots to 0.97 | `.btn`, `.chip`, `.day`, `.slot` |
+| Hover lift | Link cards rise 2px, border turns berry, shadow deepens (`shadow-card-hover`); they settle on press. Hover only on devices that can hover (`hoverOnlyWhenSupported`) | `.card-link` (specialty tiles, appointment rows) |
+| Primary hover | Berry darkens and the shadow deepens (`shadow-button-hover`) | `.btn-primary` |
+| Selection | The ✓ on a selected chip or slot pops in (scale 0.6 → 1.15 → 1, 240ms) | `.check-pop` |
+| Page entrance | Each new route fades in and rises 8px (320ms). Filter and paging changes don't replay it | `Layout` (`.reveal`, keyed by pathname) |
+| List entrance | Cards rise in with a 40ms stagger, capped at 8 items (≤ 320ms extra) | `stagger(i)` in `ui.tsx`: doctor cards, hospitals, specialties, appointments |
+| Revealed step | The booking details step and new notices or errors rise in | `.reveal` on `BookingPanel` details, `Notice`, `ErrorAlert` |
+| Refreshed content | Time slots fade in (200ms) when the day or visit type changes | `animate-fade` in `BookingPanel` |
+| Menus | The mobile menu drops 6px and fades in (200ms) | `animate-drop` |
+| Counters | The unread badge pops when its number changes | `Layout` |
+| Progress | Booking progress segments fill over 320ms | `BookingPanel` |
+
+Rules:
+- Animate only `opacity`, `transform`, colours and shadows; never layout properties (height, width, top).
+- Entrances use `backwards` fill, so nothing lingers after the animation and hover transforms on the same element still work.
+- Nothing moves for longer than 320ms, plus at most 320ms of stagger. No looping motion except the loading spinner.
+- `prefers-reduced-motion: reduce` turns every animation and transition into an instant change and removes stagger delays (`index.css` base layer). Content must never depend on an animation to become visible.
+
 ## Header pattern (homepage board)
 Utility bar on `surface` (opening info left; account links and "Emergency 24/7: 115" tap-to-call right) → white header with berry logo tile, main nav and a "Book appointment" button, 1px `line` underneath.

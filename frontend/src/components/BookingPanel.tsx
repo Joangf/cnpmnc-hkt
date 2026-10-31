@@ -86,7 +86,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
         </h2>
         <div className="mt-4 grid grid-cols-5 gap-1.5" aria-hidden="true">
           {STEPS.map((s, i) => (
-            <span key={s} className={`h-1.5 rounded-full ${i < step ? 'bg-berry' : 'bg-blush'}`} />
+            <span key={s} className={`h-1.5 rounded-full transition-colors duration-slow ${i < step ? 'bg-berry' : 'bg-blush'}`} />
           ))}
         </div>
       </div>
@@ -145,14 +145,19 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
             <p className="caption">No available times on this day. Try another date.</p>
           )}
           {groups.map((g) => (
-            <div key={g.label} role="group" aria-label={g.label}>
+            // Keyed by day and type so the times fade in again when either changes.
+            <div key={`${day}-${selectedType?.id}-${g.label}`} role="group" aria-label={g.label} className="animate-fade">
               <p className="text-caption font-semibold">{g.label}</p>
               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {g.slots.map((s) => {
                   const selected = slot?.start_time === s.start_time
                   return (
                     <button key={s.start_time} type="button" className="slot" aria-pressed={selected} onClick={() => setSlot(s)}>
-                      {selected && <span aria-hidden="true">✓</span>}
+                      {selected && (
+                        <span aria-hidden="true" className="check-pop">
+                          ✓
+                        </span>
+                      )}
                       {formatTime(s.start_time)}
                     </button>
                   )
@@ -168,7 +173,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
         </div>
 
         {slot && selectedType && (
-          <div className="space-y-5 border-t border-line pt-6">
+          <div className="reveal space-y-5 border-t border-line pt-6">
             <Field label="Reason for visit (optional)" hint="Helps the doctor prepare. Only the hospital sees it.">
               <textarea className="input" rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
             </Field>

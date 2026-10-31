@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { IconArrowRight, IconBone, IconFemale, IconHeart, IconPerson, IconStethoscope, type IconComponent } from '../components/icons'
-import { EMERGENCY_NUMBER } from '../components/ui'
+import { EMERGENCY_NUMBER, stagger } from '../components/ui'
 
 // Specialty tiles get a line icon when the name suggests one; the rest use a stethoscope.
 const SPECIALTY_ICONS: [RegExp, IconComponent][] = [
@@ -102,18 +102,18 @@ export default function HomePage() {
 
       <h2 className="mb-6 mt-14 text-[1.75rem] font-bold sm:mt-[72px] sm:text-h1">Popular specialties</h2>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {specialties.data?.map((s) => {
+        {specialties.data?.map((s, i) => {
           const Icon = specialtyIcon(s.name)
           return (
-            <Link key={s.id} to={`/doctors?specialty_id=${s.id}`} className="card group flex flex-col gap-8 text-ink no-underline hover:border-berry hover:text-ink">
-              <span className="icon-tile">
+            <Link key={s.id} to={`/doctors?specialty_id=${s.id}`} className="card-link reveal group flex flex-col gap-8" style={stagger(i)}>
+              <span className="icon-tile transition-colors duration-base group-hover:bg-berry group-hover:text-white">
                 <Icon size={24} />
               </span>
               <span className="flex flex-col gap-1.5">
                 <span className="hyphens-auto break-words text-xl font-semibold leading-tight">{s.name}</span>
                 {s.description && <span className="caption line-clamp-2">{s.description}</span>}
                 <span className="inline-flex items-center gap-1.5 text-caption font-semibold text-berry group-hover:underline">
-                  See doctors <IconArrowRight size={16} />
+                  See doctors <IconArrowRight size={16} className="transition-transform duration-base group-hover:translate-x-1" />
                 </span>
               </span>
             </Link>
