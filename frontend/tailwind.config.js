@@ -1,42 +1,51 @@
 import defaultTheme from 'tailwindcss/defaultTheme'
 
 // Tokens from .claude/design/design-guidelines.md ("Warm, simple, and human.").
+const v = (name) => `rgb(var(--c-${name}) / <alpha-value>)`
+
 /** @type {import('tailwindcss').Config} */
 export default {
   // Hover styles only on devices that can hover, so taps don't leave cards "stuck" lifted.
   future: { hoverOnlyWhenSupported: true },
+  // Dark mode is set by <html data-theme="dark"> (see src/lib/theme.ts), not only by the OS.
+  darkMode: ['selector', "[data-theme='dark']"],
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
+    // Every colour is a CSS variable (light values on :root, dark on [data-theme='dark'] in
+    // src/index.css), so one attribute switches the whole palette.
     colors: {
       transparent: 'transparent',
       current: 'currentColor',
       white: '#FFFFFF',
-      ink: '#2B1A22',
-      muted: '#5E4B53',
-      berry: { DEFAULT: '#8C1D4F', dark: '#6E163E' },
-      blush: '#FBE9EF',
-      mist: '#EAF2F8',
-      peach: '#FFF1E6',
-      surface: '#FAF6F2',
-      line: '#EADFD8',
-      field: '#D9CBC2',
-      focus: '#E59AB8',
-      success: { DEFAULT: '#1E7A4F', soft: '#E8F4EE', line: '#BFDFCD', strong: '#134D33' },
-      notice: { DEFAULT: '#A15C07', soft: '#FFF6E8', line: '#F1D9B5', strong: '#6B3D05' },
-      info: { DEFAULT: '#25507A', line: '#C9DCEA', strong: '#1E3A57' },
-      alert: { DEFAULT: '#B42318', dark: '#912018', soft: '#FEF3F2', line: '#F4C7C3', strong: '#7A271A' },
-      disabled: { DEFAULT: '#EEF1F3', text: '#6B7882' },
+      canvas: v('canvas'),
+      'on-accent': v('on-accent'),
+      ink: v('ink'),
+      muted: v('muted'),
+      berry: { DEFAULT: v('berry'), dark: v('berry-dark') },
+      blush: v('blush'),
+      mist: v('mist'),
+      peach: v('peach'),
+      surface: v('surface'),
+      line: v('line'),
+      field: v('field'),
+      focus: v('focus'),
+      success: { DEFAULT: v('success'), soft: v('success-soft'), line: v('success-line'), strong: v('success-strong') },
+      notice: { DEFAULT: v('notice'), soft: v('notice-soft'), line: v('notice-line'), strong: v('notice-strong') },
+      info: { DEFAULT: v('info'), line: v('info-line'), strong: v('info-strong') },
+      alert: { DEFAULT: v('alert'), dark: v('alert-dark'), soft: v('alert-soft'), line: v('alert-line'), strong: v('alert-strong') },
+      disabled: { DEFAULT: v('disabled'), text: v('disabled-text') },
     },
     // 12 buttons and inputs, 16 cards, 20 panels, full for chips.
     borderRadius: { none: '0', sm: '6px', DEFAULT: '12px', md: '12px', lg: '16px', xl: '20px', full: '9999px' },
+    // Shadows are variables too: dark mode needs deeper, neutral shadows to read at all.
     boxShadow: {
       none: 'none',
-      card: '0 1px 2px rgba(43,26,34,0.05), 0 8px 24px rgba(43,26,34,0.08)',
-      button: '0 2px 8px rgba(140,29,79,0.25)',
-      alert: '0 2px 8px rgba(180,35,24,0.25)',
+      card: 'var(--shadow-card)',
+      button: 'var(--shadow-button)',
+      alert: 'var(--shadow-alert)',
       // Hovered link cards and buttons: same warm shadow, a little deeper.
-      'card-hover': '0 2px 4px rgba(43,26,34,0.06), 0 14px 32px rgba(43,26,34,0.12)',
-      'button-hover': '0 4px 14px rgba(140,29,79,0.32)',
+      'card-hover': 'var(--shadow-card-hover)',
+      'button-hover': 'var(--shadow-button-hover)',
     },
     extend: {
       fontFamily: { sans: ['"Figtree Variable"', 'Figtree', ...defaultTheme.fontFamily.sans] },

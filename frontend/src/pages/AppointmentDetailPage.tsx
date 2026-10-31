@@ -215,7 +215,7 @@ function ReviewCard({ appointmentId, onDone }: { appointmentId: number; onDone: 
             role="radio"
             aria-checked={rating === n}
             aria-label={`${n} star${n > 1 ? 's' : ''}`}
-            className={`flex h-12 w-12 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-white text-muted hover:border-berry'}`}
+            className={`flex h-12 w-12 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-canvas text-muted hover:border-berry'}`}
             onClick={() => setRating(n)}
           >
             {n <= rating ? '★' : '☆'}

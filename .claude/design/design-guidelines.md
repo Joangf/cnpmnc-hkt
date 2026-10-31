@@ -101,12 +101,46 @@ Motion is soft and short. It confirms what the patient did or shows what just ap
 | Menus | The mobile menu drops 6px and fades in (200ms) | `animate-drop` |
 | Counters | The unread badge pops when its number changes | `Layout` |
 | Progress | Booking progress segments fill over 320ms | `BookingPanel` |
+| Theme switch | Whole-page cross-fade, 320ms (see Dark mode) | `src/lib/theme.ts` |
 
 Rules:
 - Animate only `opacity`, `transform`, colours and shadows; never layout properties (height, width, top).
 - Entrances use `backwards` fill, so nothing lingers after the animation and hover transforms on the same element still work.
 - Nothing moves for longer than 320ms, plus at most 320ms of stagger. No looping motion except the loading spinner.
 - `prefers-reduced-motion: reduce` turns every animation and transition into an instant change and removes stagger delays (`index.css` base layer). Content must never depend on an animation to become visible.
+
+## Dark mode
+Same roles, same calm: a warm plum canvas instead of white, light berry for the one main action, and soft dark tints for selected, info, success, notice and danger. Every colour is a CSS variable (RGB triplet) defined twice in `frontend/src/index.css`: light on `:root` and dark on `:root[data-theme='dark']`. Tailwind colours read those variables, so components never need `dark:` variants. Use semantic tokens only: `bg-canvas` (not `bg-white`) for the page and cards, and `text-on-accent` (not `text-white`) for text on berry or alert fills. `white` stays as a literal colour for the rare place that must be white in both themes.
+
+| Token | Light | Dark |
+|---|---|---|
+| `canvas` | #FFFFFF | #1A1215 |
+| `surface` | #FAF6F2 | #231A1E |
+| `ink` | #2B1A22 | #F5ECEF |
+| `muted` | #5E4B53 | #C7B6BD |
+| `line` / `field` | #EADFD8 / #D9CBC2 | #3B2E34 / #5A4851 |
+| `berry` / `berry-dark` (hover) | #8C1D4F / #6E163E | #E88DB5 / #F3B0CD |
+| `on-accent` | #FFFFFF | #1A1215 |
+| `blush` / `mist` / `peach` | #FBE9EF / #EAF2F8 / #FFF1E6 | #3B2030 / #1B2836 / #2C1E22 |
+| `focus` | #E59AB8 | #F3B0CD |
+| `success` · soft · line · strong | #1E7A4F · #E8F4EE · #BFDFCD · #134D33 | #7AD3A3 · #142A20 · #25503B · #B3EACB |
+| `notice` · soft · line · strong | #A15C07 · #FFF6E8 · #F1D9B5 · #6B3D05 | #EBB061 · #2E2311 · #5B4421 · #F5D49F |
+| `info` · line · strong | #25507A · #C9DCEA · #1E3A57 | #93BEE6 · #2D4762 · #C6DCF1 |
+| `alert` · dark · soft · line · strong | #B42318 · #912018 · #FEF3F2 · #F4C7C3 · #7A271A | #F28B80 · #F7AAA1 · #341719 · #5E2B2B · #FAC3BC |
+| `disabled` / text | #EEF1F3 / #6B7882 | #2D2529 / #958790 |
+
+Rules:
+- Every text pair keeps ≥ 4.5:1 in both themes (dark: ink 15.9:1, muted 9.5:1, berry on canvas 7.8:1, on-accent on berry 7.8:1). Check new pairs in both themes before adding them.
+- In dark mode, hover makes berry and alert *lighter*, not darker (`berry-dark` and `alert-dark` are the hover tokens in both themes).
+- Shadows are variables too (`--shadow-card`, `--shadow-button`, …): dark shadows are deeper and neutral black, and berry glows are faint.
+- Illustrations use theme classes (`fill-blush`, `fill-berry`, `stroke-on-accent`), never hex values.
+- `color-scheme` follows the theme so native controls (selects, date pickers, scrollbars) match.
+
+Behaviour:
+- **Default:** follow the OS (`prefers-color-scheme`) until the patient chooses; after that the choice is remembered in `localStorage` (`carebook-theme`) and wins.
+- **Switch:** a "Dark mode" toggle button (`aria-pressed`; the label never changes, the icon swaps moon ↔ sun and pops in). It sits next to "Book appointment" on wide screens and in the menu (with "On" / "Off") on small screens. Code: `ThemeToggle` in `Layout.tsx`, `useTheme` in `src/lib/theme.ts`.
+- **No flash:** a small inline script in `index.html` sets `data-theme` and the browser `theme-color` before the first paint.
+- **Transition:** one soft 320ms cross-fade of the whole page with the View Transitions API. Where that isn't supported, a temporary `theme-fading` class on `<html>` transitions every colour, border, fill and shadow for 320ms. Under reduced motion the switch is instant.
 
 ## Header pattern (homepage board)
 Utility bar on `surface` (opening info left; account links and "Emergency 24/7: 115" tap-to-call right) → white header with berry logo tile, main nav and a "Book appointment" button, 1px `line` underneath.

@@ -11,7 +11,7 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
   return <div className={`card ${className}`}>{children}</div>
 }
 
-const PANEL_TONES = { blush: 'bg-blush', mist: 'bg-mist', peach: 'bg-peach', white: 'bg-white' }
+const PANEL_TONES = { blush: 'bg-blush', mist: 'bg-mist', peach: 'bg-peach', white: 'bg-canvas' }
 
 /** Card with a soft tinted header (form pages). */
 export function Panel({
@@ -26,7 +26,7 @@ export function Panel({
   className?: string
 }) {
   return (
-    <section className={`panel overflow-hidden border border-line bg-white ${className}`}>
+    <section className={`panel overflow-hidden border border-line bg-canvas ${className}`}>
       <div className={`px-5 py-6 sm:px-8 sm:py-7 ${PANEL_TONES[tone]} ${tone === 'white' ? 'border-b border-line' : ''}`}>{header}</div>
       <div className="p-5 sm:p-8">{children}</div>
     </section>

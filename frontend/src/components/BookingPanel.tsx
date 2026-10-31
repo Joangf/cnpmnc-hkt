@@ -76,7 +76,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   const step = slot ? 4 : 3
 
   return (
-    <section className="panel border border-line bg-white" aria-labelledby={headingId}>
+    <section className="panel border border-line bg-canvas" aria-labelledby={headingId}>
       <div className="border-b border-line px-5 py-5 sm:px-6">
         <p className="eyebrow" aria-live="polite">
           Step {step} of {STEPS.length} · {STEPS[step - 1]}
@@ -194,7 +194,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
             <p className="caption">Your request goes to the hospital first. We confirm it as soon as they accept.</p>
             <ErrorAlert error={book.error} />
             {/* Primary action sticks to the bottom on small screens. */}
-            <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-white px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6 lg:static lg:m-0 lg:border-0 lg:p-0">
+            <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-canvas px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6 lg:static lg:m-0 lg:border-0 lg:p-0">
               {user?.role === 'PATIENT' ? (
                 <button className="btn-primary w-full" disabled={book.isPending} onClick={() => book.mutate()}>
                   {book.isPending ? 'Submitting…' : 'Request booking'}

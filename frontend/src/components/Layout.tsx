@@ -3,7 +3,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
-import { IconMenu, IconPhone, LogoMark } from './icons'
+import { useTheme } from '../lib/theme'
+import { IconMenu, IconMoon, IconPhone, IconSun, LogoMark } from './icons'
 import { EMERGENCY_NUMBER } from './ui'
 
 const mainLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -14,6 +15,32 @@ const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex min-h-11 items-center whitespace-nowrap no-underline hover:text-berry ${isActive ? 'font-semibold text-berry' : 'text-muted'}`
 const menuItemClass =
   'flex min-h-14 w-full items-center justify-between border-b border-line px-4 text-left text-control font-medium text-ink no-underline hover:bg-blush hover:text-berry sm:px-6'
+
+/** Dark mode switch: a toggle button whose label stays "Dark mode"; aria-pressed carries the state.
+ * The icon pops in again each time the theme changes. */
+function ThemeToggle({ variant }: { variant: 'chip' | 'menu' }) {
+  const { theme, toggle } = useTheme()
+  const dark = theme === 'dark'
+  const Icon = dark ? IconSun : IconMoon
+  const icon = <Icon key={theme} size={18} className="animate-pop" />
+  if (variant === 'menu') {
+    return (
+      <button type="button" className={menuItemClass} aria-pressed={dark} onClick={toggle}>
+        <span className="flex items-center gap-2">
+          {icon}
+          Dark mode
+        </span>
+        <span className="text-caption text-muted">{dark ? 'On' : 'Off'}</span>
+      </button>
+    )
+  }
+  return (
+    <button type="button" className="chip min-h-12 gap-2 px-4" aria-pressed={dark} onClick={toggle}>
+      {icon}
+      Dark mode
+    </button>
+  )
+}
 
 interface NavItem {
   to: string
@@ -66,7 +93,7 @@ export function Layout() {
               {unread > 0 && (
                 <span
                   key={unread}
-                  className="ml-2 inline-flex min-w-6 animate-pop items-center justify-center rounded-full bg-berry px-1.5 text-xs font-semibold text-white"
+                  className="ml-2 inline-flex min-w-6 animate-pop items-center justify-center rounded-full bg-berry px-1.5 text-xs font-semibold text-on-accent"
                 >
                   {unread}
                   <span className="sr-only"> unread</span>
@@ -88,12 +115,12 @@ export function Layout() {
     <div className="flex min-h-screen flex-col">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-3 focus:font-semibold focus:shadow-card"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-canvas focus:px-4 focus:py-3 focus:font-semibold focus:shadow-card"
       >
         Skip to content
       </a>
 
-      <header className="bg-white">
+      <header className="bg-canvas">
         {/* The emergency number is always visible (booking flow step 1). */}
         <div className="bg-surface">
           <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-6 px-4 text-caption text-muted sm:px-6">
@@ -125,7 +152,7 @@ export function Layout() {
         <div className="border-b border-line">
           <div className="mx-auto flex max-w-page items-center gap-x-10 px-4 py-4 sm:px-6 sm:py-5">
             <Link to="/" className="flex items-center gap-3 text-ink no-underline hover:text-ink">
-              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-berry text-white shadow-button">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-berry text-on-accent shadow-button">
                 <LogoMark />
               </span>
               <span className="text-xl font-bold">CareBook</span>
@@ -137,11 +164,14 @@ export function Layout() {
                 </NavLink>
               ))}
             </nav>
-            {!isAdmin && (
-              <Link to="/doctors" className="btn-primary hidden min-h-12 px-[22px] text-base xl:inline-flex">
-                Book appointment
-              </Link>
-            )}
+            <div className="ml-auto hidden items-center gap-3 xl:flex">
+              <ThemeToggle variant="chip" />
+              {!isAdmin && (
+                <Link to="/doctors" className="btn-primary min-h-12 px-[22px] text-base">
+                  Book appointment
+                </Link>
+              )}
+            </div>
             <button
               className="btn-secondary btn-sm ml-auto xl:hidden"
               aria-expanded={open}
@@ -167,6 +197,7 @@ export function Layout() {
                 Sign out
               </button>
             )}
+            <ThemeToggle variant="menu" />
             {!isAdmin && (
               <div className="p-4 sm:px-6">
                 <Link to="/doctors" className="btn-primary w-full">

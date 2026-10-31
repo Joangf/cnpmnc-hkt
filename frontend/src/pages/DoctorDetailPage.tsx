@@ -28,7 +28,7 @@ export default function DoctorDetailPage() {
       <div className="min-w-0 space-y-8 lg:col-span-2">
         <section className="panel overflow-hidden border border-line">
           <div className="flex flex-col gap-6 bg-blush p-6 sm:flex-row sm:items-center sm:p-8">
-            <DoctorAvatar doctor={d} tone="bg-white" className="h-28 w-28 text-[2rem] sm:h-32 sm:w-32" />
+            <DoctorAvatar doctor={d} tone="bg-canvas" className="h-28 w-28 text-[2rem] sm:h-32 sm:w-32" />
             <div className="flex min-w-0 flex-col justify-center gap-2">
               <p className="eyebrow">{d.specialty.name}</p>
               <h1 className="page-title">{d.full_name}</h1>

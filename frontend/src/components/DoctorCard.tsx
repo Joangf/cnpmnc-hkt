@@ -16,7 +16,7 @@ export function DoctorAvatar({
   className = '',
 }: {
   doctor: Pick<DoctorSummary, 'id' | 'full_name' | 'avatar_url'>
-  tone?: 'bg-blush' | 'bg-white'
+  tone?: 'bg-blush' | 'bg-canvas'
   className?: string
 }) {
   return (

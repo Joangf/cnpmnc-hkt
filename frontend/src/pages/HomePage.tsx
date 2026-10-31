@@ -18,10 +18,10 @@ const specialtyIcon = (name: string) => SPECIALTY_ICONS.find(([re]) => re.test(n
 function HeroArt() {
   return (
     <svg viewBox="0 0 320 320" className="h-auto w-[200px] sm:w-[260px]" fill="none" aria-hidden="true" focusable="false">
-      <circle cx="160" cy="160" r="140" fill="#FBE9EF" />
-      <rect x="128" y="70" width="64" height="180" rx="14" fill="#8C1D4F" />
-      <rect x="70" y="128" width="180" height="64" rx="14" fill="#8C1D4F" />
-      <path d="M40 160h60l16-30 22 60 18-44 12 14h112" stroke="#FFFFFF" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="160" cy="160" r="140" className="fill-blush" />
+      <rect x="128" y="70" width="64" height="180" rx="14" className="fill-berry" />
+      <rect x="70" y="128" width="180" height="64" rx="14" className="fill-berry" />
+      <path d="M40 160h60l16-30 22 60 18-44 12 14h112" className="stroke-on-accent" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -106,7 +106,7 @@ export default function HomePage() {
           const Icon = specialtyIcon(s.name)
           return (
             <Link key={s.id} to={`/doctors?specialty_id=${s.id}`} className="card-link reveal group flex flex-col gap-8" style={stagger(i)}>
-              <span className="icon-tile transition-colors duration-base group-hover:bg-berry group-hover:text-white">
+              <span className="icon-tile transition-colors duration-base group-hover:bg-berry group-hover:text-on-accent">
                 <Icon size={24} />
               </span>
               <span className="flex flex-col gap-1.5">
