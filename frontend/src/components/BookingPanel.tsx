@@ -107,11 +107,11 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
               <p className="text-caption font-semibold text-muted">Consultation fee</p>
               <p className="text-base font-semibold text-ink">{formatMoney(fee, selectedType.currency)}</p>
             </div>
-            <span className="tag bg-blush font-semibold text-berry">
-              {manual
-                ? slot ? `${(Date.parse(slot.end_time) - Date.parse(slot.start_time)) / 60000} min` : 'Shared slots'
-                : `${selectedType.duration_minutes} min`}
-            </span>
+            {manual && (
+              <span className="tag bg-blush font-semibold text-berry">
+                {slot ? `${(Date.parse(slot.end_time) - Date.parse(slot.start_time)) / 60000} min` : 'Shared slots'}
+              </span>
+            )}
           </div>
         )}
 
