@@ -367,6 +367,11 @@ async def cancel_appointment(
         raise NotFound("Appointment not found.")  # BR-12: do not reveal other patients' data
     if appointment.status not in ACTIVE_APPOINTMENT_STATUSES:
         raise InvalidState("Only pending or confirmed appointments can be cancelled.")
+    if appointment.check_in_status == CheckInStatus.CHECKED_IN:
+        raise InvalidState(
+            "Checked-in appointments can no longer be cancelled or refunded.",
+            code="AlreadyCheckedIn",
+        )
     if not policies.can_cancel(appointment):
         raise InvalidState(
             "Appointments can only be cancelled at least "

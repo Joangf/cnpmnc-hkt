@@ -6,7 +6,12 @@ from decimal import Decimal
 
 from app.core.config import settings
 from app.models import Appointment, AppointmentType, Doctor, Payment
-from app.models.enums import ACTIVE_APPOINTMENT_STATUSES, AppointmentStatus, PaymentStatus
+from app.models.enums import (
+    ACTIVE_APPOINTMENT_STATUSES,
+    AppointmentStatus,
+    CheckInStatus,
+    PaymentStatus,
+)
 
 
 def effective_fee(doctor: Doctor, appointment_type: AppointmentType) -> Decimal:
@@ -45,10 +50,15 @@ def cancellation_deadline(start_time: datetime) -> datetime:
 
 
 def can_cancel(appointment: Appointment, now: datetime | None = None) -> bool:
-    """BR-06: active appointments, up to the configured cut-off before start."""
+    """BR-06: active appointments, up to the configured cut-off before start.
+
+    Once the patient has checked in, cancelling (and therefore refunding) is no longer allowed.
+    """
     now = now or datetime.now(UTC)
-    return appointment.status in ACTIVE_APPOINTMENT_STATUSES and now <= cancellation_deadline(
-        appointment.start_time
+    return (
+        appointment.status in ACTIVE_APPOINTMENT_STATUSES
+        and appointment.check_in_status != CheckInStatus.CHECKED_IN
+        and now <= cancellation_deadline(appointment.start_time)
     )
 
 
