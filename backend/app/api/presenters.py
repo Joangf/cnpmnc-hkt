@@ -40,10 +40,10 @@ from app.schemas.directory import (
     HospitalSummary,
     SpecialtyOut,
 )
-from app.schemas.payments import PaymentOut
+from app.schemas.payments import AdminRefundOut, PaymentOut
 from app.schemas.profile import ProfileOut
 from app.schemas.reviews import AdminReviewOut, ReviewPublic
-from app.services import policies
+from app.services import policies, sepay
 
 
 def user_me(user: User) -> UserMe:
@@ -137,8 +137,7 @@ def hospital_summary(hospital: Hospital, *, include_inactive: bool = False) -> H
     departments = [
         d
         for d in hospital.departments
-        if include_inactive
-        or (d.is_active and d.visibility == DepartmentVisibility.PUBLIC)
+        if include_inactive or (d.is_active and d.visibility == DepartmentVisibility.PUBLIC)
     ]
     specialties = {d.specialty.id: d.specialty for d in departments if d.specialty.is_active}
     return HospitalSummary(
@@ -165,8 +164,7 @@ def hospital_detail(hospital: Hospital, *, include_inactive: bool = False) -> Ho
         (
             d
             for d in hospital.departments
-            if include_inactive
-            or (d.is_active and d.visibility == DepartmentVisibility.PUBLIC)
+            if include_inactive or (d.is_active and d.visibility == DepartmentVisibility.PUBLIC)
         ),
         key=lambda d: d.name,
     )
@@ -260,6 +258,7 @@ def _summary_fields(appointment: Appointment) -> dict:
         ),
         "fee_amount": appointment.fee_amount,
         "currency": appointment.currency,
+        "payment_due_at": appointment.payment_due_at,
     }
 
 
@@ -280,26 +279,71 @@ def appointment_detail(appointment: Appointment, now: datetime | None = None) ->
         history=[StatusHistoryOut.model_validate(h) for h in appointment.history],
         payments=[PaymentSummary.model_validate(p) for p in appointment.payments],
         can_cancel=policies.can_cancel(appointment, now),
-        can_pay=policies.can_pay(appointment),
+        can_pay=policies.can_pay(appointment, now),
+        can_request_refund=policies.can_request_refund(appointment),
         can_review=policies.can_review(appointment),
         has_review=appointment.review is not None,
         cancellation_deadline=policies.cancellation_deadline(appointment.start_time),
     )
 
 
+def _payment_fields(payment: Payment) -> dict:
+    return {
+        "id": payment.id,
+        "appointment_id": payment.appointment_id,
+        "booking_reference": payment.appointment.booking_reference,
+        "status": payment.status,
+        "amount": payment.amount,
+        "currency": payment.currency,
+        "payment_code": payment.payment_code,
+        "expires_at": payment.expires_at,
+        "qr_image_url": sepay.payment_qr_url(payment.amount, payment.payment_code),
+        "bank_code": settings.sepay_bank,
+        "account_number": settings.sepay_account,
+        "account_name": settings.sepay_account_name,
+        "provider_reference": payment.provider_reference,
+        "failure_reason": payment.failure_reason,
+        "paid_at": payment.paid_at,
+        "created_at": payment.created_at,
+        "refund_status": payment.refund_status,
+        "refund_reference": payment.refund_reference,
+        "refund_bank_name": payment.refund_bank_name,
+        "refund_account_number": payment.refund_account_number,
+        "refund_account_name": payment.refund_account_name,
+        "refund_reason": payment.refund_reason,
+        "refund_note": payment.refund_note,
+        "refund_requested_at": payment.refund_requested_at,
+        "refunded_at": payment.refunded_at,
+    }
+
+
 def payment_out(payment: Payment) -> PaymentOut:
     """Needs: payment.appointment."""
-    return PaymentOut(
-        id=payment.id,
-        appointment_id=payment.appointment_id,
-        booking_reference=payment.appointment.booking_reference,
-        status=payment.status,
-        amount=payment.amount,
-        currency=payment.currency,
-        provider_reference=payment.provider_reference,
-        failure_reason=payment.failure_reason,
-        paid_at=payment.paid_at,
-        created_at=payment.created_at,
+    return PaymentOut(**_payment_fields(payment))
+
+
+def admin_refund_out(payment: Payment) -> AdminRefundOut:
+    """Needs: payment.appointment.patient.user."""
+    patient = payment.appointment.patient
+    qr = (
+        sepay.refund_qr_url(
+            payment.refund_bank_bin,
+            payment.refund_account_number,
+            payment.refund_account_name,
+            payment.amount,
+            payment.refund_reference,
+        )
+        if payment.refund_bank_bin
+        and payment.refund_account_number
+        and payment.refund_account_name
+        and payment.refund_reference
+        else None
+    )
+    return AdminRefundOut(
+        **_payment_fields(payment),
+        patient_name=patient.full_name,
+        patient_email=patient.user.email,
+        refund_qr_image_url=qr,
     )
 
 

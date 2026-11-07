@@ -5,7 +5,7 @@ from fastapi import APIRouter, Header, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import presenters
-from app.api.deps import CurrentPatient, ErpDep, GatewayDep, PageDep, RedisDep, SessionDep
+from app.api.deps import CurrentPatient, ErpDep, PageDep, RedisDep, SessionDep
 from app.core.errors import NotFound
 from app.models import Appointment
 from app.repositories import appointments as appointment_repo
@@ -111,9 +111,6 @@ async def cancel_appointment(
     session: SessionDep,
     redis: RedisDep,
     erp: ErpDep,
-    gateway: GatewayDep,
 ) -> AppointmentDetail:
-    await booking.cancel_appointment(
-        session, redis, erp, gateway, patient, appointment_id, payload.reason
-    )
+    await booking.cancel_appointment(session, redis, erp, patient, appointment_id, payload.reason)
     return presenters.appointment_detail(await _load_owned(session, appointment_id, patient.id))

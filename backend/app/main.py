@@ -16,7 +16,7 @@ from app.core.logging import configure_logging
 from app.core.metrics import setup_metrics
 from app.core.middleware import RequestContextMiddleware
 from app.core.redis import redis_client
-from app.integrations import build_erp_adapter, build_payment_gateway
+from app.integrations import build_erp_adapter
 from app.services.jobs import start_background_jobs
 
 configure_logging()
@@ -43,8 +43,10 @@ OPENAPI_TAGS = [
     },
     {
         "name": "payments",
-        "description": "Online payment (FR-PAY). Status is separate from appointment status.",
+        "description": "VietQR bank-transfer payments via SePay (FR-PAY). Status is separate "
+        "from appointment status.",
     },
+    {"name": "refunds", "description": "Patient refund requests and manual admin payouts."},
     {"name": "reviews", "description": "Doctor reviews (FR-REV)."},
     {"name": "notifications", "description": "In-app notifications (FR-NOT)."},
     {"name": "integrations", "description": "Inbound ERP/HIS webhooks (FRD 3.2)."},
@@ -55,7 +57,6 @@ OPENAPI_TAGS = [
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.erp = build_erp_adapter()
-    app.state.payment_gateway = build_payment_gateway()
     tasks = start_background_jobs(app) if settings.run_background_jobs else []
     logger.info("startup", env=settings.env, erp_adapter=app.state.erp.name)
     yield
@@ -63,7 +64,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
     await app.state.erp.aclose()
-    await app.state.payment_gateway.aclose()
     await redis_client.aclose()
     await engine.dispose()
 

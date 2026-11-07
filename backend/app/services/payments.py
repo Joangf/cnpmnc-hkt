@@ -1,115 +1,101 @@
-"""Payment workflow (FRD 4.10). Payment status never implies appointment status (BR-07)."""
+"""VietQR + SePay payment workflow (FRD 4.10, docs/sprint3-sepay-plan.md D3-D11).
 
-from collections.abc import Mapping
-from datetime import UTC, datetime
+The patient transfers money with the payment code as the transfer content; SePay reports the
+incoming transaction by webhook, or the poller finds it through the User API. Both paths call
+`apply_transfer`. Payment status never implies appointment status (BR-07).
+"""
 
+from datetime import UTC, datetime, timedelta
+
+import httpx
 import structlog
 from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import (
-    InvalidState,
-    NotFound,
-    PaymentGatewayUnavailable,
-    Unauthorized,
-    ValidationFailed,
-)
+from app.core.errors import InvalidState, NotFound, Unauthorized
 from app.core.metrics import PAYMENTS
-from app.integrations.payment.base import (
-    CheckoutRequest,
-    InvalidCallbackError,
-    PaymentGateway,
-    PaymentGatewayError,
+from app.integrations.erp.base import (
+    ErpAdapter,
+    ErpRejectedError,
+    ErpTimeoutError,
+    ErpUnavailableError,
 )
 from app.models import Appointment, PatientProfile, Payment
-from app.models.enums import ActorType, NotificationType, PaymentStatus
+from app.models.enums import (
+    ActorType,
+    AppointmentStatus,
+    NotificationType,
+    PaymentStatus,
+    StatusSource,
+)
 from app.repositories import appointments as appointment_repo
 from app.repositories import payments as payment_repo
-from app.services import audit, idempotency, notifications, policies
+from app.schemas.payments import SepayWebhookIn
+from app.services import audit, booking, notifications, policies, sepay
+from app.services.sepay import BankTransfer
 
 logger = structlog.get_logger(__name__)
 
+# The expiry job waits this long past the deadline, so a transfer made at the last second
+# still lands before the appointment is released (plan 2a).
+EXPIRY_GRACE = timedelta(seconds=60)
+# The poller looks back at most this far, and only while a payment is PENDING or recently
+# EXPIRED (a late transfer still settles it, D10).
+POLL_LOOKBACK = timedelta(hours=24)
+_SETTLED = (PaymentStatus.PAID, PaymentStatus.REFUNDED)
+
 
 async def initiate_payment(
-    session: AsyncSession,
-    redis: Redis,
-    gateway: PaymentGateway,
-    patient: PatientProfile,
-    appointment_id: int,
-    idempotency_key: str | None,
+    session: AsyncSession, patient: PatientProfile, appointment_id: int
 ) -> Payment:
-    user_id = patient.user_id
-    if idempotency_key:
-        existing = await idempotency.begin(redis, "payment", user_id, idempotency_key)
-        if existing:
-            payment = await payment_repo.get(session, int(existing))
-            if payment is not None:
-                return payment
-    try:
-        payment = await _initiate(session, gateway, patient, appointment_id)
-    except Exception:
-        if idempotency_key:
-            await idempotency.release(redis, "payment", user_id, idempotency_key)
-        raise
-    if idempotency_key:
-        await idempotency.complete(redis, "payment", user_id, idempotency_key, payment.id)
-    return payment
+    """Return the open PENDING attempt, or create one with a new payment code (D3, D7, D11).
 
-
-async def _initiate(
-    session: AsyncSession, gateway: PaymentGateway, patient: PatientProfile, appointment_id: int
-) -> Payment:
+    Errors: NotFound; InvalidState codes PaymentNotRequired, PaymentNotAllowed, AlreadyPaid,
+    PaymentWindowClosed. The returned payment has `appointment` loaded (for the presenter).
+    """
+    # Serialise concurrent clicks so they cannot create two payment codes.
+    await session.execute(
+        select(Appointment.id).where(Appointment.id == appointment_id).with_for_update()
+    )
     appointment = await appointment_repo.get_detail(session, appointment_id)
     if appointment is None or appointment.patient_id != patient.id:
         raise NotFound("Appointment not found.")
     if appointment.fee_amount <= 0:
         raise InvalidState("This appointment has no payable fee.", code="PaymentNotRequired")
-    if not policies.payment_allowed_for_status(appointment.status):
+    if appointment.status != AppointmentStatus.CONFIRMED:
         raise InvalidState(
             "Payment becomes available once the hospital has confirmed the appointment.",
             code="PaymentNotAllowed",
         )
-    if policies.payment_status_of(appointment.payments) in (
-        PaymentStatus.PAID,
-        PaymentStatus.REFUNDED,
-    ):
+    if policies.payment_status_of(appointment.payments) in _SETTLED:
         raise InvalidState("This appointment has already been paid.", code="AlreadyPaid")
+    now = datetime.now(UTC)
+    if appointment.payment_due_at is not None and appointment.payment_due_at < now:
+        raise InvalidState(
+            "The payment deadline for this appointment has passed.", code="PaymentWindowClosed"
+        )
 
-    # FR-PAY-06 retry: older unfinished attempts are superseded by the new one.
     for previous in appointment.payments:
-        if previous.status == PaymentStatus.PENDING:
-            previous.status = PaymentStatus.FAILED
-            previous.failure_reason = "Superseded by a new payment attempt."
+        if previous.status != PaymentStatus.PENDING:
+            continue
+        if previous.expires_at is None or previous.expires_at > now:
+            open_id = previous.id  # rollback expires ORM objects; read the id first
+            await session.rollback()  # release the lock
+            return await _reload(session, open_id)
+        previous.status = PaymentStatus.EXPIRED
 
     payment = Payment(
         appointment_id=appointment.id,
         amount=appointment.fee_amount,
         currency=appointment.currency,
         status=PaymentStatus.PENDING,
-        provider=gateway.name,
+        payment_code=sepay.new_payment_code(),
+        expires_at=appointment.payment_due_at,
     )
     session.add(payment)
     await session.flush()
-
-    try:
-        checkout = await gateway.create_checkout(
-            CheckoutRequest(
-                merchant_payment_id=str(payment.id),
-                amount=payment.amount,
-                currency=payment.currency,
-                description=f"Appointment {appointment.booking_reference}",
-                return_url=f"{settings.public_base_url}/payments/result?payment_id={payment.id}",
-                callback_url=f"{settings.internal_base_url}/api/v1/payments/callback",
-            )
-        )
-    except PaymentGatewayError as exc:
-        await session.rollback()
-        logger.warning("payment_gateway_unavailable", appointment_id=appointment_id)
-        raise PaymentGatewayUnavailable() from exc
-
-    payment.provider_reference = checkout.provider_reference
-    payment.checkout_url = checkout.checkout_url
     audit.record(
         session,
         "payment.initiated",
@@ -120,129 +106,188 @@ async def _initiate(
     )
     await session.commit()
     PAYMENTS.labels(status=PaymentStatus.PENDING).inc()
+    return await _reload(session, payment.id)
+
+
+async def _reload(session: AsyncSession, payment_id: int) -> Payment:
+    payment = await payment_repo.get(session, payment_id)
+    assert payment is not None
     return payment
 
 
-async def handle_callback(
-    session: AsyncSession, gateway: PaymentGateway, body: bytes, headers: Mapping[str, str]
-) -> str:
-    """Validate and apply a gateway callback (FR-PAY-03/04, NFR-11). Idempotent."""
-    try:
-        event = gateway.parse_callback(body, headers)
-    except InvalidCallbackError as exc:
-        logger.warning("payment_callback_rejected", reason=str(exc))
-        raise Unauthorized("Invalid payment callback.", code="InvalidSignature") from exc
-
-    payment = await payment_repo.get_by_provider_reference_for_update(
-        session, event.provider_reference
+async def handle_webhook(
+    session: AsyncSession, payload: SepayWebhookIn, authorization: str | None
+) -> None:
+    """Check `Authorization: Apikey <key>` (Unauthorized code InvalidApiKey), then apply an
+    incoming transfer via apply_transfer. Never raises for unmatched transfers (D5, D10)."""
+    if not sepay.check_api_key(authorization):
+        logger.warning("sepay_webhook_rejected")
+        raise Unauthorized("Invalid SePay API key.", code="InvalidApiKey")
+    if payload.transferType != "in" or payload.transferAmount <= 0:
+        return
+    transfer = BankTransfer(
+        id=str(payload.id),
+        amount_in=payload.transferAmount,
+        transaction_content=payload.content,
+        code=payload.code,
+        transaction_date=sepay.parse_local_time(payload.transactionDate),
     )
-    if payment is None or str(payment.id) != event.merchant_payment_id:
-        raise NotFound("Unknown payment.")
-    if payment.last_event_id == event.event_id:
-        await session.rollback()
-        return "duplicate"
-    if event.amount != payment.amount or event.currency != payment.currency:
-        logger.error("payment_amount_mismatch", payment_id=payment.id)
-        raise ValidationFailed("Payment amount does not match.", code="AmountMismatch")
+    outcome = await apply_transfer(session, transfer)
+    if outcome == "unmatched":
+        logger.warning("payment_unmatched_transfer", transfer_id=transfer.id)
 
-    new_status = PaymentStatus.PAID if event.succeeded else PaymentStatus.FAILED
-    if (
-        payment.status in (PaymentStatus.PAID, PaymentStatus.REFUNDED)
-        and new_status == PaymentStatus.FAILED
+
+async def apply_transfer(session: AsyncSession, t: BankTransfer) -> str:
+    """Settle the payment named in a transfer's content (D10). Idempotent per transfer id.
+
+    Returns: "paid", "amount_mismatch", "duplicate_transfer" (money for an appointment that is
+    already paid; the hospital handles it on SePay), "duplicate" (already handled) or
+    "unmatched" (no known payment code).
+    """
+    payment = await payment_repo.get_by_codes_for_update(
+        session, sepay.extract_codes(t.code, t.transaction_content)
+    )
+    if payment is None:
+        await session.rollback()
+        return "unmatched"
+    if await payment_repo.settled_by(session, t.id) or await payment_repo.transfer_seen(
+        session, payment.id, t.id
     ):
         await session.rollback()
-        return "ignored"
+        return "duplicate"
+
+    appointment = payment.appointment
+    details = {
+        "transfer_id": t.id,
+        "amount": str(t.amount_in),
+        "appointment_id": appointment.id,
+    }
+    already_paid = payment.status in _SETTLED or any(
+        p.status in _SETTLED for p in appointment.payments if p.id != payment.id
+    )
+    if already_paid:
+        logger.warning("payment_duplicate_transfer", payment_id=payment.id, transfer_id=t.id)
+        audit.record(
+            session,
+            "payment.duplicate_transfer",
+            "payment",
+            payment.id,
+            actor_type=ActorType.PAYMENT_GATEWAY,
+            details=details,
+        )
+        await session.commit()
+        return "duplicate_transfer"
+
+    if t.amount_in != payment.amount:
+        payment.failure_reason = (
+            f"Received {t.amount_in:,.0f} {payment.currency}, expected "
+            f"{payment.amount:,.0f} {payment.currency}. Please contact the hospital."
+        )
+        logger.warning("payment_amount_mismatch", payment_id=payment.id, transfer_id=t.id)
+        audit.record(
+            session,
+            "payment.amount_mismatch",
+            "payment",
+            payment.id,
+            actor_type=ActorType.PAYMENT_GATEWAY,
+            details={**details, "expected": str(payment.amount)},
+        )
+        await notifications.notify_patient(
+            session,
+            appointment.patient_id,
+            NotificationType.PAYMENT_RESULT,
+            "Payment amount does not match",
+            f"We received a transfer for appointment {appointment.booking_reference}, "
+            f"but the amount does not match. {payment.failure_reason}",
+            f"/appointments/{appointment.id}",
+        )
+        await session.commit()
+        return "amount_mismatch"
 
     old_status = payment.status
-    payment.last_event_id = event.event_id
-    payment.status = new_status
-    if new_status == PaymentStatus.PAID:
-        payment.paid_at = event.occurred_at
-        payment.failure_reason = None
-        if old_status == PaymentStatus.FAILED:
-            logger.warning("payment_paid_after_supersede", payment_id=payment.id)
-    else:
-        payment.failure_reason = event.failure_reason or "The payment was declined."
-
+    payment.status = PaymentStatus.PAID
+    payment.provider_reference = t.id
+    payment.paid_at = t.transaction_date
+    payment.failure_reason = None
     audit.record(
         session,
         "payment.status_changed",
         "payment",
         payment.id,
         actor_type=ActorType.PAYMENT_GATEWAY,
-        details={"from": old_status, "to": new_status, "provider_event_id": event.event_id},
+        details={**details, "from": old_status, "to": PaymentStatus.PAID},
     )
-    appointment = payment.appointment
-    if new_status == PaymentStatus.PAID:
-        title = "Payment successful"
-        content = f"We received your payment for appointment {appointment.booking_reference}."
-    else:
-        title = "Payment failed"
-        content = (
-            f"Your payment for appointment {appointment.booking_reference} did not go through. "
-            "You can try again from the appointment page."
+    content = f"We received your payment for appointment {appointment.booking_reference}."
+    if appointment.status != AppointmentStatus.CONFIRMED:
+        # Late money for an appointment that was already released (D10).
+        content += (
+            " The appointment is no longer active, so you can request a full refund "
+            "from the appointment page."
         )
     await notifications.notify_patient(  # FR-NOT-03
         session,
         appointment.patient_id,
         NotificationType.PAYMENT_RESULT,
-        title,
+        "Payment received",
         content,
         f"/appointments/{appointment.id}",
     )
     await session.commit()
-    PAYMENTS.labels(status=new_status).inc()
-    return "processed"
+    PAYMENTS.labels(status=PaymentStatus.PAID).inc()
+    return "paid"
 
 
-async def refund_if_paid(
-    session: AsyncSession, gateway: PaymentGateway, appointment: Appointment
-) -> None:
-    """FR-PAY-07 (Could): refund on cancellation if the policy allows (OQ-09)."""
-    if not settings.refund_on_cancellation:
-        return
-    paid = next((p for p in appointment.payments if p.status == PaymentStatus.PAID), None)
-    if paid is None or paid.provider_reference is None:
-        return
+async def sync_transfers(session: AsyncSession) -> bool:
+    """Background job: poll the SePay User API and apply new transfers (D5).
+
+    No-op without `SEPAY_API_TOKEN` or when no payment is waiting for money.
+    """
+    if not settings.sepay_api_token:
+        return True
+    now = datetime.now(UTC)
+    oldest = await payment_repo.pending_or_recent(session, now - POLL_LOOKBACK)
+    await session.rollback()
+    if oldest is None:
+        return True
+    since = max(oldest, now - POLL_LOOKBACK) - timedelta(minutes=1)
     try:
-        refund_reference = await gateway.refund(paid.provider_reference, paid.amount)
-    except PaymentGatewayError:
-        logger.error("refund_failed", payment_id=paid.id)
-        audit.record(
-            session, "payment.refund_failed", "payment", paid.id, actor_type=ActorType.SYSTEM
-        )
-        await notifications.notify_patient(
-            session,
-            appointment.patient_id,
-            NotificationType.PAYMENT_RESULT,
-            "Refund pending",
-            f"We could not refund appointment {appointment.booking_reference} automatically. "
-            "Our team will follow up.",
-            f"/appointments/{appointment.id}",
-        )
-        await session.commit()
-        return
+        transfers = await sepay.fetch_transactions(since)
+    except (httpx.HTTPError, ValueError, KeyError):
+        logger.warning("sepay_poll_failed", exc_info=True)
+        return False
+    for transfer in transfers:
+        await apply_transfer(session, transfer)
+    return True
 
-    paid.status = PaymentStatus.REFUNDED
-    paid.refunded_at = datetime.now(UTC)
-    audit.record(
-        session,
-        "payment.refunded",
-        "payment",
-        paid.id,
-        actor_type=ActorType.PAYMENT_GATEWAY,
-        details={"refund_reference": refund_reference},
-    )
-    await notifications.notify_patient(
-        session,
-        appointment.patient_id,
-        NotificationType.PAYMENT_RESULT,
-        "Refund issued",
-        f"Your payment for appointment {appointment.booking_reference} has been refunded.",
-        f"/appointments/{appointment.id}",
-    )
-    await session.commit()
-    PAYMENTS.labels(status=PaymentStatus.REFUNDED).inc()
+
+async def expire_unpaid(session: AsyncSession, redis: Redis, erp: ErpAdapter) -> bool:
+    """Background job: cancel confirmed appointments unpaid past payment_due_at (D6).
+
+    One appointment per transaction, each row-locked with SKIP LOCKED. If the ERP refuses or
+    is down, that appointment is skipped and retried on the next run.
+    """
+    before = datetime.now(UTC) - EXPIRY_GRACE
+    skipped: list[int] = []
+    while True:
+        appointment = await appointment_repo.next_payment_overdue(session, before, skipped)
+        if appointment is None:
+            await session.rollback()
+            return not skipped
+        try:
+            await booking.cancel(
+                session,
+                redis,
+                erp,
+                appointment,
+                reason="Payment was not received before the deadline.",
+                source=StatusSource.SYSTEM,
+            )
+        except (ErpRejectedError, ErpUnavailableError, ErpTimeoutError):
+            logger.warning("payment_expiry_erp_failed", appointment_id=appointment.id)
+            skipped.append(appointment.id)
+            await session.rollback()
+            continue
+        logger.info("appointment_payment_expired", appointment_id=appointment.id)
 
 
 async def get_for_patient(

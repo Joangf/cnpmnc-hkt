@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { QRCodeSVG } from 'qrcode.react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import type { AppointmentDetail } from '../api/types'
-import { IconArrowLeft } from '../components/icons'
+import { IconArrowLeft, IconClock } from '../components/icons'
+import { RefundPanel } from '../components/RefundPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { Card, ErrorAlert, Field, Notice, Spinner } from '../components/ui'
 import { formatDateTime, formatMoney, humanize } from '../lib/format'
-import { newIdempotencyKey } from '../lib/ids'
 import { reviewSchema } from '../lib/validation'
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -75,8 +76,19 @@ export default function AppointmentDetailPage() {
           {/* FR-CIN-01: reference to present at the hospital */}
           <div className="flex flex-col items-center justify-center gap-2 bg-blush p-6 text-center sm:p-8 md:w-72">
             <p className="eyebrow">Booking reference</p>
+            {a.status === 'CONFIRMED' && (
+              // Check-in QR (encodes the booking reference) for reception to scan.
+              <QRCodeSVG
+                value={a.booking_reference}
+                size={128}
+                marginSize={2}
+                className="rounded-lg bg-white"
+                role="img"
+                aria-label={`Check-in QR code for ${a.booking_reference}`}
+              />
+            )}
             <p className="break-all font-mono text-[1.75rem] font-bold tracking-[0.15em] text-berry">{a.booking_reference}</p>
-            <p className="caption">Show this code at reception. Staff record your check-in when you arrive.</p>
+            <p className="caption">Show this code or QR at reception. Staff record your check-in when you arrive.</p>
           </div>
         </div>
         <dl className="grid divide-y divide-line border-t border-line sm:auto-cols-fr sm:grid-flow-col sm:divide-x sm:divide-y-0">
@@ -97,6 +109,8 @@ export default function AppointmentDetailPage() {
 
       {a.can_pay && <PaymentCard appointment={a} />}
       {a.can_cancel && <CancelCard appointment={a} onDone={refresh} />}
+      {/* Owned by S3-C (components/RefundPanel.tsx): renders nothing unless a refund applies. */}
+      <RefundPanel appointment={a} onDone={() => appointment.refetch()} />
       {a.can_review && <ReviewCard appointmentId={a.id} onDone={() => appointment.refetch()} />}
       {a.has_review && <Notice tone="success">Thank you - you have reviewed this appointment.</Notice>}
 
@@ -107,7 +121,10 @@ export default function AppointmentDetailPage() {
             {a.payments.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                 <span>
-                  {formatDateTime(p.created_at)} · <strong>{formatMoney(p.amount, p.currency)}</strong>
+                  {formatDateTime(p.created_at)} · <strong>{formatMoney(p.amount, p.currency)}</strong> ·{' '}
+                  <Link className="link font-mono" to={`/payments/${p.id}`}>
+                    {p.payment_code}
+                  </Link>
                   {p.failure_reason && <span className="caption block">{p.failure_reason}</span>}
                 </span>
                 <StatusBadge status={p.status} kind="payment" />
@@ -139,11 +156,15 @@ export default function AppointmentDetailPage() {
 }
 
 function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
-  const [key] = useState(newIdempotencyKey)
+  const navigate = useNavigate()
+  // The backend hands back the open PENDING payment if there is one, so "continue" is the same call.
   const pay = useMutation({
-    mutationFn: () => api.appointments.pay(appointment.id, key),
-    onSuccess: (res) => window.location.assign(res.checkout_url),
+    mutationFn: () => api.appointments.pay(appointment.id),
+    onSuccess: (res) => navigate(`/payments/${res.id}`),
   })
+  const inProgress = appointment.payments.some(
+    (p) => p.status === 'PENDING' && (!p.expires_at || new Date(p.expires_at).getTime() > Date.now()),
+  )
   return (
     <Card className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -154,10 +175,14 @@ function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
           </p>
         </div>
         <button className="btn-primary" disabled={pay.isPending} onClick={() => pay.mutate()}>
-          {pay.isPending ? 'Redirecting…' : 'Pay online'}
+          {pay.isPending ? 'Preparing…' : inProgress ? 'Continue payment' : 'Pay by bank transfer'}
         </button>
       </div>
-      {appointment.payment_status === 'FAILED' && <p className="field-error">Your last payment attempt failed. You can try again.</p>}
+      {appointment.payment_due_at && (
+        <p className="flex items-center gap-2 font-semibold text-notice-strong">
+          <IconClock size={18} /> Pay before {formatDateTime(appointment.payment_due_at)} to keep your appointment.
+        </p>
+      )}
       <ErrorAlert error={pay.error} />
     </Card>
   )
@@ -178,7 +203,9 @@ function CancelCard({ appointment, onDone }: { appointment: AppointmentDetail; o
   return (
     <Card className="space-y-5">
       <h2 className="section-title">Cancel this appointment?</h2>
-      {appointment.payment_status === 'PAID' && <p>Your payment will be refunded according to the cancellation policy.</p>}
+      {appointment.payment_status === 'PAID' && (
+        <p>Cancelling does not refund your payment automatically. After cancelling you can send a refund request.</p>
+      )}
       <Field label="Why are you cancelling?">
         <textarea className="input" rows={2} maxLength={500} placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />
       </Field>

@@ -15,6 +15,7 @@ import httpx
 BASE = os.getenv("SMOKE_BASE_URL", "http://localhost:8080")
 API = f"{BASE}/api/v1"
 ERP = os.getenv("SMOKE_ERP_URL", "http://localhost:8100")
+SEPAY_KEY = os.getenv("SEPAY_WEBHOOK_API_KEY", "dev-sepay-key")
 failures: list[str] = []
 
 
@@ -36,16 +37,43 @@ def login(c: httpx.Client, email: str, password: str) -> str:
     return token
 
 
-def find_slot(c: httpx.Client, doctor_id: int, offset_start: int = 2) -> tuple[int, str, str]:
+def fake_transfer(code: str, amount: object, key: str = SEPAY_KEY, tid: int | None = None) -> httpx.Response:
+    """Fake SePay "money in" webhook, as scripts/sepay_fake_transfer.py sends it."""
+    body = {
+        "id": tid or time.time_ns() // 1000,
+        "gateway": "OCB",
+        "transactionDate": (datetime.now(UTC) + timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S"),
+        "accountNumber": "SEPNK33418",
+        "code": None,
+        "content": f"{code} smoke",
+        "transferType": "in",
+        "transferAmount": int(float(str(amount))),
+        "referenceCode": "SMOKE",
+    }
+    headers = {"Authorization": f"Apikey {key}"} if key else {}
+    return httpx.post(f"{API}/payments/sepay-webhook", json=body, headers=headers)
+
+
+def find_slot(
+    c: httpx.Client, doctor_id: int, offset_start: int = 2
+) -> tuple[int, str, str, dict]:
+    """(type id, start, day, extra booking fields). Admin-managed slots (all doctors since
+    0009_manual_only_scheduling) must be booked with their slot_id and current version."""
     types = c.get(f"/doctors/{doctor_id}/appointment-types").json()
+    # A paid type, so the payment flow can run (falls back to the first type).
+    type_id = next((t["id"] for t in types if float(t["fee"]) > 0), types[0]["id"])
     for offset in range(offset_start, 14):
         day = (datetime.now(UTC) + timedelta(hours=7, days=offset)).date().isoformat()
-        r = c.get(
-            f"/doctors/{doctor_id}/availability", params={"date": day, "appointment_type_id": types[0]["id"]}
-        )
+        r = c.get(f"/doctors/{doctor_id}/availability", params={"date": day, "appointment_type_id": type_id})
         slots = r.json()["slots"]
         if slots:
-            return types[0]["id"], slots[len(slots) // 2]["start_time"], day
+            slot = slots[len(slots) // 2]
+            extra = (
+                {"slot_id": slot["slot_id"], "slot_version": slot["version"]}
+                if slot.get("slot_id")
+                else {}
+            )
+            return type_id, slot["start_time"], day, extra
     raise RuntimeError("no slot")
 
 
@@ -163,20 +191,22 @@ check("profile null name -> 422", reg.patch("/profile", json={"full_name": None}
 patient = client()
 login(patient, "patient@example.com", "Patient12345!")
 doctor_id = doctors[0]["id"]
-type_id, start, day = find_slot(patient, doctor_id)
+type_id, start, day, slot_fields = find_slot(patient, doctor_id)
 key = uuid.uuid4().hex
 body = {
     "doctor_id": doctor_id,
     "appointment_type_id": type_id,
     "start_time": start,
     "reason_for_visit": "Smoke test",
+    **slot_fields,
 }
 r = patient.post("/appointments", json=body, headers={"Idempotency-Key": key})
 check("create appointment -> 201", r.status_code == 201, r.text[:300])
 appt = r.json()
-check("appointment confirmed by ERP", appt["status"] == "CONFIRMED", appt.get("status"))
+check("appointment confirmed", appt["status"] == "CONFIRMED", appt.get("status"))
 check("booking reference format", re.fullmatch(r"HK[A-Z2-9]{8}", appt["booking_reference"]) is not None)
 check("statuses separate", appt["payment_status"] == "UNPAID" and appt["check_in_status"] == "NOT_CHECKED_IN")
+check("payment deadline set on confirmation", appt["payment_due_at"] is not None, appt.get("payment_due_at"))
 r = patient.post("/appointments", json=body, headers={"Idempotency-Key": key})
 check(
     "idempotent retry returns same appointment",
@@ -209,22 +239,25 @@ check(
     appt["history"],
 )
 
-# --- Payment -------------------------------------------------------------------------------
+# --- Payment (VietQR + SePay webhook) -------------------------------------------------------
 r = patient.post(f"/appointments/{appt['id']}/payments")
 check("initiate payment -> 201", r.status_code == 201, r.text[:300])
 pay = r.json()
-check("checkout url via nginx", pay["checkout_url"].startswith(f"{BASE}/mock-payment/checkout/"), pay)
-page = httpx.get(pay["checkout_url"])
-check("checkout page renders", page.status_code == 200 and "SANDBOX" in page.text)
-ref = pay["checkout_url"].rsplit("/", 1)[1]
-r = httpx.post(f"{pay['checkout_url'].rsplit('/', 1)[0]}/{ref}/complete", data={"outcome": "success"})
-check(
-    "checkout completes -> 303 to return url",
-    r.status_code == 303 and f"payment_id={pay['payment_id']}" in r.headers["location"],
-    r.headers,
-)
-r = patient.get(f"/payments/{pay['payment_id']}")
-check("payment PAID after callback", r.json()["status"] == "PAID", r.text[:200])
+check("payment code format", re.fullmatch(r"CB[A-Z0-9]{8}", pay["payment_code"]) is not None, pay)
+check("QR image carries code + amount", pay["payment_code"] in pay["qr_image_url"] and "amount=" in pay["qr_image_url"], pay)
+check("QR expires at payment deadline", pay["expires_at"] == appt["payment_due_at"], pay)
+r = patient.post(f"/appointments/{appt['id']}/payments")
+check("initiate again reuses PENDING", r.status_code == 201 and r.json()["id"] == pay["id"], r.text[:200])
+r = fake_transfer(pay["payment_code"], 1)
+check("webhook wrong amount -> 200", r.status_code == 200 and r.json() == {"success": True}, r.text[:200])
+r = patient.get(f"/payments/{pay['id']}").json()
+check("wrong amount stays PENDING with reason", r["status"] == "PENDING" and r["failure_reason"], r)
+check("webhook bad key -> 401", fake_transfer(pay["payment_code"], pay["amount"], key="wrong").status_code == 401)
+tid = time.time_ns() // 1000
+check("webhook right amount -> 200", fake_transfer(pay["payment_code"], pay["amount"], tid=tid).status_code == 200)
+check("webhook replay -> 200", fake_transfer(pay["payment_code"], pay["amount"], tid=tid).status_code == 200)
+r = patient.get(f"/payments/{pay['id']}")
+check("payment PAID after webhook", r.json()["status"] == "PAID" and r.json()["provider_reference"] == str(tid), r.text[:300])
 check(
     "appointment still CONFIRMED (BR-07)",
     patient.get(f"/appointments/{appt['id']}").json()["status"] == "CONFIRMED",
@@ -258,18 +291,23 @@ doc = guest.get(f"/doctors/{doctor_id}").json()
 check("doctor rating updated", doc["rating_count"] >= 1 and float(doc["rating_avg"]) > 0, doc)
 check("public review listed", guest.get(f"/doctors/{doctor_id}/reviews").json()["total"] >= 1)
 
-# --- Cancel with refund ----------------------------------------------------------------------
-type_id2, start2, _ = find_slot(patient, doctors[1]["id"], offset_start=3)
+# --- Cancel a paid appointment (no automatic refund, D13) -------------------------------------
+type_id2, start2, _, slot_fields2 = find_slot(patient, doctors[1]["id"], offset_start=3)
 appt2 = patient.post(
     "/appointments",
-    json={"doctor_id": doctors[1]["id"], "appointment_type_id": type_id2, "start_time": start2},
+    json={
+        "doctor_id": doctors[1]["id"],
+        "appointment_type_id": type_id2,
+        "start_time": start2,
+        **slot_fields2,
+    },
 ).json()
 pay2 = patient.post(f"/appointments/{appt2['id']}/payments").json()
-ref2 = pay2["checkout_url"].rsplit("/", 1)[1]
-httpx.post(f"{BASE}/mock-payment/api/checkouts/{ref2}/simulate", json={"outcome": "success"})
+fake_transfer(pay2["payment_code"], pay2["amount"])
 r = patient.post(f"/appointments/{appt2['id']}/cancel", json={"reason": "Smoke test"})
 check("cancel -> CANCELLED", r.status_code == 200 and r.json()["status"] == "CANCELLED", r.text[:300])
-check("paid appointment refunded", r.json()["payment_status"] == "REFUNDED", r.json().get("payment_status"))
+check("cancel keeps payment PAID", r.json()["payment_status"] == "PAID", r.json().get("payment_status"))
+check("cancelled paid appointment can request refund", r.json()["can_request_refund"] is True, r.text[:300])
 day2 = (datetime.fromisoformat(start2) + timedelta(hours=7)).date().isoformat()
 avail2 = guest.get(
     f"/doctors/{doctors[1]['id']}/availability", params={"date": day2, "appointment_type_id": type_id2}
@@ -277,24 +315,77 @@ avail2 = guest.get(
 check("cancelled slot offered again", start2 in [s["start_time"] for s in avail2["slots"]])
 check("cancel again -> 409", patient.post(f"/appointments/{appt2['id']}/cancel", json={}).status_code == 409)
 
-# --- Failed payment then retry ---------------------------------------------------------------
-type_id3, start3, _ = find_slot(patient, doctors[2]["id"], offset_start=4)
+# --- Cancel with a pending payment -----------------------------------------------------------
+type_id3, start3, _, slot_fields3 = find_slot(patient, doctors[2]["id"], offset_start=4)
 appt3 = patient.post(
     "/appointments",
-    json={"doctor_id": doctors[2]["id"], "appointment_type_id": type_id3, "start_time": start3},
+    json={
+        "doctor_id": doctors[2]["id"],
+        "appointment_type_id": type_id3,
+        "start_time": start3,
+        **slot_fields3,
+    },
 ).json()
 p3 = patient.post(f"/appointments/{appt3['id']}/payments").json()
-httpx.post(
-    f"{BASE}/mock-payment/api/checkouts/{p3['checkout_url'].rsplit('/', 1)[1]}/simulate",
-    json={"outcome": "fail"},
-)
+check("pending payment created", p3.get("status") == "PENDING", p3)
+r = patient.post(f"/appointments/{appt3['id']}/cancel", json={"reason": "Smoke test"})
+check("cancel with pending payment -> CANCELLED", r.status_code == 200 and r.json()["status"] == "CANCELLED", r.text[:300])
+r = patient.get(f"/payments/{p3['id']}").json()
+check("pending payment EXPIRED on cancel", r["status"] == "EXPIRED", r)
+check("late transfer still settles (D10)", fake_transfer(p3["payment_code"], p3["amount"]).status_code == 200)
 d3 = patient.get(f"/appointments/{appt3['id']}").json()
+check("late money -> PAID + refundable", d3["payment_status"] == "PAID" and d3["can_request_refund"], d3["payment_status"])
+
+# --- Refund: patient request, admin reject / complete (SCRUM-31/32, D12-D14) ---------------
+refunder = client()
+login(refunder, "admin@example.com", "Admin12345!")
+account = {"bank_bin": "970448", "bank_name": "OCB", "account_number": "0123456789", "account_name": "smoke patient"}
+refund_url2 = f"/payments/{pay2['id']}/refund-request"
+check("refund request bad BIN -> 422", patient.post(refund_url2, json={**account, "bank_bin": "OCB"}).status_code == 422)
+r = patient.post(refund_url2, json={**account, "reason": "Smoke test"})
 check(
-    "failed payment -> FAILED and can retry",
-    d3["payment_status"] == "FAILED" and d3["can_pay"],
-    d3["payment_status"],
+    "refund requested",
+    r.status_code == 200 and r.json()["refund_status"] == "REQUESTED" and r.json()["refund_account_name"] == "SMOKE PATIENT",
+    r.text[:300],
 )
-check("retry payment -> 201", patient.post(f"/appointments/{appt3['id']}/payments").status_code == 201)
+ref2 = r.json().get("refund_reference") or ""
+check("refund reference RF + 8", re.fullmatch(r"RF[A-Z0-9]{8}", ref2) is not None, ref2)
+r = patient.post(refund_url2, json=account)
+check("refund request again -> 409", r.status_code == 409 and r.json()["error"]["code"] == "RefundAlreadyRequested", r.text[:200])
+check("requested refund hides the form", patient.get(f"/appointments/{appt2['id']}").json()["can_request_refund"] is False)
+check("patient cannot list refunds -> 403", patient.get("/admin/refunds").status_code == 403)
+items = refunder.get("/admin/refunds", params={"refund_status": "REQUESTED", "page_size": 100}).json()["items"]
+row = next((i for i in items if i["id"] == pay2["id"]), None)
+check(
+    "admin sees request with refund QR",
+    row is not None
+    and row["refund_qr_image_url"].startswith("https://img.vietqr.io/image/970448-0123456789-compact2.png?")
+    and ref2 in row["refund_qr_image_url"],
+    row,
+)
+reject_url2 = f"/admin/refunds/{pay2['id']}/reject"
+check("reject without reason -> 422", refunder.post(reject_url2, json={"reason": "x"}).status_code == 422)
+r = refunder.post(reject_url2, json={"reason": "Smoke: account name does not match"})
+check("admin rejects refund", r.status_code == 200 and r.json()["refund_status"] == "REJECTED", r.text[:300])
+check("rejected refund can be sent again", patient.get(f"/appointments/{appt2['id']}").json()["can_request_refund"] is True)
+r = patient.post(refund_url2, json=account)
+check(
+    "refund resubmitted with a new reference",
+    r.status_code == 200 and r.json()["refund_status"] == "REQUESTED" and r.json()["refund_reference"] != ref2,
+    r.text[:300],
+)
+complete_url2 = f"/admin/refunds/{pay2['id']}/complete"
+r = refunder.post(complete_url2, json={"note": "SMOKE-FT"})
+check(
+    "admin completes refund -> REFUNDED",
+    r.status_code == 200 and r.json()["refund_status"] == "COMPLETED" and r.json()["status"] == "REFUNDED",
+    r.text[:300],
+)
+check("complete again -> 409", refunder.post(complete_url2, json={}).status_code == 409)
+d2 = patient.get(f"/appointments/{appt2['id']}").json()
+check("appointment payment REFUNDED", d2["payment_status"] == "REFUNDED" and not d2["can_request_refund"], d2["payment_status"])
+r = patient.post(f"/payments/{p3['id']}/refund-request", json=account)
+check("late-money payment refundable", r.status_code == 200 and r.json()["refund_status"] == "REQUESTED", r.text[:300])
 
 # --- Notifications ---------------------------------------------------------------------------
 n = patient.get("/notifications").json()
@@ -314,10 +405,12 @@ r = httpx.post(
     headers={"x-erp-timestamp": str(int(time.time())), "x-erp-signature": "bad"},
 )
 check("unsigned ERP webhook -> 401", r.status_code == 401, r.text[:200])
-r = httpx.post(
-    f"{API}/payments/callback", content=b"{}", headers={"x-mock-timestamp": "1", "x-mock-signature": "bad"}
+r = fake_transfer("CB00000000", 1, key="")
+check(
+    "SePay webhook without key -> 401",
+    r.status_code == 401 and r.json()["error"]["code"] == "InvalidApiKey",
+    r.text[:200],
 )
-check("unsigned payment callback -> 401", r.status_code == 401, r.text[:200])
 
 # --- Admin -----------------------------------------------------------------------------------
 check("patient cannot access admin -> 403", patient.get("/admin/users").status_code == 403)

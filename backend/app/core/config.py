@@ -52,14 +52,18 @@ class Settings(BaseSettings):
     reconcile_interval_seconds: int = 60
     run_background_jobs: bool = True
 
-    # Payment gateway (FRD 4.10, OQ-03/05/09)
-    payment_base_url: str = "http://mock-payment:8200"
-    payment_webhook_secret: str = "payment-webhook-secret"
-    payment_timeout_seconds: float = 5.0
-    payment_requires_confirmation: bool = True
-    refund_on_cancellation: bool = True
-    public_base_url: str = "http://localhost:8080"
-    internal_base_url: str = "http://backend:8000"
+    # Payments: VietQR bank transfer to a SePay-monitored account (FRD 4.10, OQ-03/05/09).
+    # Account values come from the environment (docker-compose / .env), never from code.
+    sepay_account: str = ""  # receiving account / VA number shown on the QR
+    sepay_bank: str = ""  # bank short name accepted by vietqr.app, e.g. "OCB"
+    sepay_account_name: str = ""
+    sepay_webhook_api_key: str = ""  # SePay webhook "API Key" auth; empty rejects every call
+    sepay_api_token: str = ""  # SePay User API token; empty disables transaction polling
+    sepay_api_base: str = "https://my.sepay.vn/userapi"
+    sepay_poll_seconds: int = 15
+    sepay_timeout_seconds: float = 10.0
+    payment_code_prefix: str = "CB"
+    payment_hold_minutes: int = 15  # unpaid confirmed appointments are released after this
     currency: str = "VND"
 
     webhook_tolerance_seconds: int = 300

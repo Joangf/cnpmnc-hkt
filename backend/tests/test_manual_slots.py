@@ -12,11 +12,8 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from app.api.deps import get_payment_gateway
 from app.core.errors import Conflict, SlotTaken
 from app.integrations.erp.base import ErpAdapter
-from app.integrations.payment.base import PaymentGateway
-from app.main import app
 from app.models import (
     Appointment,
     AppointmentType,
@@ -61,7 +58,6 @@ async def manual(context, sessions):
               "buffer_minutes": 10, "capacity": 5}, headers=ids.headers(),
     )
     assert response.status_code == 201, response.text
-    app.dependency_overrides[get_payment_gateway] = lambda: AsyncMock(spec=PaymentGateway)
     try:
         yield ids, client, redis, response.json()
     finally:
@@ -463,7 +459,9 @@ async def test_manual_idempotent_retry_returns_same_confirmed_booking(manual, se
     assert await book(sessions, ids, slot, redis=redis, key="manual-retry") == first
 
 
-async def test_manual_paid_cancellation_refunds_without_calling_erp(manual, sessions):
+async def test_manual_paid_cancellation_keeps_payment_without_calling_erp(manual, sessions):
+    """Sprint 3 D13: cancelling never refunds automatically; the paid payment stays PAID and
+    the patient requests a refund separately."""
     ids, client, redis, slot = manual
     amount = Decimal("100000")
     async with sessions() as session:
@@ -476,21 +474,19 @@ async def test_manual_paid_cancellation_refunds_without_calling_erp(manual, sess
         appointment = await session.get(Appointment, appointment_id)
         assert appointment.fee_amount == amount
         payment = Payment(appointment_id=appointment_id, amount=amount, currency="VND",
-                          status=PaymentStatus.PAID, provider="test",
+                          status=PaymentStatus.PAID, payment_code=f"CB{uuid.uuid4().hex[:8]}",
                           provider_reference=reference, paid_at=datetime.now(UTC))
         session.add(payment)
         await session.commit()
         payment_id = payment.id
-    gateway, erp = AsyncMock(spec=PaymentGateway), AsyncMock(spec=ErpAdapter)
-    gateway.refund.return_value = "test-refund"
+    erp = AsyncMock(spec=ErpAdapter)
     async with sessions() as session:
         patient = await session.get(PatientProfile, ids.patient)
-        await booking.cancel_appointment(session, redis, erp, gateway, patient,
+        await booking.cancel_appointment(session, redis, erp, patient,
                                          appointment_id, "Test cancellation")
-    gateway.refund.assert_awaited_once_with(reference, amount)
     erp.cancel_booking.assert_not_called()
     async with sessions() as session:
-        assert (await session.get(Payment, payment_id)).status == PaymentStatus.REFUNDED
+        assert (await session.get(Payment, payment_id)).status == PaymentStatus.PAID
         appointment = await session.get(Appointment, appointment_id)
         assert appointment.status == AppointmentStatus.CANCELLED
     assert (await current_offers(client, ids))[0]["remaining_places"] == 5
@@ -503,8 +499,6 @@ async def test_checked_in_manual_booking_cannot_be_cancelled_or_refunded(manual,
         appointment = await session.get(Appointment, appointment_id)
         appointment.check_in_status = CheckInStatus.CHECKED_IN
         await session.commit()
-    gateway = AsyncMock(spec=PaymentGateway)
-    app.dependency_overrides[get_payment_gateway] = lambda: gateway
     detail = await client.get(f"/api/v1/appointments/{appointment_id}",
                               headers=ids.headers("PATIENT"))
     assert detail.status_code == 200
@@ -513,7 +507,6 @@ async def test_checked_in_manual_booking_cannot_be_cancelled_or_refunded(manual,
                                  json={}, headers=ids.headers("PATIENT"))
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "AlreadyCheckedIn"
-    gateway.refund.assert_not_called()
     async with sessions() as session:
         appointment = await session.get(Appointment, appointment_id)
         assert appointment.status == AppointmentStatus.CONFIRMED

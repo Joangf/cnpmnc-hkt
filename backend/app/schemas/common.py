@@ -44,7 +44,7 @@ _ERROR_DESCRIPTIONS: dict[int, str] = {
     409: "Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...)",
     422: "Validation failed (ValidationFailed)",
     429: "Too many requests (TooManyRequests)",
-    503: "Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed)",
+    503: "Integration unavailable (ErpUnavailable, EmailDeliveryFailed)",
 }
 
 

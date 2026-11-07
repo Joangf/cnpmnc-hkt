@@ -27,9 +27,3 @@ services:
   mock-erp:
     ports:
       - "8100:8100"
-
-  mock-payment:
-    ports:
-      - "8200:8200"
-
-

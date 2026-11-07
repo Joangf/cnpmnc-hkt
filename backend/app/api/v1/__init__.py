@@ -11,6 +11,7 @@ from app.api.v1 import (
     notifications,
     payments,
     profile,
+    refunds,
     reviews,
     symptoms,
 )
@@ -24,6 +25,7 @@ for module in (
     symptoms,
     appointments,
     payments,
+    refunds,
     reviews,
     notifications,
     integrations,

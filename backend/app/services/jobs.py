@@ -1,4 +1,4 @@
-"""In-process periodic jobs (schedule sync, pending reconciliation).
+"""In-process periodic jobs (schedule sync, pending reconciliation, payments).
 
 A Redis lock ensures only one backend replica runs each job per interval.
 """
@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.db import SessionLocal
 from app.core.redis import redis_client
-from app.services import erp_sync
+from app.integrations.erp.base import ErpAdapter
+from app.services import erp_sync, payments
 
 logger = structlog.get_logger(__name__)
 
@@ -41,6 +42,14 @@ async def _run_periodic(name: str, interval: int, job: Job) -> None:
         await asyncio.sleep(delay)
 
 
+async def _payments_job(session: AsyncSession, erp: ErpAdapter) -> bool:
+    """Look for money first, then release unpaid appointments, so a transfer that arrived
+    just before the deadline settles instead of losing the slot (plan 2a)."""
+    synced = await payments.sync_transfers(session)
+    expired = await payments.expire_unpaid(session, redis_client, erp)
+    return synced and expired
+
+
 def start_background_jobs(app: FastAPI) -> list[asyncio.Task[None]]:
     erp = app.state.erp
     return [
@@ -57,5 +66,8 @@ def start_background_jobs(app: FastAPI) -> list[asyncio.Task[None]]:
                 settings.reconcile_interval_seconds,
                 lambda s: erp_sync.reconcile_pending(s, erp),
             )
+        ),
+        asyncio.create_task(
+            _run_periodic("payments", settings.sepay_poll_seconds, lambda s: _payments_job(s, erp))
         ),
     ]

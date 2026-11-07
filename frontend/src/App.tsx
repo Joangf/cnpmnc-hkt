@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminDirectoryPage from './pages/admin/AdminDirectoryPage'
+import AdminRefundsPage from './pages/admin/AdminRefundsPage'
 import AdminReviewsPage from './pages/admin/AdminReviewsPage'
 import AdminSchedulesPage from './pages/admin/AdminSchedulesPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
@@ -19,7 +20,7 @@ import HospitalsPage from './pages/HospitalsPage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 import NotificationsPage from './pages/NotificationsPage'
-import PaymentResultPage from './pages/PaymentResultPage'
+import PaymentPage from './pages/PaymentPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
 import SymptomCheckerPage from './pages/SymptomCheckerPage'
@@ -46,7 +47,7 @@ export default function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
-          <Route path="payments/result" element={<PaymentResultPage />} />
+          <Route path="payments/:paymentId" element={<PaymentPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="schedules" element={<AdminSchedulesPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
+          <Route path="refunds" element={<AdminRefundsPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

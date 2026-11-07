@@ -23,24 +23,24 @@ Seeded accounts: `admin@example.com` / `Admin12345!` and `patient@example.com` /
 ## Try the main flow
 
 1. Sign in as the demo patient, open **Doctors**, pick a doctor, then choose a type, a date and a time.
-2. Reserve an open admin-managed slot. CareBook confirms it immediately and shows the booking reference with separate appointment, payment and check-in statuses.
-3. Click **Pay online**, then **Pay now** on the sandbox page. You land back on the result page.
-4. Open the demo patient’s seeded completed appointment to try the review flow. Manual check-in/completion controls are outside this version.
+2. Reserve an open admin-managed slot. CareBook confirms it immediately and shows the booking reference (with a check-in QR code) and separate appointment, payment and check-in statuses.
+3. Click **Pay by bank transfer** (the fee is the consultation fee set in Admin -> Directory -> Appointment types). The payment page shows a VietQR code and the transfer content (payment code, `CB` + 8 characters). Without a real transfer, simulate the bank notification with `python scripts/sepay_fake_transfer.py <payment_code> <amount>`; the page turns to **Paid** within a few seconds. An unpaid confirmed booking is released `PAYMENT_HOLD_MINUTES` (15) after confirmation.
+4. Open the demo patient's seeded completed appointment to try the review flow. Manual check-in/completion controls are outside this version.
 
 ## Layout
 
 ```
 backend/            FastAPI app: api/ (routers) -> services/ (logic) -> repositories/ (DB)
-                    integrations/ (ERP + payment adapters), core/ (config, logging, metrics),
+                    integrations/ (ERP adapters), core/ (config, logging, metrics),
                     alembic/ (migrations), tests/
 frontend/           React + TS + Vite SPA, served by nginx, which also proxies /api
                     src/ (pages, components, api client), e2e/ (Playwright)
 mock-erp/           Simulated hospital ERP/HIS (schedules, bookings, signed status webhooks)
-mock-payment/       Sandbox payment gateway (checkout page, signed callbacks, refunds)
 k6/                 Load scenarios (browse, symptoms, booking, contention, admin, mixed)
 monitoring/         Prometheus, Loki, Alloy, Grafana provisioning + dashboards
 postgres/init/      SQL run on first start (creates the healthcare_test database)
-scripts/            api_smoke.py, the API smoke test behind `make smoke`
+scripts/            api_smoke.py (the API smoke test behind `make smoke`),
+                    sepay_fake_transfer.py (fake SePay "money in" webhook)
 openapi.json        OpenAPI snapshot from `make openapi`; source for `make gen-client`
 .claude/plans/      business.md (FRD), implement.md (implementation plan) and
                     integration-status.md (what is real and what is simulated)

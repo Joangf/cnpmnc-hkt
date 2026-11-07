@@ -1,11 +1,14 @@
-// Patient: login -> availability -> book -> pay (mock) -> view -> sometimes cancel.
+// Patient: login -> availability -> book -> pay (fake SePay webhook) -> view -> sometimes cancel.
 // Requires load-test users: `make seed-loadtest`.
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { API, BASE_URL, JSON_HEADERS } from '../lib/config.js';
+import { API, JSON_HEADERS } from '../lib/config.js';
 import { authParams, tokenForVu } from '../lib/auth.js';
 import { expectStatus, pick, randomBetween, tagged } from '../lib/checks.js';
 import { clinicDate, loadSeedData } from '../lib/data.js';
+
+const SEPAY_KEY = __ENV.SEPAY_WEBHOOK_API_KEY || 'dev-sepay-key';
+let transferSeq = 0;
 
 // 409 (slot taken) is an expected business outcome, not a failed request.
 http.setResponseCallback(http.expectedStatuses({ min: 200, max: 299 }, 409));
@@ -61,13 +64,28 @@ export function patientBooking(data) {
     const init = http.post(`${API}/appointments/${appointment.id}/payments`, null, p('POST /appointments/{id}/payments'));
     expectStatus(init, 201, 'initiate payment');
     if (init.status === 201) {
-      const ref = init.json('checkout_url').split('/').pop();
-      const outcome = Math.random() < 0.9 ? 'success' : 'fail';
-      http.post(`${BASE_URL}/mock-payment/api/checkouts/${ref}/simulate`, JSON.stringify({ outcome }), {
-        headers: JSON_HEADERS,
-        tags: { name: 'mock checkout simulate', flow: 'gateway' },
-      });
-      expectStatus(http.get(`${API}/payments/${init.json('payment_id')}`, p('GET /payments/{id}')), 200, 'payment result');
+      const payment = init.json();
+      // 90% of patients transfer the money: SePay reports it through the webhook.
+      if (Math.random() < 0.9) {
+        transferSeq += 1;
+        const webhook = http.post(
+          `${API}/payments/sepay-webhook`,
+          JSON.stringify({
+            id: Date.now() * 1000 + __VU * 10 + (transferSeq % 10),
+            gateway: 'OCB',
+            transactionDate: new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' '),
+            accountNumber: 'SEPNK33418',
+            code: null,
+            content: `${payment.payment_code} k6`,
+            transferType: 'in',
+            transferAmount: Math.round(Number(payment.amount)),
+            referenceCode: 'K6',
+          }),
+          { headers: { ...JSON_HEADERS, Authorization: `Apikey ${SEPAY_KEY}` }, tags: { name: 'POST /payments/sepay-webhook', flow: 'gateway' } },
+        );
+        expectStatus(webhook, 200, 'sepay webhook');
+      }
+      expectStatus(http.get(`${API}/payments/${payment.id}`, p('GET /payments/{id}')), 200, 'payment result');
     }
   }
 

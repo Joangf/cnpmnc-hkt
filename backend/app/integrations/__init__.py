@@ -1,11 +1,10 @@
 """External integration adapters, kept separate from business logic (FRD recommendation 6).
 
-Swap implementations here when a real ERP/HIS or payment gateway becomes available.
+Swap implementations here when a real ERP/HIS becomes available. Payments: services/sepay.py.
 """
 
 from app.core.config import settings
 from app.integrations.erp.base import ErpAdapter
-from app.integrations.payment.base import PaymentGateway
 
 
 def build_erp_adapter() -> ErpAdapter:
@@ -16,11 +15,3 @@ def build_erp_adapter() -> ErpAdapter:
     from app.integrations.erp.http import HttpErpAdapter
 
     return HttpErpAdapter(settings.erp_base_url, settings.erp_timeout_seconds)
-
-
-def build_payment_gateway() -> PaymentGateway:
-    from app.integrations.payment.mock import MockPaymentGateway
-
-    return MockPaymentGateway(
-        settings.payment_base_url, settings.payment_webhook_secret, settings.payment_timeout_seconds
-    )
