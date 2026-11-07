@@ -68,8 +68,6 @@ def start_background_jobs(app: FastAPI) -> list[asyncio.Task[None]]:
             )
         ),
         asyncio.create_task(
-            _run_periodic(
-                "payments", settings.sepay_poll_seconds, lambda s: _payments_job(s, erp)
-            )
+            _run_periodic("payments", settings.sepay_poll_seconds, lambda s: _payments_job(s, erp))
         ),
     ]

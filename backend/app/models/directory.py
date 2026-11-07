@@ -48,7 +48,7 @@ class Department(TimestampMixin, Base):
     specialty_id: Mapped[int] = mapped_column(ForeignKey("specialties.id"), index=True)
     name: Mapped[str] = mapped_column(String(150))
     description: Mapped[str | None] = mapped_column(Text)
-    # Public location shown on the website, e.g. "Tầng 3, Tòa A".
+    # Public location shown on the website, e.g. "Floor 3, Building A".
     location: Mapped[str | None] = mapped_column(String(100))
     visibility: Mapped[DepartmentVisibility] = mapped_column(
         enum_column(DepartmentVisibility), default=DepartmentVisibility.PUBLIC
@@ -85,7 +85,7 @@ class Doctor(TimestampMixin, Base):
     # Total bookings per ERP work window, shared across all appointment types.
     max_appointments_per_window: Mapped[int] = mapped_column(default=1, server_default="1")
     scheduling_mode: Mapped[SchedulingMode] = mapped_column(
-        enum_column(SchedulingMode), default=SchedulingMode.ERP, server_default="ERP"
+        enum_column(SchedulingMode), default=SchedulingMode.MANUAL, server_default="MANUAL"
     )
     # Denormalised from published reviews (see services/reviews.recompute_doctor_rating).
     rating_avg: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("0"))

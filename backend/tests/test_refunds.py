@@ -79,7 +79,9 @@ class Seed:
 def migrated():
     subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND_DIR, env={**os.environ, "DATABASE_URL": TEST_DATABASE_URL}, check=True,
+        cwd=BACKEND_DIR,
+        env={**os.environ, "DATABASE_URL": TEST_DATABASE_URL},
+        check=True,
     )
 
 
@@ -92,8 +94,10 @@ async def sessions(migrated):
 
 def _user(role: UserRole, suffix: str, name: str) -> User:
     user = User(
-        email=f"{name}-{suffix}@example.com", password_hash="unused",
-        role=role, account_status=AccountStatus.ACTIVE,
+        email=f"{name}-{suffix}@example.com",
+        password_hash="unused",
+        role=role,
+        account_status=AccountStatus.ACTIVE,
     )
     if role == UserRole.PATIENT:
         user.profile = PatientProfile(full_name=f"Refund {name}")
@@ -109,12 +113,10 @@ async def seed(session: AsyncSession) -> Seed:
     hospital = Hospital(name="Refund hospital", address="1 Test St", city="Test city")
     session.add_all([patient, other, admin, specialty, hospital])
     await session.flush()
-    department = Department(name="Refund dept", hospital_id=hospital.id,
-                            specialty_id=specialty.id)
+    department = Department(name="Refund dept", hospital_id=hospital.id, specialty_id=specialty.id)
     session.add(department)
     await session.flush()
-    doctor = Doctor(full_name="Refund doctor", hospital_id=hospital.id,
-                    department_id=department.id)
+    doctor = Doctor(full_name="Refund doctor", hospital_id=hospital.id, department_id=department.id)
     type_ = AppointmentType(name=f"Paid-{suffix}", duration_minutes=20, buffer_minutes=10)
     session.add_all([doctor, type_])
     await session.commit()
@@ -153,17 +155,25 @@ async def make_payment(
     async with sessions() as session:
         appointment = Appointment(
             booking_reference=f"RT{uuid.uuid4().hex[:10].upper()}",
-            patient_id=ids.patient, doctor_id=ids.doctor, appointment_type_id=ids.type,
-            start_time=start, end_time=start + timedelta(minutes=20),
+            patient_id=ids.patient,
+            doctor_id=ids.doctor,
+            appointment_type_id=ids.type,
+            start_time=start,
+            end_time=start + timedelta(minutes=20),
             end_with_buffer=start + timedelta(minutes=30),
-            status=appointment_status, check_in_status=check_in,
-            fee_amount=Decimal(2000), currency="VND",
+            status=appointment_status,
+            check_in_status=check_in,
+            fee_amount=Decimal(2000),
+            currency="VND",
         )
         session.add(appointment)
         await session.flush()
         payment = Payment(
-            appointment_id=appointment.id, amount=Decimal(2000), currency="VND",
-            status=payment_status, payment_code=f"CB{uuid.uuid4().hex[:8].upper()}",
+            appointment_id=appointment.id,
+            amount=Decimal(2000),
+            currency="VND",
+            status=payment_status,
+            payment_code=f"CB{uuid.uuid4().hex[:8].upper()}",
             paid_at=datetime.now(UTC) if payment_status == PaymentStatus.PAID else None,
         )
         session.add(payment)
@@ -201,13 +211,19 @@ async def test_paid_appointment_that_will_not_happen_can_request_refund(context,
     assert after["can_request_refund"] is False
     assert after["payments"][0]["refund_status"] == "REQUESTED"
     async with sessions() as session:
-        actions = (await session.scalars(select(AuditLog.action).where(
-            AuditLog.entity_type == "payment", AuditLog.entity_id == str(payment_id)
-        ))).all()
+        actions = (
+            await session.scalars(
+                select(AuditLog.action).where(
+                    AuditLog.entity_type == "payment", AuditLog.entity_id == str(payment_id)
+                )
+            )
+        ).all()
         assert "payment.refund_requested" in actions
-        titles = (await session.scalars(select(Notification.title).where(
-            Notification.user_id == ids.patient_user
-        ))).all()
+        titles = (
+            await session.scalars(
+                select(Notification.title).where(Notification.user_id == ids.patient_user)
+            )
+        ).all()
         assert "Refund requested" in titles
 
 
@@ -225,8 +241,11 @@ async def test_paid_appointment_that_will_not_happen_can_request_refund(context,
 async def test_refund_not_allowed(context, appointment_status, payment_status, check_in):
     ids, client, sessions = context
     _, payment_id = await make_payment(
-        sessions, ids, appointment_status=appointment_status,
-        payment_status=payment_status, check_in=check_in,
+        sessions,
+        ids,
+        appointment_status=appointment_status,
+        payment_status=payment_status,
+        check_in=check_in,
     )
     response = await client.post(request_url(payment_id), json=ACCOUNT, headers=ids.headers())
     assert response.status_code == 409, response.text
@@ -248,8 +267,14 @@ async def test_only_the_owner_can_request(context):
 
 @pytest.mark.parametrize(
     "field,value",
-    [("bank_bin", "OCB"), ("bank_bin", "97044"), ("account_number", "12"),
-     ("account_number", "0123 456"), ("account_name", " "), ("bank_name", "")],
+    [
+        ("bank_bin", "OCB"),
+        ("bank_bin", "97044"),
+        ("account_number", "12"),
+        ("account_number", "0123 456"),
+        ("account_name", " "),
+        ("bank_name", ""),
+    ],
 )
 async def test_invalid_bank_account_is_rejected(context, field, value):
     ids, client, sessions = context
@@ -273,16 +298,24 @@ async def test_second_request_is_rejected(context):
 async def test_concurrent_requests_only_one_wins(context):
     ids, client, sessions = context
     _, payment_id = await make_payment(sessions, ids)
-    responses = await asyncio.gather(*[
-        client.post(request_url(payment_id), json=ACCOUNT, headers=ids.headers())
-        for _ in range(5)
-    ])
+    responses = await asyncio.gather(
+        *[
+            client.post(request_url(payment_id), json=ACCOUNT, headers=ids.headers())
+            for _ in range(5)
+        ]
+    )
     assert sorted(r.status_code for r in responses) == [200, 409, 409, 409, 409]
     async with sessions() as session:
-        count = len((await session.scalars(select(AuditLog.id).where(
-            AuditLog.action == "payment.refund_requested",
-            AuditLog.entity_id == str(payment_id),
-        ))).all())
+        count = len(
+            (
+                await session.scalars(
+                    select(AuditLog.id).where(
+                        AuditLog.action == "payment.refund_requested",
+                        AuditLog.entity_id == str(payment_id),
+                    )
+                )
+            ).all()
+        )
     assert count == 1
 
 
@@ -297,7 +330,8 @@ async def test_admin_lists_requests_with_refund_qr(context):
     ids, client, sessions = context
     _, payment_id, refund = await requested(client, ids, sessions)
     response = await client.get(
-        "/api/v1/admin/refunds", params={"refund_status": "REQUESTED", "page_size": 100},
+        "/api/v1/admin/refunds",
+        params={"refund_status": "REQUESTED", "page_size": 100},
         headers=ids.headers("admin"),
     )
     assert response.status_code == 200, response.text
@@ -310,8 +344,9 @@ async def test_admin_lists_requests_with_refund_qr(context):
     assert qr.startswith("https://img.vietqr.io/image/970448-0123456789-compact2.png?")
     assert "amount=2000" in qr and refund["refund_reference"] in qr
 
-    unfiltered = await client.get("/api/v1/admin/refunds", params={"page_size": 100},
-                                  headers=ids.headers("admin"))
+    unfiltered = await client.get(
+        "/api/v1/admin/refunds", params={"page_size": 100}, headers=ids.headers("admin")
+    )
     assert all(i["refund_status"] is not None for i in unfiltered.json()["items"])
 
 
@@ -329,8 +364,11 @@ async def test_admin_completes_refund(context):
     after = await detail(client, ids, appointment_id)
     assert after["payment_status"] == "REFUNDED" and after["can_request_refund"] is False
     assert (await client.post(url, json={}, headers=ids.headers("admin"))).status_code == 409
-    reject = await client.post(f"/api/v1/admin/refunds/{payment_id}/reject",
-                               json={"reason": "Too late"}, headers=ids.headers("admin"))
+    reject = await client.post(
+        f"/api/v1/admin/refunds/{payment_id}/reject",
+        json={"reason": "Too late"},
+        headers=ids.headers("admin"),
+    )
     assert reject.status_code == 409
     again = await client.post(request_url(payment_id), json=ACCOUNT, headers=ids.headers())
     assert again.status_code == 409
@@ -342,7 +380,8 @@ async def test_rejected_refund_can_be_submitted_again(context):
     appointment_id, payment_id, first = await requested(client, ids, sessions)
     reject = await client.post(
         f"/api/v1/admin/refunds/{payment_id}/reject",
-        json={"reason": "Account name does not match."}, headers=ids.headers("admin"),
+        json={"reason": "Account name does not match."},
+        headers=ids.headers("admin"),
     )
     assert reject.status_code == 200, reject.text
     assert reject.json()["refund_status"] == "REJECTED"
@@ -351,7 +390,8 @@ async def test_rejected_refund_can_be_submitted_again(context):
     assert after["can_request_refund"] is True
 
     retry = await client.post(
-        request_url(payment_id), json={**ACCOUNT, "account_name": "Nguyen Van B"},
+        request_url(payment_id),
+        json={**ACCOUNT, "account_name": "Nguyen Van B"},
         headers=ids.headers(),
     )
 
@@ -371,11 +411,15 @@ async def test_admin_actions_guarded(context):
     assert (await client.post(complete, json={}, headers=ids.headers())).status_code == 403
     assert (await client.get("/api/v1/admin/refunds", headers=ids.headers())).status_code == 403
     for target in (untouched, 2_147_483_647):
-        response = await client.post(f"/api/v1/admin/refunds/{target}/complete", json={},
-                                     headers=ids.headers("admin"))
+        response = await client.post(
+            f"/api/v1/admin/refunds/{target}/complete", json={}, headers=ids.headers("admin")
+        )
         assert response.status_code == 404
-    short = await client.post(f"/api/v1/admin/refunds/{payment_id}/reject", json={"reason": "x"},
-                              headers=ids.headers("admin"))
+    short = await client.post(
+        f"/api/v1/admin/refunds/{payment_id}/reject",
+        json={"reason": "x"},
+        headers=ids.headers("admin"),
+    )
     assert short.status_code == 422
     async with sessions() as session:
         payment = await session.get(Payment, payment_id)

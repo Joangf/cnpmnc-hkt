@@ -36,15 +36,106 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function show(entity: 'Doctors' | 'Appointment types') {
+function renderDirectory() {
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter><AdminDirectoryPage /></MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+async function show(entity: 'Doctors' | 'Appointment types') {
+  renderDirectory()
   fireEvent.click(screen.getByRole('button', { name: entity }))
   await screen.findByRole('button', { name: entity === 'Doctors' ? 'Edit Dr Ada' : 'Edit Standard' })
 }
+
+describe('admin directory pagination', () => {
+  function seedDirectory() {
+    records.doctors = Array.from({ length: 23 }, (_, i) => ({ ...doctor, id: i + 1, full_name: `Doctor ${i + 1}` }))
+    records.departments = Array.from({ length: 23 }, (_, i) => ({
+      ...(records.departments[0] as object), id: i + 1, name: `Department ${i + 1}`,
+    }))
+    records.specialties = Array.from({ length: 23 }, (_, i) => ({ id: i + 1, name: `Specialty ${i + 1}`, is_active: true }))
+  }
+
+  it.each([
+    ['Doctors', 'Doctor'], ['Departments', 'Department'], ['Specialties', 'Specialty'],
+  ])('shows ten %s at a time with page boundaries and item counts', async (tab, name) => {
+    seedDirectory()
+    renderDirectory()
+    fireEvent.click(screen.getByRole('button', { name: tab }))
+    await screen.findByRole('button', { name: `Edit ${name} 1` })
+    expect(screen.getAllByRole('button', { name: /^Edit / })).toHaveLength(10)
+    expect(screen.getByText(`Showing 1–10 of 23 ${tab.toLowerCase()}`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: `Edit ${name} 11` })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: `Edit ${name} 11` })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getAllByRole('button', { name: /^Edit / })).toHaveLength(3)
+    expect(screen.getByText(`Showing 21–23 of 23 ${tab.toLowerCase()}`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }))
+    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument()
+  })
+
+  it('returns to the first page when switching directory tabs', async () => {
+    seedDirectory()
+    renderDirectory()
+    fireEvent.click(screen.getByRole('button', { name: 'Doctors' }))
+    await screen.findByRole('button', { name: 'Edit Doctor 1' })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Departments' }))
+    expect(await screen.findByText('Showing 1–10 of 23 departments')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Doctors' }))
+    expect(screen.getByText('Showing 1–10 of 23 doctors')).toBeInTheDocument()
+  })
+
+  it('edits a later-page doctor and keeps every department available in the form', async () => {
+    seedDirectory()
+    const update = vi.spyOn(api.admin, 'update').mockResolvedValue({})
+    renderDirectory()
+    fireEvent.click(screen.getByRole('button', { name: 'Doctors' }))
+    await screen.findByRole('button', { name: 'Edit Doctor 1' })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Doctor 11' }))
+    fireEvent.change(screen.getByLabelText(/Full name/), { target: { value: 'Updated Doctor 11' } })
+    fireEvent.change(screen.getByRole('combobox', { name: /^Department/ }), { target: { value: '23' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }))
+    expect(screen.getByLabelText(/Full name/)).toHaveValue('Updated Doctor 11')
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(update).toHaveBeenCalledWith('doctors', 11, {
+      full_name: 'Updated Doctor 11', department_id: 23,
+    }))
+  })
+
+  it('returns to a valid page when refreshed data removes the last page', async () => {
+    seedDirectory()
+    renderDirectory()
+    fireEvent.click(screen.getByRole('button', { name: 'Doctors' }))
+    await screen.findByRole('button', { name: 'Edit Doctor 1' })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    records.doctors = records.doctors.slice(0, 12)
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'doctors'] })
+    expect(await screen.findByText('Showing 11–12 of 12 doctors')).toBeInTheDocument()
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  })
+
+  it('hides pagination for short and empty lists', async () => {
+    await show('Doctors')
+    expect(screen.getByText('Showing 1–1 of 1 doctors')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
+    records.doctors = []
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'doctors'] })
+    expect(await screen.findByText('No items to display.')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
+  })
+})
 
 describe('SCRUM-21 scheduling controls', () => {
   it('defaults doctor capacity to one and enforces positive whole integers', async () => {

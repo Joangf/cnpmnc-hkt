@@ -40,7 +40,7 @@ from app.models import (
     Specialty,
     User,
 )
-from app.models.enums import AccountStatus, AppointmentStatus, UserRole
+from app.models.enums import AccountStatus, AppointmentStatus, SchedulingMode, UserRole
 from app.schemas.admin import AppointmentTypeUpdate, DoctorUpdate
 from app.schemas.appointments import AppointmentCreate
 from app.services import availability, booking, erp_sync
@@ -121,7 +121,9 @@ class Seed:
 def migrated():
     subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND_DIR, env={**os.environ, "DATABASE_URL": TEST_DATABASE_URL}, check=True,
+        cwd=BACKEND_DIR,
+        env={**os.environ, "DATABASE_URL": TEST_DATABASE_URL},
+        check=True,
     )
 
 
@@ -135,25 +137,33 @@ async def sessions(migrated):
 async def seed(session: AsyncSession) -> Seed:
     suffix = uuid.uuid4().hex
     patient = User(
-        email=f"patient-{suffix}@example.com", password_hash="unused",
-        role=UserRole.PATIENT, account_status=AccountStatus.ACTIVE,
+        email=f"patient-{suffix}@example.com",
+        password_hash="unused",
+        role=UserRole.PATIENT,
+        account_status=AccountStatus.ACTIVE,
     )
     patient.profile = PatientProfile(full_name="Test patient")
     admin = User(
-        email=f"admin-{suffix}@example.com", password_hash="unused",
-        role=UserRole.ADMIN, account_status=AccountStatus.ACTIVE,
+        email=f"admin-{suffix}@example.com",
+        password_hash="unused",
+        role=UserRole.ADMIN,
+        account_status=AccountStatus.ACTIVE,
     )
     specialty, other = Specialty(name=f"Primary-{suffix}"), Specialty(name=f"Other-{suffix}")
     hospital = Hospital(name="Test hospital", address="1 Test St", city="Test city")
     session.add_all([patient, admin, specialty, other, hospital])
     await session.flush()
-    department = Department(name="Test department", hospital_id=hospital.id,
-                            specialty_id=specialty.id)
+    department = Department(
+        name="Test department", hospital_id=hospital.id, specialty_id=specialty.id
+    )
     session.add(department)
     await session.flush()
     doctor = Doctor(
-        full_name="Test doctor", hospital_id=hospital.id, department_id=department.id,
+        full_name="Test doctor",
+        hospital_id=hospital.id,
+        department_id=department.id,
         max_appointments_per_window=3,
+        scheduling_mode=SchedulingMode.ERP,  # default is MANUAL (e2fc238)
     )
     standard = AppointmentType(name="Standard", duration_minutes=20, buffer_minutes=10)
     extended = AppointmentType(name="Extended", duration_minutes=30, buffer_minutes=10)
@@ -161,13 +171,26 @@ async def seed(session: AsyncSession) -> Seed:
     await session.flush()
     tomorrow = datetime.now(availability.clinic_tz()).date() + timedelta(days=1)
     start = datetime.combine(tomorrow, time(8), tzinfo=availability.clinic_tz()).astimezone(UTC)
-    session.add(DoctorSchedule(
-        doctor_id=doctor.id, start_time=start, end_time=start + timedelta(hours=3),
-        max_appointments=None,
-    ))
+    session.add(
+        DoctorSchedule(
+            doctor_id=doctor.id,
+            start_time=start,
+            end_time=start + timedelta(hours=3),
+            max_appointments=None,
+        )
+    )
     await session.commit()
-    return Seed(doctor.id, standard.id, extended.id, patient.profile.id, patient.id,
-                admin.id, specialty.id, other.id, start)
+    return Seed(
+        doctor.id,
+        standard.id,
+        extended.id,
+        patient.profile.id,
+        patient.id,
+        admin.id,
+        specialty.id,
+        other.id,
+        start,
+    )
 
 
 @pytest.fixture
@@ -205,8 +228,12 @@ async def reserve(sessions, ids, offset=0, type_id=None):
     async with sessions() as session:
         patient = await session.get(PatientProfile, ids.patient)
         return await booking.create_appointment(
-            session, MemoryRedis(), InMemoryErpAdapter(), patient,
-            AppointmentCreate.model_validate(ids.payload(offset, type_id)), None,
+            session,
+            MemoryRedis(),
+            InMemoryErpAdapter(),
+            patient,
+            AppointmentCreate.model_validate(ids.payload(offset, type_id)),
+            None,
         )
 
 
@@ -217,8 +244,9 @@ async def test_admin_settings_cannot_be_changed_by_guest_or_patient(context, rol
         (f"doctors/{ids.doctor}", {"max_appointments_per_window": 9}),
         (f"appointment-types/{ids.type}", {"duration_minutes": 40}),
     ]:
-        response = await client.patch(f"/api/v1/admin/{path}", json=body,
-                                      headers=ids.headers(role) if role else {})
+        response = await client.patch(
+            f"/api/v1/admin/{path}", json=body, headers=ids.headers(role) if role else {}
+        )
         assert response.status_code == expected
 
 
@@ -227,13 +255,14 @@ async def test_invalid_capacity_preserves_previous_value(context, value):
     ids, client, _ = context
     response = await client.patch(
         f"/api/v1/admin/doctors/{ids.doctor}",
-        json={"max_appointments_per_window": value}, headers=ids.headers(),
+        json={"max_appointments_per_window": value},
+        headers=ids.headers(),
     )
     assert response.status_code == 422
     doctors = await client.get("/api/v1/admin/doctors", headers=ids.headers())
-    assert next(d for d in doctors.json() if d["id"] == ids.doctor)[
-        "max_appointments_per_window"
-    ] == 3
+    assert (
+        next(d for d in doctors.json() if d["id"] == ids.doctor)["max_appointments_per_window"] == 3
+    )
     public = await client.get(f"/api/v1/doctors/{ids.doctor}")
     assert "max_appointments_per_window" not in public.json()
 
@@ -246,7 +275,8 @@ async def test_merged_scope_is_validated_and_failed_patch_is_atomic(context):
     )
     assert response.status_code == 200
     response = await client.patch(
-        url, json={"specialty_id": ids.other_specialty, "duration_minutes": 40},
+        url,
+        json={"specialty_id": ids.other_specialty, "duration_minutes": 40},
         headers=ids.headers(),
     )
     assert response.status_code == 422
@@ -262,7 +292,8 @@ async def test_concurrent_nonoverlapping_bookings_share_capacity_across_types(co
     ids, client, _ = context
     response = await client.patch(
         f"/api/v1/admin/doctors/{ids.doctor}",
-        json={"max_appointments_per_window": 1}, headers=ids.headers(),
+        json={"max_appointments_per_window": 1},
+        headers=ids.headers(),
     )
     assert response.status_code == 200
 
@@ -275,8 +306,9 @@ async def test_concurrent_nonoverlapping_bookings_share_capacity_across_types(co
     results = await asyncio.gather(*(attempt(i) for i in range(4)))
     assert sum(result is not None for result in results) == 1
     assert await offered(client, ids) == []
-    response = await client.post("/api/v1/appointments", json=ids.payload(120),
-                                 headers=ids.headers("PATIENT"))
+    response = await client.post(
+        "/api/v1/appointments", json=ids.payload(120), headers=ids.headers("PATIENT")
+    )
     assert response.status_code == 409  # Direct API calls cannot bypass a full window.
 
 
@@ -286,23 +318,33 @@ async def test_edits_preserve_intervals_and_lower_capacity_stops_offers(context,
     await reserve(sessions, ids, 60, ids.extended_type)
     async with sessions() as session:
         appointment = await session.get(Appointment, first)
-        before = (appointment.start_time, appointment.end_time, appointment.end_with_buffer,
-                  appointment.status)
+        before = (
+            appointment.start_time,
+            appointment.end_time,
+            appointment.end_with_buffer,
+            appointment.status,
+        )
     response = await client.patch(
         f"/api/v1/admin/appointment-types/{ids.type}",
-        json={"duration_minutes": 40, "buffer_minutes": 0}, headers=ids.headers(),
+        json={"duration_minutes": 40, "buffer_minutes": 0},
+        headers=ids.headers(),
     )
     assert response.status_code == 200
     response = await client.patch(
         f"/api/v1/admin/doctors/{ids.doctor}",
-        json={"max_appointments_per_window": 1}, headers=ids.headers(),
+        json={"max_appointments_per_window": 1},
+        headers=ids.headers(),
     )
     assert response.status_code == 200
     assert await offered(client, ids) == []
     async with sessions() as session:
         appointment = await session.get(Appointment, first)
-        assert (appointment.start_time, appointment.end_time, appointment.end_with_buffer,
-                appointment.status) == before
+        assert (
+            appointment.start_time,
+            appointment.end_time,
+            appointment.end_with_buffer,
+            appointment.status,
+        ) == before
 
 
 async def test_changed_settings_ignore_old_cache_and_redis_failure_uses_database(context):
@@ -310,7 +352,8 @@ async def test_changed_settings_ignore_old_cache_and_redis_failure_uses_database
     before = await offered(client, ids)
     response = await client.patch(
         f"/api/v1/admin/appointment-types/{ids.type}",
-        json={"duration_minutes": 30, "buffer_minutes": 0}, headers=ids.headers(),
+        json={"duration_minutes": 30, "buffer_minutes": 0},
+        headers=ids.headers(),
     )
     assert response.status_code == 200
     after = await offered(client, ids)
@@ -403,9 +446,7 @@ async def test_cancelled_and_rejected_bookings_release_window_capacity(context, 
             assert slots[0].start == ids.start
 
 
-async def test_erp_schedule_replacement_takes_doctor_lock_and_versions_cache(
-    context, sessions
-):
+async def test_erp_schedule_replacement_takes_doctor_lock_and_versions_cache(context, sessions):
     ids, _, _ = context
     async with sessions() as session:
         doctor = await session.get(Doctor, ids.doctor)
@@ -437,7 +478,8 @@ async def test_database_default_and_constraint(context, sessions):
         original = await session.get(Doctor, ids.doctor)
         department_id = original.department_id
     response = await client.post(
-        "/api/v1/admin/doctors", json={"department_id": department_id, "full_name": "New doctor"},
+        "/api/v1/admin/doctors",
+        json={"department_id": department_id, "full_name": "New doctor"},
         headers=ids.headers(),
     )
     assert response.status_code == 201
@@ -455,9 +497,9 @@ async def test_database_default_and_constraint(context, sessions):
 async def test_missing_schedule_invalid_type_and_stricter_erp_limit(context, sessions):
     ids, client, _ = context
     async with sessions() as session:
-        window = await session.scalar(select(DoctorSchedule).where(
-            DoctorSchedule.doctor_id == ids.doctor
-        ))
+        window = await session.scalar(
+            select(DoctorSchedule).where(DoctorSchedule.doctor_id == ids.doctor)
+        )
         window.max_appointments = 1
         await session.commit()
     await reserve(sessions, ids)
@@ -468,16 +510,16 @@ async def test_missing_schedule_invalid_type_and_stricter_erp_limit(context, ses
     )
     assert invalid.status_code == 422
     async with sessions() as session:
-        window = await session.scalar(select(DoctorSchedule).where(
-            DoctorSchedule.doctor_id == ids.doctor
-        ))
+        window = await session.scalar(
+            select(DoctorSchedule).where(DoctorSchedule.doctor_id == ids.doctor)
+        )
         await session.delete(window)
         await session.commit()
     async with sessions() as session:
         appointment_type = await session.get(AppointmentType, ids.type)
-        assert await availability.compute_slots(
-            session, ids.doctor, appointment_type, ids.day
-        ) == []
+        assert (
+            await availability.compute_slots(session, ids.doctor, appointment_type, ids.day) == []
+        )
 
 
 async def test_waiting_booking_refreshes_preloaded_type_after_admin_commit(context, sessions):
@@ -487,15 +529,21 @@ async def test_waiting_booking_refreshes_preloaded_type_after_admin_commit(conte
         stale_type = await waiting.get(AppointmentType, ids.type)
         assert stale_type.duration_minutes == 20
         patient = await waiting.get(PatientProfile, ids.patient)
-        current = await holder.scalar(select(AppointmentType).where(
-            AppointmentType.id == ids.type
-        ).with_for_update())
+        current = await holder.scalar(
+            select(AppointmentType).where(AppointmentType.id == ids.type).with_for_update()
+        )
         current.duration_minutes = 40
         await holder.flush()
-        task = asyncio.create_task(booking.create_appointment(
-            waiting, MemoryRedis(), InMemoryErpAdapter(), patient,
-            AppointmentCreate.model_validate(ids.payload()), None,
-        ))
+        task = asyncio.create_task(
+            booking.create_appointment(
+                waiting,
+                MemoryRedis(),
+                InMemoryErpAdapter(),
+                patient,
+                AppointmentCreate.model_validate(ids.payload()),
+                None,
+            )
+        )
         try:
             await asyncio.sleep(0.1)
             assert not task.done()

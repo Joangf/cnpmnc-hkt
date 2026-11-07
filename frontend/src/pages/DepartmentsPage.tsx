@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
-import { IconArrowRight } from '../components/icons'
+import { IconArrowRight, IconHospital, IconLocation, IconSearch, IconStethoscope } from '../components/icons'
 import { SpecialtyFilter } from '../components/SpecialtyFilter'
 import { EmptyState, ErrorAlert, Pagination, Spinner, stagger } from '../components/ui'
 
@@ -39,46 +39,61 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div>
-      <h1 className="page-title mb-2">Departments &amp; clinics</h1>
-      <p className="mb-6 max-w-2xl text-muted">
-        Browse every published department at HKT Hospital and the other facilities in our directory.
-        No account is needed to look around.
-      </p>
+    <div className="pb-12">
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full bg-blush px-3.5 py-1 text-xs font-semibold text-berry mb-3 border border-berry/20 uppercase tracking-wider">
+          Clinical Departments &amp; Clinics
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink mb-3">
+          Specialized Departments &amp; Clinics
+        </h1>
+        <p className="max-w-2xl text-base text-muted leading-relaxed">
+          Browse clinic locations, departmental services, and attending physicians at HKT Hospital.
+        </p>
+      </div>
 
       <form
-        className="card flex flex-wrap items-end gap-4"
+        className="rounded-2xl border border-line bg-canvas p-5 sm:p-6 shadow-card hover:shadow-card-hover transition-all duration-base mb-6"
         onSubmit={(e) => {
           e.preventDefault()
           update({ q: q.trim() || undefined })
         }}
       >
-        <label className="flex-[2_1_260px]">
-          <span className="label">Name, specialty or location</span>
-          <input
-            className="input"
-            type="search"
-            placeholder="e.g. Tim mạch or Tầng 3"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </label>
-        <label className="flex-[1_1_220px]">
-          <span className="label">Facility</span>
-          <select
-            className="input"
-            value={hospitalId ?? ''}
-            onChange={(e) => update({ hospital_id: e.target.value || undefined })}
-          >
-            <option value="">All facilities</option>
-            {hospitals.data?.items.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="btn-primary w-full sm:w-auto">Search</button>
+        <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4">
+          <label className="flex-[2_1_280px]">
+            <span className="block text-sm font-semibold text-ink mb-1.5">Department name, specialty or floor</span>
+            <div className="relative">
+              <input
+                className="input mt-0 pl-10"
+                type="search"
+                placeholder="e.g. Cardiology, Floor 3, Internal Medicine..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted flex items-center">
+                <IconSearch size={18} />
+              </span>
+            </div>
+          </label>
+          <label className="flex-[1_1_220px]">
+            <span className="block text-sm font-semibold text-ink mb-1.5">Facility / Hospital</span>
+            <select
+              className="input mt-0"
+              value={hospitalId ?? ''}
+              onChange={(e) => update({ hospital_id: e.target.value || undefined })}
+            >
+              <option value="">All facilities</option>
+              {hospitals.data?.items.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="btn-primary min-w-[130px] font-semibold py-3 shadow-button hover:shadow-button-hover">
+            Search
+          </button>
+        </div>
       </form>
 
       <SpecialtyFilter
@@ -87,55 +102,81 @@ export default function DepartmentsPage() {
       />
 
       <div className="mt-8">
-        {departments.isLoading && <Spinner />}
+        {departments.isLoading && (
+          <div className="py-12 text-center">
+            <Spinner />
+          </div>
+        )}
         <ErrorAlert error={departments.error} />
         {departments.data && (
-          <p className="caption mb-3" aria-live="polite">
-            {departments.data.total}{' '}
-            {departments.data.total === 1 ? 'department or clinic' : 'departments and clinics'}
+          <p className="text-sm font-medium text-muted mb-4" aria-live="polite">
+            Found <span className="font-bold text-ink">{departments.data.total}</span> departments and clinics
           </p>
         )}
         {departments.data?.items.length === 0 && (
-          <EmptyState>No departments or clinics match your filters.</EmptyState>
+          <EmptyState>No departments or clinics match your search filters.</EmptyState>
         )}
         {!!departments.data?.items.length && (
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             {departments.data.items.map((d, i) => (
-              <article key={d.id} className="card reveal flex min-w-0 flex-col gap-3" style={stagger(i)}>
-                <div className="flex items-start justify-between gap-3">
-                  <h2 className="section-title">
-                    <Link to={`/departments/${d.id}`} className="link-plain">
-                      {d.name}
-                    </Link>
-                  </h2>
-                  <span className="tag shrink-0 bg-mist text-info">{d.specialty.name}</span>
+              <article
+                key={d.id}
+                className="card reveal group flex min-w-0 flex-col justify-between gap-4 rounded-2xl p-6 hover:-translate-y-1 hover:border-berry/60 hover:shadow-card-hover transition-all duration-base"
+                style={stagger(i)}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <h2 className="text-xl font-bold leading-tight text-ink group-hover:text-berry transition-colors">
+                      <Link to={`/departments/${d.id}`} className="link-plain">
+                        {d.name}
+                      </Link>
+                    </h2>
+                    <span className="tag shrink-0 bg-mist text-info font-semibold text-xs px-2.5 py-1">
+                      {d.specialty.name}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-muted flex items-center gap-1.5 mb-3">
+                    <IconHospital size={14} className="text-muted shrink-0" />
+                    <span>{d.hospital.name}</span>
+                  </p>
+                  {d.description && <p className="line-clamp-2 text-sm text-muted leading-relaxed">{d.description}</p>}
                 </div>
-                <p className="caption">{d.hospital.name}</p>
-                {d.description && <p className="line-clamp-3 text-muted">{d.description}</p>}
-                <div className="flex flex-wrap gap-2">
-                  {d.location && <span className="tag">Location: {d.location}</span>}
-                  <span className="tag">
-                    {d.doctor_count} {d.doctor_count === 1 ? 'doctor' : 'doctors'}
-                  </span>
+
+                <div className="border-t border-line/60 pt-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {d.location && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-surface px-2.5 py-1 text-xs font-semibold text-ink border border-line">
+                        <IconLocation size={13} className="text-muted shrink-0" />
+                        <span>{d.location}</span>
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-blush px-2.5 py-1 text-xs font-semibold text-berry border border-berry/20">
+                      <IconStethoscope size={13} className="text-berry shrink-0" />
+                      <span>{d.doctor_count} attending {d.doctor_count === 1 ? 'physician' : 'physicians'}</span>
+                    </span>
+                  </div>
+
+                  <Link
+                    to={`/departments/${d.id}`}
+                    className="link inline-flex items-center gap-1.5 text-xs font-bold pt-1"
+                    aria-label={`View details of ${d.name}`}
+                  >
+                    View details <IconArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </div>
-                <Link
-                  to={`/departments/${d.id}`}
-                  className="link mt-auto inline-flex w-fit items-center gap-2 pt-2"
-                  aria-label={`View ${d.name} and its doctors`}
-                >
-                  View department &amp; doctors <IconArrowRight size={18} />
-                </Link>
               </article>
             ))}
           </div>
         )}
         {departments.data && (
-          <Pagination
-            page={page}
-            pageSize={departments.data.page_size}
-            total={departments.data.total}
-            onChange={(p) => update({ page: String(p) })}
-          />
+          <div className="mt-8">
+            <Pagination
+              page={page}
+              pageSize={departments.data.page_size}
+              total={departments.data.total}
+              onChange={(p) => update({ page: String(p) })}
+            />
+          </div>
         )}
       </div>
     </div>

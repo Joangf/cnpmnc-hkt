@@ -28,10 +28,10 @@ async function pickFirstAvailableSlot(page: Page) {
 
 test('guest can browse departments, doctors and the symptom checker', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: /Find the right care/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Compassionate care/ })).toBeVisible()
 
   await page.getByRole('link', { name: /Dermatology/ }).first().click()
-  await expect(page.getByRole('heading', { name: 'Doctors', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Find & Book a Specialist Doctor/ })).toBeVisible()
   await page.locator('a[href^="/doctors/"]').first().click()
   await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Patient reviews' })).toBeVisible()
@@ -69,7 +69,7 @@ test('patient registers, books, pays by bank transfer, cancels and gets a refund
   await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
   await expect(page.getByLabel('Verification code')).toHaveValue(/^\d{6}$/)
   await page.getByRole('button', { name: 'Verify and continue' }).click()
-  await expect(page.getByRole('heading', { name: 'Doctors', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Find & Book a Specialist Doctor/ })).toBeVisible()
 
   // Booking (FR-BOOK-01..07). The fee comes from the single admin-configured consultation type.
   await page.locator('a[href^="/doctors/"]').first().click()

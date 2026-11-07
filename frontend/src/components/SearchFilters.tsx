@@ -158,7 +158,7 @@ export function AvailabilityPanel({ value, onChange }: { value: Availability; on
           className={`rounded-full px-3 py-0.5 text-sm font-semibold ${disabled ? 'bg-canvas text-muted' : 'bg-blush text-berry'}`}
           aria-live="polite"
         >
-          {disabled ? 'Any day' : `${formatMinutes(start)} – ${formatMinutes(end)}`}
+          {disabled ? 'Any day' : `${formatMinutes(start)} - ${formatMinutes(end)}`}
         </span>
       </div>
 

@@ -25,6 +25,7 @@ from app.models import (
     AppointmentType,
     Department,
     Doctor,
+    DoctorSlot,
     Hospital,
     PatientProfile,
     Specialty,
@@ -37,6 +38,7 @@ from app.models.enums import (
     AppointmentStatus,
     CheckInStatus,
     FacilityType,
+    SchedulingMode,
     StatusSource,
     UserRole,
 )
@@ -239,10 +241,10 @@ async def _seed_directory(session: AsyncSession) -> None:
                 specialty_id=specialties[specialty_name].id,
                 name=f"{specialty_name} Department",
                 description=(
-                    f"Khoa {specialty_name} tại {hospital.name}: tư vấn, thăm khám và "
-                    "điều trị chuyên khoa."
+                    f"{specialty_name} Department at {hospital.name}: consultation, examination and "
+                    "specialist treatment."
                 ),
-                location=f"Tầng {(dept_index % 4) + 1}, Tòa {chr(65 + dept_index % 3)}",
+                location=f"Floor {(dept_index % 4) + 1}, Building {chr(65 + dept_index % 3)}",
             )
             dept_index += 1
             session.add(department)
@@ -280,6 +282,7 @@ async def _seed_directory(session: AsyncSession) -> None:
                             "focused on clear explanations and shared decisions."
                         ),
                         erp_doctor_id=f"ERP-D{index:04d}",
+                        scheduling_mode=SchedulingMode.MANUAL,
                     )
                 )
 
@@ -420,9 +423,62 @@ async def _seed_loadtest_users(session: AsyncSession, count: int) -> None:
     print(f"created {created} load-test users ({len(existing)} already existed)")
 
 
+async def _seed_manual_doctor_slots(session: AsyncSession) -> None:
+    """Seeds manual DoctorSlots for the next 14 days so admins and patients have slots ready without ERP."""
+    existing = await session.scalar(select(func.count(DoctorSlot.id)))
+    if existing and existing > 0:
+        return
+
+    doctors = (await session.scalars(select(Doctor))).all()
+    if not doctors:
+        return
+
+    slots_to_add: list[DoctorSlot] = []
+    today = (datetime.now(clinic_tz())).date()
+
+    slot_times = [
+        (time(8, 0), time(8, 30)),
+        (time(8, 30), time(9, 0)),
+        (time(9, 0), time(9, 30)),
+        (time(9, 30), time(10, 0)),
+        (time(10, 0), time(10, 30)),
+        (time(10, 30), time(11, 0)),
+        (time(13, 30), time(14, 0)),
+        (time(14, 0), time(14, 30)),
+        (time(14, 30), time(15, 0)),
+        (time(15, 0), time(15, 30)),
+        (time(15, 30), time(16, 0)),
+        (time(16, 0), time(16, 30)),
+    ]
+
+    for day_offset in range(1, 15):
+        day = today + timedelta(days=day_offset)
+        for doctor in doctors:
+            for start_t, end_t in slot_times:
+                start_dt = datetime.combine(day, start_t, tzinfo=clinic_tz()).astimezone(UTC)
+                end_dt = datetime.combine(day, end_t, tzinfo=clinic_tz()).astimezone(UTC)
+                slots_to_add.append(
+                    DoctorSlot(
+                        doctor_id=doctor.id,
+                        start_time=start_dt,
+                        end_time=end_dt,
+                        end_with_buffer=end_dt,
+                        buffer_minutes=0,
+                        capacity=1,
+                        is_open=True,
+                        version=1,
+                    )
+                )
+
+    session.add_all(slots_to_add)
+    await session.commit()
+    print(f"seeded {len(slots_to_add)} manual doctor slots across {len(doctors)} doctors")
+
+
 async def main(loadtest_users: int) -> None:
     async with SessionLocal() as session:
         await _seed_directory(session)
+        await _seed_manual_doctor_slots(session)
         await _ensure_user(
             session, settings.admin_email, settings.admin_password, UserRole.ADMIN, None
         )

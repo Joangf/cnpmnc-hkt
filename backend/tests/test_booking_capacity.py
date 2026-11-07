@@ -32,7 +32,7 @@ from app.models import (
     Specialty,
     User,
 )
-from app.models.enums import ACTIVE_APPOINTMENT_STATUSES, AppointmentStatus
+from app.models.enums import ACTIVE_APPOINTMENT_STATUSES, AppointmentStatus, SchedulingMode
 from app.schemas.appointments import AppointmentCreate
 from app.services import availability, booking
 
@@ -112,6 +112,7 @@ class World:
                     # Doctor-level capacity (SCRUM-21). High by default so each test's window
                     # `max_appointments` is the binding limit unless the test says otherwise.
                     max_appointments_per_window=doctor_capacity,
+                    scheduling_mode=SchedulingMode.ERP,  # default is MANUAL (e2fc238)
                 )
                 for i in range(2 if other_doctor else 1)
             ]

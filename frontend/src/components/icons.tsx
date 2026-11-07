@@ -69,6 +69,32 @@ export const IconInfo: IconComponent = (p) => (
   </Icon>
 )
 
+export const IconLocation: IconComponent = (p) => (
+  <Icon {...p}>
+    <path d="M12 21s-6-5.333-6-10a6 6 0 0 1 12 0c0 4.667-6 10-6 10z" />
+    <circle cx="12" cy="11" r="2.5" />
+  </Icon>
+)
+
+export const IconHospital: IconComponent = (p) => (
+  <Icon {...p}>
+    <path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h6M9 13h6M12 7v4" />
+  </Icon>
+)
+
+export const IconAcademic: IconComponent = (p) => (
+  <Icon {...p}>
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+    <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5" />
+  </Icon>
+)
+
+export const IconShield: IconComponent = (p) => (
+  <Icon {...p}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </Icon>
+)
+
 export const IconX: IconComponent = (p) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="9" />

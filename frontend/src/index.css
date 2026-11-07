@@ -2,88 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Component classes for .claude/design/design-guidelines.md: mostly white, berry for the one main action,
-   1px warm lines, gentle corners, soft shadows, Figtree, 48px+ targets, 3px pink focus ring. */
+/* Component classes for .claude/design/design-guidelines.md: mostly white, teal for the one main action,
+   1px cool lines, gentle corners, soft shadows, Figtree, 48px+ targets, 3px teal focus ring. */
 
 @layer base {
   /* Palette as RGB triplets so Tailwind opacity modifiers still work (see tailwind.config.js).
-     Dark values keep the same roles: warm plum canvas, light berry for actions, soft tints. */
+     HKT Care brand: deep teal-green primary, warm sand accents, cool clean neutrals. */
   :root {
     --c-canvas: 255 255 255; /* #FFFFFF */
     --c-on-accent: 255 255 255; /* #FFFFFF */
-    --c-ink: 43 26 34; /* #2B1A22 */
-    --c-muted: 94 75 83; /* #5E4B53 */
-    --c-berry: 140 29 79; /* #8C1D4F */
-    --c-berry-dark: 110 22 62; /* #6E163E */
-    --c-blush: 251 233 239; /* #FBE9EF */
-    --c-mist: 234 242 248; /* #EAF2F8 */
-    --c-peach: 255 241 230; /* #FFF1E6 */
-    --c-surface: 250 246 242; /* #FAF6F2 */
-    --c-line: 234 223 216; /* #EADFD8 */
-    --c-field: 217 203 194; /* #D9CBC2 */
-    --c-focus: 229 154 184; /* #E59AB8 */
-    --c-success: 30 122 79; /* #1E7A4F */
-    --c-success-soft: 232 244 238; /* #E8F4EE */
-    --c-success-line: 191 223 205; /* #BFDFCD */
-    --c-success-strong: 19 77 51; /* #134D33 */
-    --c-notice: 161 92 7; /* #A15C07 */
-    --c-notice-soft: 255 246 232; /* #FFF6E8 */
-    --c-notice-line: 241 217 181; /* #F1D9B5 */
-    --c-notice-strong: 107 61 5; /* #6B3D05 */
-    --c-info: 37 80 122; /* #25507A */
-    --c-info-line: 201 220 234; /* #C9DCEA */
-    --c-info-strong: 30 58 87; /* #1E3A57 */
-    --c-alert: 180 35 24; /* #B42318 */
-    --c-alert-dark: 145 32 24; /* #912018 */
-    --c-alert-soft: 254 243 242; /* #FEF3F2 */
-    --c-alert-line: 244 199 195; /* #F4C7C3 */
-    --c-alert-strong: 122 39 26; /* #7A271A */
-    --c-disabled: 238 241 243; /* #EEF1F3 */
-    --c-disabled-text: 107 120 130; /* #6B7882 */
-    --shadow-card: 0 1px 2px rgba(43, 26, 34, 0.05), 0 8px 24px rgba(43, 26, 34, 0.08);
-    --shadow-card-hover: 0 2px 4px rgba(43, 26, 34, 0.06), 0 14px 32px rgba(43, 26, 34, 0.12);
-    --shadow-button: 0 2px 8px rgba(140, 29, 79, 0.25);
-    --shadow-button-hover: 0 4px 14px rgba(140, 29, 79, 0.32);
-    --shadow-alert: 0 2px 8px rgba(180, 35, 24, 0.25);
+    --c-ink: 16 35 31; /* #10231F - Deep forest ink */
+    --c-muted: 76 99 93; /* #4C635D - Sage grey, readable secondary text */
+    --c-berry: 15 107 92; /* #0F6B5C - HKT Care Teal */
+    --c-berry-dark: 10 79 68; /* #0A4F44 - Deep teal */
+    --c-blush: 230 244 240; /* #E6F4F0 - Mint 50 */
+    --c-mist: 234 246 248; /* #EAF6F8 - Aqua mist */
+    --c-peach: 253 241 228; /* #FDF1E4 - Warm sand */
+    --c-surface: 246 250 249; /* #F6FAF9 - Fresh neutral surface */
+    --c-line: 220 232 228; /* #DCE8E4 - Cool divider lines */
+    --c-field: 195 214 208; /* #C3D6D0 - Input border */
+    --c-focus: 111 211 192; /* #6FD3C0 - Teal 300 focus ring */
+    --c-success: 21 128 61; /* #15803D - Green 700 */
+    --c-success-soft: 236 253 245; /* #ECFDF5 - Green 50 */
+    --c-success-line: 187 247 208; /* #BBF7D0 - Green 200 */
+    --c-success-strong: 22 101 52; /* #166534 - Green 800 */
+    --c-notice: 180 83 9; /* #B45309 - Amber 700 */
+    --c-notice-soft: 255 247 237; /* #FFF7ED - Amber 50 */
+    --c-notice-line: 253 230 138; /* #FDE68A - Amber 200 */
+    --c-notice-strong: 146 64 14; /* #92400E - Amber 800 */
+    --c-info: 3 105 161; /* #0369A1 - Sky 700 */
+    --c-info-line: 186 230 253; /* #BAE6FD - Sky 200 */
+    --c-info-strong: 7 89 133; /* #075985 - Sky 800 */
+    --c-alert: 220 38 38; /* #DC2626 - Red 600 */
+    --c-alert-dark: 185 28 28; /* #B91C1C - Red 700 */
+    --c-alert-soft: 254 242 242; /* #FEF2F2 - Red 50 */
+    --c-alert-line: 254 202 202; /* #FECACA - Red 200 */
+    --c-alert-strong: 153 27 27; /* #991B1B - Red 800 */
+    --c-disabled: 241 245 244; /* #F1F5F4 - Stone 100 */
+    --c-disabled-text: 148 163 160; /* #94A3A0 - Stone 400 */
+    --shadow-card: 0 1px 3px 0 rgb(16 35 31 / 0.05), 0 10px 25px -5px rgb(16 35 31 / 0.07);
+    --shadow-card-hover: 0 4px 6px -1px rgb(16 35 31 / 0.05), 0 20px 32px -6px rgb(15 107 92 / 0.16);
+    --shadow-button: 0 4px 14px 0 rgb(15 107 92 / 0.26);
+    --shadow-button-hover: 0 6px 20px 0 rgb(15 107 92 / 0.36);
+    --shadow-alert: 0 4px 14px 0 rgb(220 38 38 / 0.25);
     color-scheme: light;
   }
   :root[data-theme='dark'] {
-    --c-canvas: 26 18 21; /* #1A1215 */
-    --c-on-accent: 26 18 21; /* #1A1215 */
-    --c-ink: 245 236 239; /* #F5ECEF */
-    --c-muted: 199 182 189; /* #C7B6BD */
-    --c-berry: 232 141 181; /* #E88DB5 */
-    --c-berry-dark: 243 176 205; /* #F3B0CD */
-    --c-blush: 59 32 48; /* #3B2030 */
-    --c-mist: 27 40 54; /* #1B2836 */
-    --c-peach: 44 30 34; /* #2C1E22 */
-    --c-surface: 35 26 30; /* #231A1E */
-    --c-line: 59 46 52; /* #3B2E34 */
-    --c-field: 90 72 81; /* #5A4851 */
-    --c-focus: 243 176 205; /* #F3B0CD */
-    --c-success: 122 211 163; /* #7AD3A3 */
-    --c-success-soft: 20 42 32; /* #142A20 */
-    --c-success-line: 37 80 59; /* #25503B */
-    --c-success-strong: 179 234 203; /* #B3EACB */
-    --c-notice: 235 176 97; /* #EBB061 */
-    --c-notice-soft: 46 35 17; /* #2E2311 */
-    --c-notice-line: 91 68 33; /* #5B4421 */
-    --c-notice-strong: 245 212 159; /* #F5D49F */
-    --c-info: 147 190 230; /* #93BEE6 */
-    --c-info-line: 45 71 98; /* #2D4762 */
-    --c-info-strong: 198 220 241; /* #C6DCF1 */
-    --c-alert: 242 139 128; /* #F28B80 */
-    --c-alert-dark: 247 170 161; /* #F7AAA1 */
-    --c-alert-soft: 52 23 25; /* #341719 */
-    --c-alert-line: 94 43 43; /* #5E2B2B */
-    --c-alert-strong: 250 195 188; /* #FAC3BC */
-    --c-disabled: 45 37 41; /* #2D2529 */
-    --c-disabled-text: 149 135 144; /* #958790 */
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.35), 0 14px 32px rgba(0, 0, 0, 0.45);
-    --shadow-button: 0 2px 8px rgba(232, 141, 181, 0.2);
-    --shadow-button-hover: 0 4px 14px rgba(232, 141, 181, 0.3);
-    --shadow-alert: 0 2px 8px rgba(242, 139, 128, 0.2);
+    --c-canvas: 8 21 18; /* #081512 - Deep pine */
+    --c-on-accent: 4 35 30; /* #04231E */
+    --c-ink: 236 253 249; /* #ECFDF9 - Mint 50 */
+    --c-muted: 157 184 178; /* #9DB8B2 - Sage 300 */
+    --c-berry: 94 234 212; /* #5EEAD4 - Teal 300 */
+    --c-berry-dark: 153 246 228; /* #99F6E4 - Teal 200 */
+    --c-blush: 14 59 51; /* #0E3B33 - Deep teal tint */
+    --c-mist: 11 51 64; /* #0B3340 - Deep aqua */
+    --c-peach: 59 42 24; /* #3B2A18 - Dark sand */
+    --c-surface: 15 36 32; /* #0F2420 - Pine surface */
+    --c-line: 30 58 52; /* #1E3A34 */
+    --c-field: 44 74 67; /* #2C4A43 */
+    --c-focus: 94 234 212; /* #5EEAD4 */
+    --c-success: 52 211 153; /* #34D399 */
+    --c-success-soft: 6 78 59; /* #064E3B */
+    --c-success-line: 16 185 129;
+    --c-success-strong: 167 243 208;
+    --c-notice: 251 191 36; /* #FBBF24 */
+    --c-notice-soft: 120 53 15;
+    --c-notice-line: 217 119 6;
+    --c-notice-strong: 254 243 199;
+    --c-info: 56 189 248; /* #38BDF8 */
+    --c-info-line: 3 105 161;
+    --c-info-strong: 186 230 253;
+    --c-alert: 248 113 113; /* #F87171 */
+    --c-alert-dark: 252 165 165;
+    --c-alert-soft: 127 29 29;
+    --c-alert-line: 185 28 28;
+    --c-alert-strong: 254 202 202;
+    --c-disabled: 30 41 38;
+    --c-disabled-text: 100 116 112;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 25px rgba(0, 0, 0, 0.5);
+    --shadow-card-hover: 0 4px 8px rgba(0, 0, 0, 0.4), 0 20px 32px rgba(0, 0, 0, 0.6);
+    --shadow-button: 0 4px 14px rgba(94, 234, 212, 0.25);
+    --shadow-button-hover: 0 6px 20px rgba(94, 234, 212, 0.35);
+    --shadow-alert: 0 4px 14px rgba(248, 113, 113, 0.25);
     color-scheme: dark;
   }
 

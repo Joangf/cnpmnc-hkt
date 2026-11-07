@@ -48,6 +48,7 @@ from app.models.enums import (
     AppointmentStatus,
     CheckInStatus,
     PaymentStatus,
+    SchedulingMode,
     StatusSource,
     UserRole,
 )
@@ -134,7 +135,9 @@ class Ctx:
 def migrated():
     subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND_DIR, env={**os.environ, "DATABASE_URL": TEST_DATABASE_URL}, check=True,
+        cwd=BACKEND_DIR,
+        env={**os.environ, "DATABASE_URL": TEST_DATABASE_URL},
+        check=True,
     )
 
 
@@ -150,8 +153,10 @@ async def seed(session: AsyncSession) -> Seed:
     users = []
     for name in ("patient", "other"):
         user = User(
-            email=f"pay-{name}-{suffix}@example.com", password_hash="unused",
-            role=UserRole.PATIENT, account_status=AccountStatus.ACTIVE,
+            email=f"pay-{name}-{suffix}@example.com",
+            password_hash="unused",
+            role=UserRole.PATIENT,
+            account_status=AccountStatus.ACTIVE,
         )
         user.profile = PatientProfile(full_name=f"Pay {name}")
         users.append(user)
@@ -163,14 +168,20 @@ async def seed(session: AsyncSession) -> Seed:
     session.add(department)
     await session.flush()
     doctor = Doctor(
-        full_name="Pay doctor", hospital_id=hospital.id, department_id=department.id,
+        full_name="Pay doctor",
+        hospital_id=hospital.id,
+        department_id=department.id,
         max_appointments_per_window=10,
+        scheduling_mode=SchedulingMode.ERP,  # default is MANUAL (e2fc238)
     )
     session.add(doctor)
     await session.flush()
     paid = AppointmentType(
-        name=f"Paid-{suffix}", duration_minutes=20, buffer_minutes=10,
-        fee_override=FEE, doctor_id=doctor.id,
+        name=f"Paid-{suffix}",
+        duration_minutes=20,
+        buffer_minutes=10,
+        fee_override=FEE,
+        doctor_id=doctor.id,
     )
     free = AppointmentType(
         name=f"Free-{suffix}", duration_minutes=20, buffer_minutes=10, doctor_id=doctor.id
@@ -178,14 +189,16 @@ async def seed(session: AsyncSession) -> Seed:
     session.add_all([paid, free])
     tomorrow = datetime.now(availability.clinic_tz()).date() + timedelta(days=2)
     start = datetime.combine(tomorrow, time(8), tzinfo=availability.clinic_tz()).astimezone(UTC)
-    session.add(DoctorSchedule(
-        doctor_id=doctor.id, start_time=start, end_time=start + timedelta(hours=4),
-        max_appointments=None,
-    ))
-    await session.commit()
-    return Seed(
-        users[0].profile.id, users[0].id, users[1].id, doctor.id, paid.id, free.id, start
+    session.add(
+        DoctorSchedule(
+            doctor_id=doctor.id,
+            start_time=start,
+            end_time=start + timedelta(hours=4),
+            max_appointments=None,
+        )
     )
+    await session.commit()
+    return Seed(users[0].profile.id, users[0].id, users[1].id, doctor.id, paid.id, free.id, start)
 
 
 @pytest.fixture
@@ -354,7 +367,10 @@ async def test_confirmation_sets_payment_deadline_only_when_a_fee_is_due(ctx):
         for appointment_id in (paid_id, free_id):
             appointment = await session.get(Appointment, appointment_id)
             await booking.transition(
-                session, appointment, AppointmentStatus.CONFIRMED, reason=None,
+                session,
+                appointment,
+                AppointmentStatus.CONFIRMED,
+                reason=None,
                 source=StatusSource.ERP,
             )
         await session.commit()
@@ -384,9 +400,9 @@ async def test_initiate_returns_qr_and_reuses_the_open_attempt(ctx):
     assert second["id"] == first["id"] and second["payment_code"] == first["payment_code"]
     async with ctx.sessions() as session:
         count = await session.scalar(
-            select(func.count()).select_from(Payment).where(
-                Payment.appointment_id == appointment_id
-            )
+            select(func.count())
+            .select_from(Payment)
+            .where(Payment.appointment_id == appointment_id)
         )
     assert count == 1
 
@@ -451,9 +467,11 @@ async def test_matching_transfer_marks_paid(ctx):
     detail = await get_appointment(ctx, appointment_id)
     assert detail["payment_status"] == "PAID" and detail["can_pay"] is False
     async with ctx.sessions() as session:
-        titles = list(await session.scalars(
-            select(Notification.title).where(Notification.user_id == ctx.ids.patient_user)
-        ))
+        titles = list(
+            await session.scalars(
+                select(Notification.title).where(Notification.user_id == ctx.ids.patient_user)
+            )
+        )
     assert "Payment received" in titles
     again = await initiate(ctx, appointment_id)
     assert again.status_code == 409 and again.json()["error"]["code"] == "AlreadyPaid"
@@ -571,8 +589,11 @@ async def pay_code_unchecked(ctx: Ctx, appointment_id: int) -> dict:
     """Create a PENDING payment even when the deadline already passed (test setup only)."""
     async with ctx.sessions() as session:
         payment = Payment(
-            appointment_id=appointment_id, amount=FEE, currency="VND",
-            status=PaymentStatus.PENDING, payment_code=sepay.new_payment_code(),
+            appointment_id=appointment_id,
+            amount=FEE,
+            currency="VND",
+            status=PaymentStatus.PENDING,
+            payment_code=sepay.new_payment_code(),
         )
         session.add(payment)
         await session.commit()
@@ -615,7 +636,8 @@ async def test_patient_cancel_expires_open_payment_and_never_refunds(ctx):
     for appointment_id in (pending_id, paid_id):
         response = await ctx.client.post(
             f"/api/v1/appointments/{appointment_id}/cancel",
-            json={"reason": "Changed plans"}, headers=ctx.ids.headers(),
+            json={"reason": "Changed plans"},
+            headers=ctx.ids.headers(),
         )
         assert response.status_code == 200, response.text
     assert (await get_payment(ctx, pending["id"]))["status"] == "EXPIRED"
@@ -635,8 +657,10 @@ async def test_poller_applies_transfers_once_and_is_idle_without_token(ctx, monk
         calls.append(since)
         return [
             BankTransfer(
-                id=f"poll-{payment['id']}", amount_in=FEE,
-                transaction_content=f"IBFT {payment['payment_code']}", code=None,
+                id=f"poll-{payment['id']}",
+                amount_in=FEE,
+                transaction_content=f"IBFT {payment['payment_code']}",
+                code=None,
                 transaction_date=datetime.now(UTC),
             )
         ]

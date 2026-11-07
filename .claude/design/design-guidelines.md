@@ -13,21 +13,21 @@ About 80% of every screen stays white; berry is the only strong colour in normal
 ## Colour
 | Token (Tailwind) | Hex | Use |
 |---|---|---|
-| `berry` | #8C1D4F | Actions, links (hover `berry-dark` #6E163E) |
-| `blush` | #FBE9EF | Hero, selected states |
-| `mist` | #EAF2F8 | Info panels |
-| `peach` | #FFF1E6 | Imagery ground |
-| `ink` | #2B1A22 | Text |
-| `alert` | #B42318 | Emergency only |
-| `muted` | #5E4B53 | Secondary text (7:1) |
-| `line` | #EADFD8 | Borders and dividers |
-| `field` | #D9CBC2 | Input borders |
-| `surface` | #FAF6F2 | Page surface, tags, footer |
-| `success` | #1E7A4F | Success (soft #E8F4EE) |
-| `notice` | #A15C07 | Notices / waiting |
-| `focus` | #E59AB8 | 3px focus ring |
+| `berry` | #0F6B5C | Actions, links (hover `berry-dark` #0A4F44) |
+| `blush` | #E6F4F0 | Hero, selected states |
+| `mist` | #EAF6F8 | Info panels |
+| `peach` | #FDF1E4 | Imagery ground |
+| `ink` | #10231F | Text |
+| `alert` | #DC2626 | Emergency only |
+| `muted` | #4C635D | Secondary text (7:1) |
+| `line` | #DCE8E4 | Borders and dividers |
+| `field` | #C3D6D0 | Input borders |
+| `surface` | #F6FAF9 | Page surface, tags, footer |
+| `success` | #15803D | Success (soft #ECFDF5) |
+| `notice` | #B45309 | Notices / waiting |
+| `focus` | #6FD3C0 | 3px focus ring |
 
-Notice tints: danger #FEF3F2 / line #F4C7C3 / text #7A271A · success #E8F4EE / #BFDFCD / #134D33 · info #EAF2F8 / #C9DCEA / #1E3A57. Disabled: #EEF1F3 with #6B7882 text.
+Notice tints: danger #FEF2F2 / line #FECACA / text #991B1B · success #ECFDF5 / #BBF7D0 / #166534 · info #EAF6F8 / #BAE6FD / #075985. Disabled: #F1F5F4 with #94A3A0 text.
 
 ## Typography (Figtree, self-hosted)
 | Style | Weight · size/line |
@@ -110,24 +110,24 @@ Rules:
 - `prefers-reduced-motion: reduce` turns every animation and transition into an instant change and removes stagger delays (`index.css` base layer). Content must never depend on an animation to become visible.
 
 ## Dark mode
-Same roles, same calm: a warm plum canvas instead of white, light berry for the one main action, and soft dark tints for selected, info, success, notice and danger. Every colour is a CSS variable (RGB triplet) defined twice in `frontend/src/index.css`: light on `:root` and dark on `:root[data-theme='dark']`. Tailwind colours read those variables, so components never need `dark:` variants. Use semantic tokens only: `bg-canvas` (not `bg-white`) for the page and cards, and `text-on-accent` (not `text-white`) for text on berry or alert fills. `white` stays as a literal colour for the rare place that must be white in both themes.
+Same roles, same calm: a deep pine canvas instead of white, light teal for the one main action, and soft dark tints for selected, info, success, notice and danger. Every colour is a CSS variable (RGB triplet) defined twice in `frontend/src/index.css`: light on `:root` and dark on `:root[data-theme='dark']`. Tailwind colours read those variables, so components never need `dark:` variants. Use semantic tokens only: `bg-canvas` (not `bg-white`) for the page and cards, and `text-on-accent` (not `text-white`) for text on berry or alert fills. `white` stays as a literal colour for the rare place that must be white in both themes.
 
 | Token | Light | Dark |
 |---|---|---|
-| `canvas` | #FFFFFF | #1A1215 |
-| `surface` | #FAF6F2 | #231A1E |
-| `ink` | #2B1A22 | #F5ECEF |
-| `muted` | #5E4B53 | #C7B6BD |
-| `line` / `field` | #EADFD8 / #D9CBC2 | #3B2E34 / #5A4851 |
-| `berry` / `berry-dark` (hover) | #8C1D4F / #6E163E | #E88DB5 / #F3B0CD |
-| `on-accent` | #FFFFFF | #1A1215 |
-| `blush` / `mist` / `peach` | #FBE9EF / #EAF2F8 / #FFF1E6 | #3B2030 / #1B2836 / #2C1E22 |
-| `focus` | #E59AB8 | #F3B0CD |
-| `success` · soft · line · strong | #1E7A4F · #E8F4EE · #BFDFCD · #134D33 | #7AD3A3 · #142A20 · #25503B · #B3EACB |
-| `notice` · soft · line · strong | #A15C07 · #FFF6E8 · #F1D9B5 · #6B3D05 | #EBB061 · #2E2311 · #5B4421 · #F5D49F |
-| `info` · line · strong | #25507A · #C9DCEA · #1E3A57 | #93BEE6 · #2D4762 · #C6DCF1 |
-| `alert` · dark · soft · line · strong | #B42318 · #912018 · #FEF3F2 · #F4C7C3 · #7A271A | #F28B80 · #F7AAA1 · #341719 · #5E2B2B · #FAC3BC |
-| `disabled` / text | #EEF1F3 / #6B7882 | #2D2529 / #958790 |
+| `canvas` | #FFFFFF | #081512 |
+| `surface` | #F6FAF9 | #0F2420 |
+| `ink` | #10231F | #ECFDF9 |
+| `muted` | #4C635D | #9DB8B2 |
+| `line` / `field` | #DCE8E4 / #C3D6D0 | #1E3A34 / #2C4A43 |
+| `berry` / `berry-dark` (hover) | #0F6B5C / #0A4F44 | #5EEAD4 / #99F6E4 |
+| `on-accent` | #FFFFFF | #04231E |
+| `blush` / `mist` / `peach` | #E6F4F0 / #EAF6F8 / #FDF1E4 | #0E3B33 / #0B3340 / #3B2A18 |
+| `focus` | #6FD3C0 | #5EEAD4 |
+| `success` · soft · line · strong | #15803D · #ECFDF5 · #BBF7D0 · #166534 | #34D399 · #064E3B · #10B981 · #A7F3D0 |
+| `notice` · soft · line · strong | #B45309 · #FFF7ED · #FDE68A · #92400E | #FBBF24 · #78350F · #D97706 · #FEF3C7 |
+| `info` · line · strong | #0369A1 · #BAE6FD · #075985 | #38BDF8 · #0369A1 · #BAE6FD |
+| `alert` · dark · soft · line · strong | #DC2626 · #B91C1C · #FEF2F2 · #FECACA · #991B1B | #F87171 · #FCA5A5 · #7F1D1D · #B91C1C · #FECACA |
+| `disabled` / text | #F1F5F4 / #94A3A0 | #1E2926 / #647470 |
 
 Rules:
 - Every text pair keeps ≥ 4.5:1 in both themes (dark: ink 15.9:1, muted 9.5:1, berry on canvas 7.8:1, on-accent on berry 7.8:1). Check new pairs in both themes before adding them.

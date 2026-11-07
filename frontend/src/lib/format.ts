@@ -44,7 +44,7 @@ export function clinicDateTime(day: string, time: string): string {
 }
 
 export function formatMoney(amount: string | number | null | undefined, currency = 'VND'): string {
-  if (amount === null || amount === undefined) return '—'
+  if (amount === null || amount === undefined) return '-'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(amount))
 }
 

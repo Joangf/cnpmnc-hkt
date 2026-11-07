@@ -1,15 +1,15 @@
 """Sprint 3: VietQR + SePay bank-transfer payments, manual refunds, payment hold on appointments.
 
-Revision ID: 0008_sepay_payments
-Revises: 0007_manual_doctor_slots
+Revision ID: 0009_sepay_payments
+Revises: 0008_merge_heads
 """
 
 import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0008_sepay_payments"
-down_revision = "0007_manual_doctor_slots"
+revision = "0009_sepay_payments"
+down_revision = "0008_merge_heads"
 branch_labels = None
 depends_on = None
 

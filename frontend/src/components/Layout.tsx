@@ -4,15 +4,17 @@ import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react
 import { api } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
 import { useTheme } from '../lib/theme'
-import { IconMenu, IconMoon, IconPhone, IconSun, LogoMark } from './icons'
+import { IconMenu, IconMoon, IconSun, LogoMark } from './icons'
 import { EMERGENCY_NUMBER } from './ui'
 
 const mainLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex min-h-12 items-center whitespace-nowrap text-control font-medium no-underline hover:text-berry ${
-    isActive ? 'text-berry underline decoration-2 underline-offset-[10px]' : 'text-ink'
+  `flex min-h-9 items-center px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-fast no-underline ${
+    isActive ? 'bg-berry text-white shadow-button' : 'text-ink hover:text-berry hover:bg-blush'
   }`
 const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex min-h-11 items-center whitespace-nowrap no-underline hover:text-berry ${isActive ? 'font-semibold text-berry' : 'text-muted'}`
+  `flex min-h-10 items-center whitespace-nowrap text-xs font-semibold no-underline transition-colors hover:text-berry ${
+    isActive ? 'text-berry' : 'text-muted'
+  }`
 const menuItemClass =
   'flex min-h-14 w-full items-center justify-between border-b border-line px-4 text-left text-control font-medium text-ink no-underline hover:bg-blush hover:text-berry sm:px-6'
 
@@ -119,11 +121,11 @@ export function Layout() {
         Skip to content
       </a>
 
-      <header className="bg-canvas">
+      <header className="sticky top-0 z-40 bg-canvas/95 backdrop-blur-md shadow-sm transition-all">
         {/* The emergency number is always visible (booking flow step 1). */}
-        <div className="bg-surface">
-          <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-6 px-4 text-caption text-muted sm:px-6">
-            <p className="hidden py-2.5 sm:block">Book online any time · Hospitals confirm during clinic hours</p>
+        <div className="bg-surface/80 border-b border-line/60">
+          <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-6 px-4 text-xs font-medium text-muted sm:px-6">
+            <p className="hidden py-2 sm:block">HKT Hospital - Online booking 24/7 · Instant confirmation</p>
             <div className="flex items-center gap-6">
               <nav aria-label="Account" className="hidden items-center gap-5 xl:flex">
                 {accountLinks.map((l) => (
@@ -137,10 +139,13 @@ export function Layout() {
                   </button>
                 )}
               </nav>
-              <p className="flex min-h-11 items-center gap-1.5 whitespace-nowrap">
-                <IconPhone size={16} className="text-alert" />
-                Emergency 24/7:{' '}
-                <a href={`tel:${EMERGENCY_NUMBER}`} className="font-semibold text-alert underline underline-offset-2 hover:text-alert-dark">
+              <p className="flex min-h-9 items-center gap-2 whitespace-nowrap">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-alert opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-alert"></span>
+                </span>
+                <span className="text-muted">Emergency 24/7:</span>
+                <a href={`tel:${EMERGENCY_NUMBER}`} className="font-bold text-alert hover:underline">
                   {EMERGENCY_NUMBER}
                 </a>
               </p>
@@ -149,14 +154,17 @@ export function Layout() {
         </div>
 
         <div className="border-b border-line">
-          <div className="mx-auto flex max-w-page items-center gap-x-10 px-4 py-4 sm:px-6 sm:py-5">
-            <Link to="/" className="flex items-center gap-3 text-ink no-underline hover:text-ink">
-              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-berry text-on-accent shadow-button">
-                <LogoMark />
+          <div className="mx-auto flex max-w-page items-center gap-x-8 px-4 py-3 sm:px-6 sm:py-3.5">
+            <Link to="/" className="flex items-center gap-3 text-ink no-underline hover:text-ink group">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-berry text-on-accent shadow-button group-hover:scale-105 transition-transform duration-fast">
+                <LogoMark size={22} />
               </span>
-              <span className="text-xl font-bold">HKT Hospital</span>
+              <div className="flex flex-col">
+                <span className="text-xl font-extrabold tracking-tight text-ink leading-tight">HKT Hospital</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Healthcare Center</span>
+              </div>
             </Link>
-            <nav aria-label="Main" className="hidden flex-1 items-center gap-8 xl:flex">
+            <nav aria-label="Main" className="hidden flex-1 items-center gap-2 xl:flex">
               {mainLinks.map((l) => (
                 <NavLink key={l.to} to={l.to} className={mainLinkClass}>
                   {l.label}

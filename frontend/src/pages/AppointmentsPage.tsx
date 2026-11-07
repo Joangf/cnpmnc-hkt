@@ -71,7 +71,6 @@ export default function AppointmentsPage() {
                     </div>
                     <div className="flex flex-col items-start gap-2 sm:items-end">
                       <StatusBadge status={a.status} />
-                      <StatusBadge status={a.payment_status} kind="payment" />
                       <span className="font-mono text-sm text-muted">{a.booking_reference}</span>
                     </div>
                   </div>

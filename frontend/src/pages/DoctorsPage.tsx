@@ -65,10 +65,23 @@ export default function DoctorsPage() {
   }, [departmentId, range])
 
   return (
-    <div>
-      <h1 className="page-title mb-6">Doctors</h1>
+    <div className="pb-12">
+      {/* Page Header */}
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blush text-berry text-xs font-semibold tracking-wider uppercase mb-3 border border-berry/20">
+          Specialist Medical Directory
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink mb-3">
+          Find &amp; Book a Specialist Doctor
+        </h1>
+        <p className="text-muted text-base sm:text-lg max-w-2xl leading-relaxed">
+          Discover top medical specialists across HKT Hospital. Book consultations quickly with transparent fees and trusted care.
+        </p>
+      </div>
+
+      {/* Search Form */}
       <form
-        className="card"
+        className="rounded-2xl border border-line/80 bg-canvas p-5 shadow-card hover:shadow-card-hover transition-all duration-base sm:p-6 mb-6"
         onSubmit={(e) => {
           e.preventDefault()
           update({
@@ -82,20 +95,32 @@ export default function DoctorsPage() {
         <div className="flex min-w-0 flex-col gap-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label htmlFor="doctor-name" className="label">Doctor name</label>
-              <input
-                id="doctor-name"
-                className="input bg-surface"
-                type="search"
-                placeholder="e.g. Nguyen"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
+              <label htmlFor="doctor-name" className="block text-sm font-semibold text-ink mb-1.5">
+                Doctor name
+              </label>
+              <div className="relative">
+                <input
+                  id="doctor-name"
+                  className="input mt-0 pl-10"
+                  type="search"
+                  placeholder="e.g. Nguyen, Le, Smith..."
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none flex items-center">
+                  <IconSearch size={18} />
+                </span>
+              </div>
             </div>
             <div className="flex items-end gap-3">
               <DepartmentCombobox value={departmentId} onChange={setDepartmentId} />
-              <button type="submit" aria-label="Search doctors" title="Search" className="btn-primary h-[52px] w-[60px] shrink-0 px-0">
-                <IconSearch size={24} />
+              <button
+                type="submit"
+                aria-label="Search doctors"
+                title="Search"
+                className="btn-primary min-w-[120px] font-semibold py-3 shadow-button hover:shadow-button-hover"
+              >
+                Search
               </button>
             </div>
           </div>
@@ -104,31 +129,38 @@ export default function DoctorsPage() {
       </form>
 
       <div className="mt-8">
-        {doctors.isLoading && <Spinner />}
+        {doctors.isLoading && (
+          <div className="py-12 text-center">
+            <Spinner />
+          </div>
+        )}
         <ErrorAlert error={doctors.error} />
         {doctors.data && (
-          <h2 className="mb-4 text-h2 font-semibold" aria-live="polite">
-            Doctors{' '}
-            <span className="text-sm font-normal text-muted">
-              ({doctors.data.total} {doctors.data.total === 1 ? 'result' : 'results'} found)
-            </span>
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-muted" aria-live="polite">
+              Found <span className="font-bold text-ink">{doctors.data.total}</span> matching {doctors.data.total === 1 ? 'doctor' : 'doctors'}
+            </h2>
+          </div>
         )}
-        {doctors.data?.items.length === 0 && <EmptyState>No doctors match your filters. Try another department or time range.</EmptyState>}
+        {doctors.data?.items.length === 0 && (
+          <EmptyState>No doctors match your search filters. Try selecting another specialty or time window.</EmptyState>
+        )}
         {!!doctors.data?.items.length && (
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             {doctors.data.items.map((d, i) => (
               <DoctorCard key={d.id} doctor={d} style={stagger(i)} />
             ))}
           </div>
         )}
         {doctors.data && (
-          <Pagination
-            page={page}
-            pageSize={doctors.data.page_size}
-            total={doctors.data.total}
-            onChange={(p) => update({ page: String(p) })}
-          />
+          <div className="mt-8">
+            <Pagination
+              page={page}
+              pageSize={doctors.data.page_size}
+              total={doctors.data.total}
+              onChange={(p) => update({ page: String(p) })}
+            />
+          </div>
         )}
       </div>
     </div>

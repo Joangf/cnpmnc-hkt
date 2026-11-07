@@ -4,7 +4,7 @@ export type Theme = 'light' | 'dark'
 
 // Keep in sync with the inline script in index.html, which applies the theme before first paint.
 const STORAGE_KEY = 'carebook-theme'
-const THEME_COLOR: Record<Theme, string> = { light: '#8C1D4F', dark: '#1A1215' }
+const THEME_COLOR: Record<Theme, string> = { light: '#0F6B5C', dark: '#081512' }
 const FADE_MS = 320
 
 function storedTheme(): Theme | null {
