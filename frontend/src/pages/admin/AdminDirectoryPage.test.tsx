@@ -63,18 +63,17 @@ describe('SCRUM-21 scheduling controls', () => {
   })
 
   it('offers a doctor selector and bounded duration and buffer fields', async () => {
-    const create = vi.spyOn(api.admin, 'create').mockResolvedValue({})
+    const update = vi.spyOn(api.admin, 'update').mockResolvedValue({})
     await show('Appointment types')
-    fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Doctor consultation' } })
     fireEvent.change(screen.getByLabelText(/Duration \(min\)/), { target: { value: '30' } })
     fireEvent.change(screen.getByLabelText('Limit to doctor'), { target: { value: '2' } })
-    expect(screen.getByLabelText(/Buffer \(min\)/)).toHaveValue(0)
+    expect(screen.getByLabelText(/Buffer \(min\)/)).toHaveValue(10)
     expect(screen.getByLabelText(/Duration \(min\)/)).toHaveAttribute('min', '5')
     expect(screen.getByLabelText(/Duration \(min\)/)).toHaveAttribute('max', '480')
     expect(screen.getByLabelText(/Buffer \(min\)/)).toHaveAttribute('max', '120')
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
-    await waitFor(() => expect(create).toHaveBeenCalledWith('appointment-types', {
-      name: 'Doctor consultation', duration_minutes: 30, buffer_minutes: 0, doctor_id: 2,
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(update).toHaveBeenCalledWith('appointment-types', 5, {
+      duration_minutes: 30, doctor_id: 2,
     }))
     expect(await screen.findByRole('status')).toHaveTextContent('Scheduling settings saved.')
   })

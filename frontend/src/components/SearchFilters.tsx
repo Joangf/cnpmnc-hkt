@@ -1,45 +1,30 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useMemo, useRef, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { api } from '../api/endpoints'
 import { upcomingDays } from '../lib/format'
 import { IconArrowLeft, IconArrowRight, IconCalendar } from './icons'
 
-/** Department picker: a dropdown whose text box can be typed into to narrow the list. */
+/** Department picker: a plain dropdown. */
 export function DepartmentCombobox({ value, onChange }: { value?: number; onChange: (id?: number) => void }) {
-  const listId = useId()
   const departments = useQuery({ queryKey: ['departments', 'all'], queryFn: () => api.directory.departments({ page_size: 100 }) })
-  const items = departments.data?.items ?? []
-  const selectedName = items.find((d) => d.id === value)?.name ?? ''
-  const [text, setText] = useState(selectedName)
-
-  // Follow external changes (URL params, specialty chips clearing the department, data loading).
-  useEffect(() => setText(selectedName), [selectedName])
-
-  const handleChange = (next: string) => {
-    setText(next)
-    const match = items.find((d) => d.name.toLowerCase() === next.trim().toLowerCase())
-    if (match) onChange(match.id)
-    else if (!next.trim()) onChange(undefined)
-  }
+  // Several facilities seed the same department name; list each name once.
+  const items = [...new Map((departments.data?.items ?? []).map((d) => [d.name, d])).values()]
 
   return (
     <label className="flex-[1_1_220px]">
       <span className="label">Department</span>
-      <input
+      <select
         className="input bg-surface"
-        type="search"
-        list={listId}
-        placeholder="All departments"
-        autoComplete="off"
-        value={text}
-        onChange={(e) => handleChange(e.target.value)}
-        onBlur={() => setText(selectedName)} // unmatched free text falls back to the applied choice
-      />
-      <datalist id={listId}>
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+      >
+        <option value="">All departments</option>
         {items.map((d) => (
-          <option key={d.id} value={d.name} />
+          <option key={d.id} value={d.id}>
+            {d.name}
+          </option>
         ))}
-      </datalist>
+      </select>
     </label>
   )
 }

@@ -135,8 +135,6 @@ export interface DoctorSummary {
   full_name: string
   title: string | null
   experience_years: number
-  consultation_fee: Decimal | null
-  currency: string
   rating_avg: Decimal
   rating_count: number
   avatar_url: string | null
@@ -154,7 +152,39 @@ export interface DoctorDetail extends DoctorSummary {
 
 export interface AdminDoctorDetail extends DoctorDetail {
   max_appointments_per_window: number
+  scheduling_mode: SchedulingMode
 }
+
+export type SchedulingMode = 'ERP' | 'MANUAL'
+
+export interface AdminSlot {
+  id: number
+  doctor_id: number
+  start_time: string
+  end_time: string
+  buffer_minutes: number
+  capacity: number
+  is_open: boolean
+  version: number
+  booked_count: number
+  remaining_places: number
+}
+
+export interface AdminSlotList {
+  doctor_id: number
+  timezone: string
+  slots: AdminSlot[]
+}
+
+export interface SlotCreate {
+  start_time: string
+  end_time: string
+  buffer_minutes: number
+  capacity: number
+  is_open: boolean
+}
+
+export type SlotUpdate = Partial<SlotCreate> & { version: number }
 
 export interface AppointmentType {
   id: number
@@ -170,6 +200,10 @@ export interface AppointmentType {
 export interface Slot {
   start_time: string
   end_time: string
+  slot_id?: number | null
+  version?: number | null
+  capacity?: number | null
+  remaining_places?: number | null
 }
 
 export interface Availability {
@@ -189,6 +223,8 @@ export interface AppointmentCreate {
   appointment_type_id: number
   start_time: string
   reason_for_visit?: string
+  slot_id?: number
+  slot_version?: number
 }
 
 export interface StatusHistory {

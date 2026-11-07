@@ -52,7 +52,7 @@ def find_slot(c: httpx.Client, doctor_id: int, offset_start: int = 2) -> tuple[i
 # --- Guest discovery -----------------------------------------------------------------------
 guest = client()
 r = guest.get("/hospitals")
-check("list hospitals", r.status_code == 200 and r.json()["total"] == 3, r.text[:200])
+check("list hospitals", r.status_code == 200 and r.json()["total"] == 1, r.text[:200])
 hospital = r.json()["items"][0]
 check("hospital has specialties", len(hospital["specialties"]) > 0)
 check("hospital detail", guest.get(f"/hospitals/{hospital['id']}").status_code == 200)

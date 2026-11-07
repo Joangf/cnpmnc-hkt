@@ -56,7 +56,7 @@ export const api = {
     }) => request<T.Page<T.DoctorSummary>>('GET', '/doctors', { query }),
     doctor: (id: number) => request<T.DoctorDetail>('GET', `/doctors/${id}`),
     appointmentTypes: (doctorId: number) => request<T.AppointmentType[]>('GET', `/doctors/${doctorId}/appointment-types`),
-    availability: (doctorId: number, date: string, appointmentTypeId: number) =>
+    availability: (doctorId: number, date: string, appointmentTypeId?: number) =>
       request<T.Availability>('GET', `/doctors/${doctorId}/availability`, {
         query: { date, appointment_type_id: appointmentTypeId },
       }),
@@ -94,6 +94,12 @@ export const api = {
   },
 
   admin: {
+    slots: (doctorId: number, date: string) =>
+      request<T.AdminSlotList>('GET', `/admin/doctors/${doctorId}/slots`, { query: { date } }),
+    createSlot: (doctorId: number, body: T.SlotCreate) =>
+      request<T.AdminSlot>('POST', `/admin/doctors/${doctorId}/slots`, { body }),
+    updateSlot: (doctorId: number, slotId: number, body: T.SlotUpdate) =>
+      request<T.AdminSlot>('PATCH', `/admin/doctors/${doctorId}/slots/${slotId}`, { body }),
     summary: () => request<T.ReportSummary>('GET', '/admin/reports/summary'),
     users: (query: { q?: string; page?: number }) => request<T.Page<T.AdminUser>>('GET', '/admin/users', { query }),
     setUserStatus: (id: number, account_status: T.AccountStatus) =>

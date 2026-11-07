@@ -184,8 +184,6 @@ def doctor_summary(doctor: Doctor) -> DoctorSummary:
         full_name=doctor.full_name,
         title=doctor.title,
         experience_years=doctor.experience_years,
-        consultation_fee=doctor.consultation_fee,
-        currency=settings.currency,
         rating_avg=doctor.rating_avg,
         rating_count=doctor.rating_count,
         avatar_url=doctor.avatar_url,
@@ -209,6 +207,7 @@ def admin_doctor_detail(doctor: Doctor) -> AdminDoctorDetail:
     return AdminDoctorDetail(
         **doctor_detail(doctor).model_dump(),
         max_appointments_per_window=doctor.max_appointments_per_window,
+        scheduling_mode=doctor.scheduling_mode,
     )
 
 

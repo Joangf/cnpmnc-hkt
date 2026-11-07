@@ -218,6 +218,8 @@ export default function AdminDirectoryPage() {
 
   // Manage a single hospital: use the first record.
   const primaryHospital = hospitals.data?.[0]
+  // Quản lý 1 loại khám duy nhất: lấy record đầu tiên
+  const primaryType = types.data?.[0]
 
   const hospitalFields: FieldDef[] = [
     { name: 'name', label: 'Name', required: true },
@@ -299,7 +301,7 @@ export default function AdminDirectoryPage() {
         id: d.id,
         is_active: d.is_active,
         title: d.full_name,
-        subtitle: `${d.hospital.name} · ${d.department.name} · ${d.specialty.name} · ${formatMoney(d.consultation_fee)} · ERP ${d.erp_doctor_id ?? 'not linked'} · Capacity ${d.max_appointments_per_window} per work window`,
+        subtitle: `${d.hospital.name} · ${d.department.name} · ${d.specialty.name} · ERP ${d.erp_doctor_id ?? 'not linked'} · Capacity ${d.max_appointments_per_window} per work window`,
         record: { ...d },
       })),
       fields: [
@@ -317,12 +319,11 @@ export default function AdminDirectoryPage() {
         { name: 'full_name', label: 'Full name', required: true },
         { name: 'title', label: 'Title' },
         { name: 'experience_years', label: 'Years of experience', type: 'number' },
-        { name: 'consultation_fee', label: 'Consultation fee', type: 'number' },
         { name: 'erp_doctor_id', label: 'ERP doctor ID' },
         {
           name: 'max_appointments_per_window', label: 'Capacity per work window',
           type: 'number', required: true, min: 1, max: 2147483647, step: 1, defaultValue: '1',
-          help: 'Total bookings across all appointment types in each doctor work window. Default: 1. A stricter hospital schedule limit still applies. Existing bookings are preserved when this is lowered.',
+          help: 'ERP mode only: total bookings across all appointment types in each doctor work window. Default: 1. A stricter hospital schedule limit still applies. Manual slots have their own capacity in Schedules.',
         },
         { name: 'avatar_url', label: 'Photo URL' },
         { name: 'qualifications', label: 'Qualifications', type: 'textarea' },
@@ -342,9 +343,9 @@ export default function AdminDirectoryPage() {
       })),
       fields: [
         { name: 'name', label: 'Name', required: true },
-        { name: 'duration_minutes', label: 'Duration (min)', type: 'number', required: true, min: 5, max: 480, step: 1, help: '5-480 whole minutes. Changes apply to new bookings.' },
-        { name: 'buffer_minutes', label: 'Buffer (min)', type: 'number', required: true, min: 0, max: 120, step: 1, defaultValue: '0', help: '0-120 whole minutes reserved after the consultation.' },
-        { name: 'fee_override', label: 'Fee override', type: 'number' },
+        { name: 'fee_override', label: 'Fee override', type: 'number', help: 'Standard consultation fee (VND).' },
+        { name: 'duration_minutes', label: 'Duration (min)', type: 'number', required: true, min: 5, max: 480, step: 1, help: '5–480 whole minutes. Changes apply to new bookings.' },
+        { name: 'buffer_minutes', label: 'Buffer (min)', type: 'number', required: true, min: 0, max: 120, step: 1, defaultValue: '0', help: '0–120 whole minutes reserved after the consultation.' },
         { name: 'specialty_id', label: 'Limit to specialty', type: 'select', options: specialtyOptions },
         {
           name: 'doctor_id', label: 'Limit to doctor', type: 'select',
@@ -492,23 +493,32 @@ export default function AdminDirectoryPage() {
                     >
                       Edit
                     </button>
-                    <button className="btn-secondary btn-sm" onClick={() => toggle.mutate(row)}>
-                      {row.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                    {entity !== 'appointment-types' && (
+                      <button className="btn-secondary btn-sm" onClick={() => toggle.mutate(row)}>
+                        {row.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
             </ul>
           </Card>
           <Card className="min-w-0 lg:col-span-2">
-            <h2 className="section-title mb-4">{editing ? `Edit ${editing.title}` : 'Add new'}</h2>
-            {editing ? (
+            <h2 className="section-title mb-4">
+              {editing
+                ? `Edit ${editing.title}`
+                : entity === 'appointment-types' && primaryType
+                  ? `Edit ${primaryType.name}`
+                  : 'Add new'}
+            </h2>
+            {editing || (entity === 'appointment-types' && primaryType) ? (
               <EntityForm
-                key={`${entity}-${editing.id}`}
+                key={`${entity}-${editing?.id ?? primaryType?.id}`}
                 fields={current.fields}
-                editing={editing.record}
-                onSubmit={(body) => update.mutateAsync({ id: editing.id, body })}
-                onCancel={() => setEditing(null)}
+                editing={(editing?.record ?? primaryType) as unknown as AnyRecord}
+                onSubmit={(body) => update.mutateAsync({ id: (editing?.id ?? primaryType!.id), body })}
+                onCancel={entity === 'appointment-types' ? undefined : () => setEditing(null)}
+                submitLabel="Save changes"
                 busy={update.isPending}
               />
             ) : (
@@ -516,7 +526,7 @@ export default function AdminDirectoryPage() {
             )}
             <div className="mt-3">
               <ErrorAlert error={editing ? update.error : create.error} />
-              {!editing && (update.isSuccess || create.isSuccess) && (entity === 'doctors' || entity === 'appointment-types') && (
+              {(update.isSuccess || create.isSuccess) && (entity === 'doctors' || entity === 'appointment-types') && (
                 <p role="status" className="font-semibold text-success">Scheduling settings saved.</p>
               )}
             </div>

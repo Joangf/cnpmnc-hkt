@@ -23,6 +23,26 @@ export function formatTime(iso: string): string {
   return timeFmt.format(new Date(iso))
 }
 
+/** Convert clinic wall-clock input independently of the browser's own timezone. */
+export function clinicDateTime(day: string, time: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(`${day}T${time}`)
+  if (!match) throw new Error('Enter a valid date and time.')
+  const [, year, month, date, hour, minute] = match.map(Number)
+  const wallClock = Date.UTC(year, month - 1, date, hour, minute)
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CLINIC_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  })
+  let instant = wallClock
+  for (let i = 0; i < 3; i++) {
+    const parts = Object.fromEntries(formatter.formatToParts(new Date(instant)).map((p) => [p.type, p.value]))
+    const observed = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute)
+    if (observed === wallClock) return new Date(instant).toISOString()
+    instant += wallClock - observed
+  }
+  throw new Error('This local time does not exist in the clinic timezone. Choose another time.')
+}
+
 export function formatMoney(amount: string | number | null | undefined, currency = 'VND'): string {
   if (amount === null || amount === undefined) return '-'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(amount))

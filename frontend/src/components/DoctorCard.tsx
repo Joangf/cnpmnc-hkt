@@ -1,7 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import type { DoctorSummary } from '../api/types'
-import { formatMoney } from '../lib/format'
 import { Stars } from './ui'
 import { IconLocation } from './icons'
 
@@ -127,13 +126,10 @@ export function DoctorCard({ doctor, style }: { doctor: DoctorSummary; style?: C
           </p>
         </div>
       </div>
-
       <div className="flex items-center justify-between border-t border-line/60 pt-3">
         <div>
-          <span className="block text-xs font-medium text-muted">Consultation fee</span>
-          <span className="text-lg font-bold text-berry">
-            {formatMoney(doctor.consultation_fee, doctor.currency)}
-          </span>
+          <span className="block text-xs font-medium text-muted">Specialty</span>
+          <span className="text-sm font-semibold text-ink">{doctor.specialty.name}</span>
         </div>
         <div className="text-right">
           <span className="block text-xs font-medium text-muted">Rating</span>

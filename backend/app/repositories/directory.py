@@ -1,12 +1,20 @@
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, and_, or_, select
+from sqlalchemy import ColumnElement, and_, case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.models import AppointmentType, Department, Doctor, DoctorSchedule, Hospital, Specialty
-from app.models.enums import DepartmentVisibility, FacilityType
+from app.models import (
+    AppointmentType,
+    Department,
+    Doctor,
+    DoctorSchedule,
+    DoctorSlot,
+    Hospital,
+    Specialty,
+)
+from app.models.enums import DepartmentVisibility, FacilityType, SchedulingMode
 from app.repositories.base import paginate
 
 
@@ -236,7 +244,17 @@ async def list_doctors(
             window.append(DoctorSchedule.end_time > available_from)
         if available_to:
             window.append(DoctorSchedule.start_time < available_to)
-        stmt = stmt.where(select(DoctorSchedule.id).where(*window).exists())
+        manual = [DoctorSlot.doctor_id == Doctor.id, DoctorSlot.is_open.is_(True)]
+        if available_from:
+            manual.append(DoctorSlot.end_time > available_from)
+        if available_to:
+            manual.append(DoctorSlot.start_time < available_to)
+        stmt = stmt.where(or_(
+            and_(Doctor.scheduling_mode == SchedulingMode.ERP,
+                 select(DoctorSchedule.id).where(*window).exists()),
+            and_(Doctor.scheduling_mode == SchedulingMode.MANUAL,
+                 select(DoctorSlot.id).where(*manual).exists()),
+        ))
     return await paginate(session, stmt, page, page_size)
 
 
@@ -269,7 +287,20 @@ async def list_appointment_types_for_doctor(
                 ),
             ),
         )
-        .order_by(AppointmentType.duration_minutes, AppointmentType.name)
+        .order_by(
+            case(
+                (AppointmentType.name.ilike("%standard%"), 0),
+                (AppointmentType.name.ilike("%tiêu chuẩn%"), 0),
+                (AppointmentType.name.ilike("%thường%"), 0),
+                (AppointmentType.name.ilike("%follow-up%"), 3),
+                (AppointmentType.name.ilike("%tái khám%"), 3),
+                (AppointmentType.name.ilike("%extended%"), 2),
+                (AppointmentType.name.ilike("%chuyên sâu%"), 2),
+                else_=1,
+            ),
+            AppointmentType.duration_minutes,
+            AppointmentType.name,
+        )
     )
     return list((await session.scalars(stmt)).all())
 

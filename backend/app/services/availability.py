@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.errors import ValidationFailed
 from app.models import AppointmentType, Doctor
+from app.models.enums import SchedulingMode
 from app.repositories import appointments as appointment_repo
 from app.services.scheduling import Interval, ScheduleWindow, Slot, generate_slots
 from app.services.scheduling_settings import EffectiveSettings, resolve
@@ -56,10 +57,14 @@ async def compute_slots(
     *, effective: EffectiveSettings | None = None,
 ) -> list[Slot]:
     """Authoritative-as-possible computation straight from the database (used for BR-03)."""
+    doctor = await session.get(Doctor, doctor_id)
+    if doctor is None:
+        return []
+    if doctor.scheduling_mode == SchedulingMode.MANUAL:
+        from app.services.manual_slots import offers
+
+        return await offers(session, doctor_id, day)
     if effective is None:
-        doctor = await session.get(Doctor, doctor_id)
-        if doctor is None:
-            return []
         effective = resolve(doctor, appointment_type)
     start, end = day_bounds(day)
     rows = await appointment_repo.schedule_rows(session, doctor_id, start, end)
@@ -102,21 +107,32 @@ async def get_slots_cached(
     doctor = await session.get(Doctor, doctor_id)
     if doctor is None:
         return []
-    effective = resolve(doctor, appointment_type)
-    key, field = _cache_key(doctor_id, day), effective.fingerprint
+    effective = None if doctor.scheduling_mode == SchedulingMode.MANUAL else resolve(
+        doctor, appointment_type
+    )
+    fingerprint = effective.fingerprint if effective else json.dumps([
+        appointment_type.id, str(appointment_type.updated_at), str(doctor.updated_at),
+    ])
+    key = _cache_key(doctor_id, day)
+    field = f"v2:{doctor.scheduling_mode}:{fingerprint}"
     try:
         cached = await redis.hget(key, field)  # type: ignore[misc]  # redis-py stub union
         if cached:
             return [
-                Slot(datetime.fromisoformat(s), datetime.fromisoformat(e))
-                for s, e in json.loads(cached)
+                Slot(datetime.fromisoformat(s["start"]), datetime.fromisoformat(s["end"]),
+                     s["slot_id"], s["version"], s["capacity"], s["remaining_places"])
+                for s in json.loads(cached)
             ]
     except RedisError:
         logger.warning("availability_cache_read_failed")
 
     slots = await compute_slots(session, doctor_id, appointment_type, day, effective=effective)
     try:
-        payload = json.dumps([[s.start.isoformat(), s.end.isoformat()] for s in slots])
+        payload = json.dumps([
+            {"start": s.start.isoformat(), "end": s.end.isoformat(), "slot_id": s.slot_id,
+             "version": s.version, "capacity": s.capacity, "remaining_places": s.remaining_places}
+            for s in slots
+        ])
         async with redis.pipeline(transaction=True) as pipe:
             pipe.hset(key, field, payload)
             pipe.expire(key, settings.availability_cache_seconds)

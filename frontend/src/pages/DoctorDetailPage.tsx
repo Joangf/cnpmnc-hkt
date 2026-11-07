@@ -5,7 +5,7 @@ import { api } from '../api/endpoints'
 import { BookingPanel } from '../components/BookingPanel'
 import { DoctorAvatar, Rating } from '../components/DoctorCard'
 import { EmptyState, ErrorAlert, Spinner, Stars } from '../components/ui'
-import { formatDateTime, formatMoney } from '../lib/format'
+import { formatDateTime } from '../lib/format'
 import { IconAcademic, IconLocation, IconStethoscope } from '../components/icons'
 
 export default function DoctorDetailPage() {
@@ -58,8 +58,8 @@ export default function DoctorDetailPage() {
               <dd className="mt-1 text-2xl font-extrabold text-ink">{d.experience_years} years</dd>
             </div>
             <div className="p-5 sm:p-6 text-center sm:text-left">
-              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Consultation fee</dt>
-              <dd className="mt-1 text-2xl font-extrabold text-berry">{formatMoney(d.consultation_fee, d.currency)}</dd>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Specialty</dt>
+              <dd className="mt-1 text-lg font-bold text-ink">{d.specialty.name}</dd>
             </div>
             <div className="p-5 sm:p-6 text-center sm:text-left">
               <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Patient rating</dt>

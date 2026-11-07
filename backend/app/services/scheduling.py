@@ -34,6 +34,10 @@ class ScheduleWindow:
 class Slot:
     start: datetime
     end: datetime  # end of the consultation itself (buffer excluded)
+    slot_id: int | None = None
+    version: int | None = None
+    capacity: int | None = None
+    remaining_places: int | None = None
 
 
 def generate_slots(

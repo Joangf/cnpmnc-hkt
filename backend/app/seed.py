@@ -11,6 +11,7 @@ import argparse
 import asyncio
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from typing import NotRequired, TypedDict
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,7 +56,20 @@ SPECIALTIES = [
     ("Pediatrics", "Children's health."),
 ]
 
-HOSPITALS = [
+class HospitalSeed(TypedDict):
+    name: str
+    facility_type: FacilityType
+    address: str
+    city: str
+    phone: str
+    email: str
+    description: str
+    departments: list[str]
+    website: NotRequired[str]
+    avatar_url: NotRequired[str]
+
+
+HOSPITALS: list[HospitalSeed] = [
     {
         "name": "HKT Hospital",
         "facility_type": FacilityType.HOSPITAL,
@@ -71,7 +85,8 @@ HOSPITALS = [
             "Respiratory Medicine",
             "Cardiology",
             "Gastroenterology",
-            "Neurology",
+            "Dermatology",
+            "Ophthalmology",
             "Orthopedics",
         ],
     },
@@ -82,9 +97,7 @@ HOSPITALS = [
         "city": "Ho Chi Minh City",
         "phone": "+842800000002",
         "email": "hello@lotus-clinic.example",
-        "website": "https://lotus-clinic.example",
-        "avatar_url": "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=800&q=80",
-        "description": "Fictional outpatient clinic specializing in dermatology and ophthalmology, designed for calm, same-day specialist consultations.",
+        "description": "Fictional outpatient clinic for dermatology and ophthalmology.",
         "departments": ["Dermatology", "Ophthalmology"],
     },
     {
@@ -94,16 +107,13 @@ HOSPITALS = [
         "city": "Hanoi",
         "phone": "+842400000003",
         "email": "info@greenvalley-medical.example",
-        "website": "https://greenvalley-medical.example",
-        "avatar_url": "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=800&q=80",
-        "description": "Fictional regional medical center providing family-centered care across internal medicine, pediatrics, ENT, and orthopedics.",
+        "description": "Fictional regional medical center.",
         "departments": [
             "General Internal Medicine",
             "Pediatrics",
             "Otorhinolaryngology (ENT)",
-            "Rheumatology",
-            "Orthopedics",
-            "Respiratory Medicine",
+            "Neurology",
+            "Pediatrics",
         ],
     },
 ]
@@ -123,33 +133,8 @@ GIVEN_NAMES = [
 ]
 
 # (name, description, duration, buffer, fee_override, specialty name or None)
-APPOINTMENT_TYPES = [
-    ("Standard consultation", "General consultation.", 20, 10, None, None),
-    ("Extended consultation", "For complex or multiple concerns.", 30, 10, None, None),
-    (
-        "Follow-up visit",
-        "Review of a previous consultation or test results.",
-        15,
-        5,
-        Decimal("150000"),
-        None,
-    ),
-    (
-        "Skin procedure consultation",
-        "Assessment before a minor skin procedure.",
-        40,
-        10,
-        None,
-        "Dermatology",
-    ),
-    (
-        "Comprehensive eye examination",
-        "Vision and eye health check.",
-        30,
-        10,
-        None,
-        "Ophthalmology",
-    ),
+APPOINTMENT_TYPES: list[tuple[str, str, int, int, Decimal | None, str | None]] = [
+    ("General Consultation", "Standard consultation fee.", 20, 10, Decimal("200000"), None),
 ]
 
 # (name, keywords, [(specialty, weight)], red_flag_message)  -- PENDING CLINICAL REVIEW
@@ -262,7 +247,20 @@ async def _seed_directory(session: AsyncSession) -> None:
             dept_index += 1
             session.add(department)
             await session.flush()
-            for _ in range(2):
+            doctor_count = (
+                3
+                if specialty_name
+                in (
+                    "General Internal Medicine",
+                    "Respiratory Medicine",
+                    "Cardiology",
+                    "Dermatology",
+                    "Orthopedics",
+                    "Pediatrics",
+                )
+                else 2
+            )
+            for _ in range(doctor_count):
                 index += 1
                 family = FAMILY_NAMES[index % len(FAMILY_NAMES)]
                 given = GIVEN_NAMES[(index * 3) % len(GIVEN_NAMES)]
@@ -281,7 +279,6 @@ async def _seed_directory(session: AsyncSession) -> None:
                             f"Fictional {specialty_name.lower()} specialist at {hospital.name}, "
                             "focused on clear explanations and shared decisions."
                         ),
-                        consultation_fee=Decimal(200000 + (index % 4) * 50000),
                         erp_doctor_id=f"ERP-D{index:04d}",
                     )
                 )
@@ -369,7 +366,7 @@ async def _seed_demo_history(session: AsyncSession, patient_id: int) -> None:
         status=AppointmentStatus.COMPLETED,
         check_in_status=CheckInStatus.CHECKED_IN,
         reason_for_visit="Demo appointment",
-        fee_amount=doctor.consultation_fee or Decimal("0"),
+        fee_amount=appointment_type.fee_override or Decimal("200000"),
         currency=settings.currency,
         erp_booking_id="ERP-DEMO-0001",
     )

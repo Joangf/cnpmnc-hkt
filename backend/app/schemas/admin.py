@@ -10,6 +10,7 @@ from app.models.enums import (
     DepartmentVisibility,
     FacilityType,
     PaymentStatus,
+    SchedulingMode,
     UserRole,
 )
 from app.schemas.common import ORMModel
@@ -114,10 +115,10 @@ class DoctorCreate(BaseModel):
     qualifications: LongText | None = None
     experience_years: int = Field(default=0, ge=0, le=70)
     introduction: LongText | None = None
-    consultation_fee: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     avatar_url: Url | None = None
     erp_doctor_id: ErpDoctorId | None = None
     max_appointments_per_window: Capacity = 1
+    scheduling_mode: SchedulingMode = SchedulingMode.ERP
 
 
 class DoctorUpdate(BaseModel):
@@ -127,22 +128,23 @@ class DoctorUpdate(BaseModel):
     qualifications: LongText | None = None
     experience_years: int | None = Field(default=None, ge=0, le=70)
     introduction: LongText | None = None
-    consultation_fee: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     avatar_url: Url | None = None
     erp_doctor_id: ErpDoctorId | None = None
     is_active: bool | None = None
     max_appointments_per_window: Capacity | None = None
+    scheduling_mode: SchedulingMode | None = None
 
-    @field_validator("max_appointments_per_window", mode="before")
+    @field_validator("max_appointments_per_window", "scheduling_mode", mode="before")
     @classmethod
     def capacity_cannot_be_null(cls, value: Any) -> Any:
         if value is None:
-            raise ValueError("Capacity cannot be empty.")
+            raise ValueError("Scheduling settings cannot be empty.")
         return value
 
 
 class AdminDoctorDetail(DoctorDetail):
     max_appointments_per_window: int
+    scheduling_mode: SchedulingMode
 
 
 class AppointmentTypeCreate(BaseModel):

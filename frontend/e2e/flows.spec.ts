@@ -31,7 +31,7 @@ test('guest can browse departments, doctors and the symptom checker', async ({ p
   await expect(page.getByRole('heading', { name: /Find the right care/ })).toBeVisible()
 
   await page.getByRole('link', { name: /Dermatology/ }).first().click()
-  await expect(page.getByRole('heading', { name: 'Find a doctor' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Doctors' })).toBeVisible()
   await page.locator('a[href^="/doctors/"]').first().click()
   await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Patient reviews' })).toBeVisible()
@@ -69,7 +69,7 @@ test('patient registers, books, pays and cancels with a refund', async ({ page }
   await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
   await expect(page.getByLabel('Verification code')).toHaveValue(/^\d{6}$/)
   await page.getByRole('button', { name: 'Verify and continue' }).click()
-  await expect(page.getByRole('heading', { name: 'Find a doctor' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Doctors' })).toBeVisible()
 
   // Booking (FR-BOOK-01..07)
   await page.locator('a[href^="/doctors/"]').first().click()

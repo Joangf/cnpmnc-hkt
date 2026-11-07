@@ -48,8 +48,6 @@ class DoctorSummary(BaseModel):
     full_name: str
     title: str | None
     experience_years: int
-    consultation_fee: Decimal | None
-    currency: str
     rating_avg: Decimal
     rating_count: int
     avatar_url: str | None
@@ -95,6 +93,10 @@ class AppointmentTypeOut(BaseModel):
 class SlotOut(BaseModel):
     start_time: dt.datetime
     end_time: dt.datetime
+    slot_id: int | None = None
+    version: int | None = None
+    capacity: int | None = None
+    remaining_places: int | None = None
 
 
 class AvailabilityResponse(BaseModel):
