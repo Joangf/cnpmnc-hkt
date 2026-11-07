@@ -315,6 +315,57 @@ check("late transfer still settles (D10)", fake_transfer(p3["payment_code"], p3[
 d3 = patient.get(f"/appointments/{appt3['id']}").json()
 check("late money -> PAID + refundable", d3["payment_status"] == "PAID" and d3["can_request_refund"], d3["payment_status"])
 
+# --- Refund: patient request, admin reject / complete (SCRUM-31/32, D12-D14) ---------------
+refunder = client()
+login(refunder, "admin@example.com", "Admin12345!")
+account = {"bank_bin": "970448", "bank_name": "OCB", "account_number": "0123456789", "account_name": "smoke patient"}
+refund_url2 = f"/payments/{pay2['id']}/refund-request"
+check("refund request bad BIN -> 422", patient.post(refund_url2, json={**account, "bank_bin": "OCB"}).status_code == 422)
+r = patient.post(refund_url2, json={**account, "reason": "Smoke test"})
+check(
+    "refund requested",
+    r.status_code == 200 and r.json()["refund_status"] == "REQUESTED" and r.json()["refund_account_name"] == "SMOKE PATIENT",
+    r.text[:300],
+)
+ref2 = r.json().get("refund_reference") or ""
+check("refund reference RF + 8", re.fullmatch(r"RF[A-Z0-9]{8}", ref2) is not None, ref2)
+r = patient.post(refund_url2, json=account)
+check("refund request again -> 409", r.status_code == 409 and r.json()["error"]["code"] == "RefundAlreadyRequested", r.text[:200])
+check("requested refund hides the form", patient.get(f"/appointments/{appt2['id']}").json()["can_request_refund"] is False)
+check("patient cannot list refunds -> 403", patient.get("/admin/refunds").status_code == 403)
+items = refunder.get("/admin/refunds", params={"refund_status": "REQUESTED", "page_size": 100}).json()["items"]
+row = next((i for i in items if i["id"] == pay2["id"]), None)
+check(
+    "admin sees request with refund QR",
+    row is not None
+    and row["refund_qr_image_url"].startswith("https://img.vietqr.io/image/970448-0123456789-compact2.png?")
+    and ref2 in row["refund_qr_image_url"],
+    row,
+)
+reject_url2 = f"/admin/refunds/{pay2['id']}/reject"
+check("reject without reason -> 422", refunder.post(reject_url2, json={"reason": "x"}).status_code == 422)
+r = refunder.post(reject_url2, json={"reason": "Smoke: account name does not match"})
+check("admin rejects refund", r.status_code == 200 and r.json()["refund_status"] == "REJECTED", r.text[:300])
+check("rejected refund can be sent again", patient.get(f"/appointments/{appt2['id']}").json()["can_request_refund"] is True)
+r = patient.post(refund_url2, json=account)
+check(
+    "refund resubmitted with a new reference",
+    r.status_code == 200 and r.json()["refund_status"] == "REQUESTED" and r.json()["refund_reference"] != ref2,
+    r.text[:300],
+)
+complete_url2 = f"/admin/refunds/{pay2['id']}/complete"
+r = refunder.post(complete_url2, json={"note": "SMOKE-FT"})
+check(
+    "admin completes refund -> REFUNDED",
+    r.status_code == 200 and r.json()["refund_status"] == "COMPLETED" and r.json()["status"] == "REFUNDED",
+    r.text[:300],
+)
+check("complete again -> 409", refunder.post(complete_url2, json={}).status_code == 409)
+d2 = patient.get(f"/appointments/{appt2['id']}").json()
+check("appointment payment REFUNDED", d2["payment_status"] == "REFUNDED" and not d2["can_request_refund"], d2["payment_status"])
+r = patient.post(f"/payments/{p3['id']}/refund-request", json=account)
+check("late-money payment refundable", r.status_code == 200 and r.json()["refund_status"] == "REQUESTED", r.text[:300])
+
 # --- Notifications ---------------------------------------------------------------------------
 n = patient.get("/notifications").json()
 types_seen = {i["type"] for i in n["items"]}
