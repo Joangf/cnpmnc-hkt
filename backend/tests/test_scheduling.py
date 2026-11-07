@@ -80,3 +80,45 @@ def test_multiple_windows_are_sorted() -> None:
 def test_invalid_configuration_raises(kwargs: dict) -> None:
     with pytest.raises(ValueError):
         generate_slots(WINDOW, [], **kwargs)
+
+
+# --- Interval boundaries (SCRUM-24 AC-6) ------------------------------------------------------
+# Window 07:00-09:00, existing booking reserves [07:30, 08:00) (20 min + 10 min buffer).
+BOUNDARY_WINDOW = [ScheduleWindow(at(7), at(9))]
+BOOKED = [Interval(at(7, 30), at(8, 0))]
+
+
+@pytest.mark.parametrize(
+    ("candidate", "offered", "case"),
+    [
+        (at(7, 0), True, "ends exactly where the booking starts (adjacent before)"),
+        (at(8, 0), True, "starts exactly where the booking's buffer ends (adjacent after)"),
+        (at(7, 10), False, "own buffer runs into the booking (partial overlap)"),
+        (at(7, 30), False, "identical start time"),
+        (at(7, 50), False, "starts inside the booking's buffer"),
+        (at(8, 30), True, "duration + buffer ends exactly at the window end"),
+        (at(8, 40), False, "duration + buffer would run past the window end"),
+    ],
+)
+def test_interval_boundaries_are_half_open(candidate: datetime, offered: bool, case: str) -> None:
+    slots = generate_slots(
+        BOUNDARY_WINDOW, BOOKED, duration=timedelta(minutes=20), buffer=TEN, increment=TEN
+    )
+    assert (candidate in starts(slots)) is offered, case
+
+
+def test_multi_slot_appointment_needs_its_whole_interval_free() -> None:
+    # A 60-minute consultation spans six 10-minute increments; any overlap disqualifies it.
+    slots = generate_slots(BOUNDARY_WINDOW, BOOKED, duration=timedelta(minutes=60), increment=TEN)
+    assert starts(slots) == [at(8, 0)]
+
+
+def test_capacity_counts_existing_bookings_up_to_the_configured_limit() -> None:
+    window = [ScheduleWindow(at(7), at(9), max_appointments=2)]
+    one = [Interval(at(7, 0), at(7, 30))]
+    two = one + [Interval(at(8, 0), at(8, 30))]
+    within = generate_slots(window, one, duration=timedelta(minutes=20), buffer=TEN, increment=TEN)
+    assert within, "a window under its limit keeps offering non-overlapping slots"
+    assert (
+        generate_slots(window, two, duration=timedelta(minutes=20), buffer=TEN, increment=TEN) == []
+    )

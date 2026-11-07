@@ -283,3 +283,41 @@
     @apply border-b-0;
   }
 }
+
+/* Dual-handle time slider: two native range inputs stacked over one track. */
+@layer components {
+  .range-dual {
+    @apply relative h-8;
+  }
+  .range-dual-track {
+    @apply absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-line;
+  }
+  .range-dual-fill {
+    @apply absolute inset-y-0 rounded-full bg-berry;
+  }
+  .range-dual input[type='range'] {
+    @apply pointer-events-none absolute inset-0 m-0 h-8 w-full appearance-none bg-transparent;
+  }
+  .range-dual input[type='range']::-webkit-slider-thumb {
+    @apply pointer-events-auto h-6 w-6 cursor-grab appearance-none rounded-full border-2 border-canvas bg-berry shadow-button;
+  }
+  .range-dual input[type='range']::-moz-range-thumb {
+    @apply pointer-events-auto h-6 w-6 cursor-grab rounded-full border-2 border-canvas bg-berry shadow-button;
+  }
+  .range-dual input[type='range']:focus-visible::-webkit-slider-thumb {
+    @apply outline outline-[3px] outline-offset-2 outline-focus;
+  }
+  .range-dual input[type='range']:focus-visible::-moz-range-thumb {
+    @apply outline outline-[3px] outline-offset-2 outline-focus;
+  }
+  .range-dual input[type='range']:disabled::-webkit-slider-thumb {
+    @apply cursor-not-allowed bg-muted;
+  }
+}
+
+/* Round arrow buttons that overlay the ends of the day strip. */
+@layer components {
+  .day-nav {
+    @apply absolute top-1/2 z-10 h-9 w-9 -translate-y-[calc(50%+4px)] items-center justify-center rounded-full border border-line bg-canvas text-berry shadow-card transition-colors duration-fast hover:bg-blush;
+  }
+}

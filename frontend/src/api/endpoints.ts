@@ -48,6 +48,9 @@ export const api = {
       hospital_id?: number
       department_id?: number
       specialty_id?: number
+      /** Clinic-local `YYYY-MM-DDTHH:mm`; keeps doctors with an open schedule window in range. */
+      available_from?: string
+      available_to?: string
       page?: number
       page_size?: number
     }) => request<T.Page<T.DoctorSummary>>('GET', '/doctors', { query }),
