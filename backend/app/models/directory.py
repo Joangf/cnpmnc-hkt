@@ -85,7 +85,7 @@ class Doctor(TimestampMixin, Base):
     # Total bookings per ERP work window, shared across all appointment types.
     max_appointments_per_window: Mapped[int] = mapped_column(default=1, server_default="1")
     scheduling_mode: Mapped[SchedulingMode] = mapped_column(
-        enum_column(SchedulingMode), default=SchedulingMode.ERP, server_default="ERP"
+        enum_column(SchedulingMode), default=SchedulingMode.MANUAL, server_default="MANUAL"
     )
     # Denormalised from published reviews (see services/reviews.recompute_doctor_rating).
     rating_avg: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("0"))
