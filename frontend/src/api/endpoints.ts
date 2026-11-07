@@ -5,7 +5,11 @@ type Scope = 'upcoming' | 'past' | 'all'
 
 export const api = {
   auth: {
-    register: (body: T.RegisterPayload) => request<T.TokenResponse>('POST', '/auth/register', { body, auth: false }),
+    register: (body: T.RegisterPayload) => request<T.RegistrationPending>('POST', '/auth/register', { body, auth: false }),
+    resendRegistrationOtp: (email: string) =>
+      request<T.RegistrationPending>('POST', '/auth/register/resend', { body: { email }, auth: false }),
+    verifyRegistration: (email: string, otp: string) =>
+      request<T.TokenResponse>('POST', '/auth/register/verify', { body: { email, otp }, auth: false }),
     login: (body: { email: string; password: string }) =>
       request<T.TokenResponse>('POST', '/auth/login', { body, auth: false }),
     logout: () => request<void>('POST', '/auth/logout', { auth: false }),

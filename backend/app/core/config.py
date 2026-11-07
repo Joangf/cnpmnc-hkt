@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     login_rate_window_seconds: int = 300
     password_reset_ttl_seconds: int = 900
 
+    # Registration email verification (OTP) delivered through Resend
+    resend_api_key: str = ""
+    # Resend's shared sender only delivers to the Resend account owner's address; set a sender
+    # on a verified domain to email arbitrary customers.
+    email_from: str = "CareBook Hospital Booking <onboarding@resend.dev>"
+    email_timeout_seconds: float = 10.0
+    otp_ttl_seconds: int = 600
+    otp_max_attempts: int = 5
+    otp_resend_cooldown_seconds: int = 60
+
     # Scheduling (FRD 4.4.1, BR-05) - durations/buffers live on AppointmentType
     clinic_timezone: str = "Asia/Ho_Chi_Minh"
     slot_increment_minutes: int = 10

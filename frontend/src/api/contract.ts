@@ -30,6 +30,7 @@ export const responseContract: {
   Recommendation: Fits<S['RecommendationResponse'], T.Recommendation>
   Notifications: Fits<S['NotificationList'], T.NotificationList>
   PasswordReset: Fits<S['PasswordResetRequested'], T.PasswordResetRequested>
+  RegistrationPending: Fits<S['RegistrationPending'], T.RegistrationPending>
   AdminUserPage: Fits<S['Page_AdminUserOut_'], T.Page<T.AdminUser>>
   AdminReviewPage: Fits<S['Page_AdminReviewOut_'], T.Page<T.AdminReview>>
   AdminAppointmentPage: Fits<S['Page_AdminAppointmentOut_'], T.Page<T.AdminAppointment>>
@@ -57,6 +58,7 @@ export const responseContract: {
   Recommendation: true,
   Notifications: true,
   PasswordReset: true,
+  RegistrationPending: true,
   AdminUserPage: true,
   AdminReviewPage: true,
   AdminAppointmentPage: true,

@@ -2,13 +2,16 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../api/endpoints'
 import { refreshSession, setAccessToken, setAuthFailureHandler } from '../api/http'
-import type { RegisterPayload, TokenResponse, UserMe } from '../api/types'
+import type { RegisterPayload, RegistrationPending, TokenResponse, UserMe } from '../api/types'
 
 interface AuthState {
   user: UserMe | null
   ready: boolean
   login: (email: string, password: string) => Promise<UserMe>
-  register: (payload: RegisterPayload) => Promise<UserMe>
+  /** Creates an unverified account and emails an OTP; the session starts after verifyRegistration. */
+  register: (payload: RegisterPayload) => Promise<RegistrationPending>
+  resendOtp: (email: string) => Promise<RegistrationPending>
+  verifyRegistration: (email: string, otp: string) => Promise<UserMe>
   logout: () => Promise<void>
 }
 
@@ -41,7 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       login: async (email, password) => apply(await api.auth.login({ email, password })),
-      register: async (payload) => apply(await api.auth.register(payload)),
+      register: (payload) => api.auth.register(payload),
+      resendOtp: (email) => api.auth.resendRegistrationOtp(email),
+      verifyRegistration: async (email, otp) => apply(await api.auth.verifyRegistration(email, otp)),
       logout: async () => {
         try {
           await api.auth.logout()

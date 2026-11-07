@@ -21,6 +21,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/register/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resend Registration Otp */
+        post: operations["resendRegistrationOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Registration */
+        post: operations["verifyRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -833,7 +867,7 @@ export interface components {
          * AccountStatus
          * @enum {string}
          */
-        AccountStatus: "ACTIVE" | "INACTIVE";
+        AccountStatus: "PENDING" | "ACTIVE" | "INACTIVE";
         /**
          * ActorType
          * @enum {string}
@@ -1719,6 +1753,17 @@ export interface components {
             /** Phone Number */
             phone_number: string;
         };
+        /** RegistrationPending */
+        RegistrationPending: {
+            /** Email */
+            email: string;
+            /** Message */
+            message: string;
+            /** Expires In */
+            expires_in: number;
+            /** Dev Otp */
+            dev_otp?: string | null;
+        };
         /** ReportSummary */
         ReportSummary: {
             /** Appointments By Status */
@@ -1736,6 +1781,14 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
+        };
+        /** ResendOtpRequest */
+        ResendOtpRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
         };
         /** ReviewCreate */
         ReviewCreate: {
@@ -1941,6 +1994,16 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VerifyRegistrationRequest */
+        VerifyRegistrationRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Otp */
+            otp: string;
+        };
         /** WebhookAck */
         WebhookAck: {
             /**
@@ -1977,7 +2040,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenResponse"];
+                    "application/json": components["schemas"]["RegistrationPending"];
                 };
             };
             /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
@@ -1991,6 +2054,117 @@ export interface operations {
             };
             /** @description Validation failed (ValidationFailed) */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too many requests (TooManyRequests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resendRegistrationOtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendOtpRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationPending"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too many requests (TooManyRequests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    verifyRegistration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too many requests (TooManyRequests) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2031,7 +2205,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2229,7 +2403,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2271,7 +2445,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2665,7 +2839,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2719,7 +2893,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2755,7 +2929,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description External integration unavailable (ErpUnavailable, PaymentGatewayUnavailable) */
+            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2795,7 +2969,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2857,7 +3031,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2893,7 +3067,7 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-            /** @description External integration unavailable (ErpUnavailable, PaymentGatewayUnavailable) */
+            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2935,7 +3109,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2971,7 +3145,7 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-            /** @description External integration unavailable (ErpUnavailable, PaymentGatewayUnavailable) */
+            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3011,7 +3185,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3120,7 +3294,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3395,7 +3569,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3448,7 +3622,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3513,7 +3687,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3555,7 +3729,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3617,7 +3791,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3673,7 +3847,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3715,7 +3889,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3768,7 +3942,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3826,7 +4000,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3877,7 +4051,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3939,7 +4113,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3997,7 +4171,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4048,7 +4222,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4110,7 +4284,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4166,7 +4340,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4208,7 +4382,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4270,7 +4444,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4331,7 +4505,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4384,7 +4558,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4447,7 +4621,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4497,7 +4671,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4549,7 +4723,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4596,7 +4770,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden (Forbidden, AccountInactive) */
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4605,7 +4779,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description External integration unavailable (ErpUnavailable, PaymentGatewayUnavailable) */
+            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
