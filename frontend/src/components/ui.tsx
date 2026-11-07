@@ -2,7 +2,7 @@ import { cloneElement, isValidElement, useId, type ReactElement, type ReactNode 
 import { ApiError } from '../api/http'
 import { IconAlert, IconCheck, IconClock, IconInfo, type IconComponent } from './icons'
 
-export const EMERGENCY_NUMBER = '115'
+export const EMERGENCY_NUMBER = '0342036817'
 
 /** Stagger list entrances by 40ms per item, capped so long lists never wait. */
 export const stagger = (index: number) => ({ animationDelay: `${Math.min(index, 8) * 40}ms` })

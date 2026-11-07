@@ -1,7 +1,7 @@
 """translate seeded department text to English
 
-Revision ID: 0008_translate_seed_text
-Revises: 0007_manual_doctor_slots
+Revision ID: 0006_translate_seed_text
+Revises: 0005_merge_scheduling_heads
 Create Date: 2026-11-07
 """
 
@@ -9,8 +9,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0008_translate_seed_text"
-down_revision: str | None = "0007_manual_doctor_slots"
+revision: str = "0006_translate_seed_text"
+down_revision: str | None = "0005_merge_scheduling_heads"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
