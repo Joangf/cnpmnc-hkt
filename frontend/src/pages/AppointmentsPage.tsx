@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState, ErrorAlert, FilterChip, Pagination, Spinner, stagger } from '../components/ui'
-import { dateParts } from '../lib/format'
+import { dateParts, formatTime } from '../lib/format'
 
 const TABS = [
   { value: 'upcoming', label: 'Upcoming' },
@@ -65,6 +65,9 @@ export default function AppointmentsPage() {
                         {a.doctor.name} · {a.department.name}
                       </p>
                       <p className="caption">{a.hospital.name}</p>
+                      {a.status === 'CONFIRMED' && a.payment_status !== 'PAID' && a.payment_due_at && (
+                        <p className="mt-1 font-semibold text-notice-strong">Payment needed before {formatTime(a.payment_due_at)}</p>
+                      )}
                     </div>
                     <div className="flex flex-col items-start gap-2 sm:items-end">
                       <StatusBadge status={a.status} />

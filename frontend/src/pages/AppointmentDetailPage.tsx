@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import type { AppointmentDetail } from '../api/types'
-import { IconArrowLeft } from '../components/icons'
+import { IconArrowLeft, IconClock } from '../components/icons'
 import { RefundPanel } from '../components/RefundPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { Card, ErrorAlert, Field, Notice, Spinner } from '../components/ui'
@@ -109,7 +109,10 @@ export default function AppointmentDetailPage() {
             {a.payments.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                 <span>
-                  {formatDateTime(p.created_at)} · <strong>{formatMoney(p.amount, p.currency)}</strong>
+                  {formatDateTime(p.created_at)} · <strong>{formatMoney(p.amount, p.currency)}</strong> ·{' '}
+                  <Link className="link font-mono" to={`/payments/${p.id}`}>
+                    {p.payment_code}
+                  </Link>
                   {p.failure_reason && <span className="caption block">{p.failure_reason}</span>}
                 </span>
                 <StatusBadge status={p.status} kind="payment" />
@@ -142,11 +145,14 @@ export default function AppointmentDetailPage() {
 
 function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
   const navigate = useNavigate()
-  // Phase 0 minimal wiring; S3-B owns the real payment UI (docs/sprint3-sepay-plan.md).
+  // The backend hands back the open PENDING payment if there is one, so "continue" is the same call.
   const pay = useMutation({
     mutationFn: () => api.appointments.pay(appointment.id),
     onSuccess: (res) => navigate(`/payments/${res.id}`),
   })
+  const inProgress = appointment.payments.some(
+    (p) => p.status === 'PENDING' && (!p.expires_at || new Date(p.expires_at).getTime() > Date.now()),
+  )
   return (
     <Card className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -157,9 +163,14 @@ function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
           </p>
         </div>
         <button className="btn-primary" disabled={pay.isPending} onClick={() => pay.mutate()}>
-          {pay.isPending ? 'Preparing…' : 'Pay by bank transfer'}
+          {pay.isPending ? 'Preparing…' : inProgress ? 'Continue payment' : 'Pay by bank transfer'}
         </button>
       </div>
+      {appointment.payment_due_at && (
+        <p className="flex items-center gap-2 font-semibold text-notice-strong">
+          <IconClock size={18} /> Pay before {formatDateTime(appointment.payment_due_at)} to keep your appointment.
+        </p>
+      )}
       <ErrorAlert error={pay.error} />
     </Card>
   )
@@ -180,7 +191,9 @@ function CancelCard({ appointment, onDone }: { appointment: AppointmentDetail; o
   return (
     <Card className="space-y-5">
       <h2 className="section-title">Cancel this appointment?</h2>
-      {appointment.payment_status === 'PAID' && <p>Your payment will be refunded according to the cancellation policy.</p>}
+      {appointment.payment_status === 'PAID' && (
+        <p>Cancelling does not refund your payment automatically. After cancelling you can send a refund request.</p>
+      )}
       <Field label="Why are you cancelling?">
         <textarea className="input" rows={2} maxLength={500} placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />
       </Field>

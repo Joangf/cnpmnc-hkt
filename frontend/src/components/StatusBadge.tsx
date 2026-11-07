@@ -1,6 +1,6 @@
 import type { AppointmentStatus, CheckInStatus, PaymentStatus } from '../api/types'
 import { humanize } from '../lib/format'
-import { IconAlert, IconCheck, IconClock, IconMinus, IconRefund, IconX, type IconComponent } from './icons'
+import { IconCheck, IconClock, IconMinus, IconRefund, IconX, type IconComponent } from './icons'
 
 // Status = colour + icon + word, on soft tints (strong colour is for urgent help only).
 const GOOD = 'bg-success-soft text-success'
@@ -17,7 +17,7 @@ const STYLES: Record<string, { className: string; icon: IconComponent }> = {
   NO_SHOW: { className: NEUTRAL, icon: IconX },
   UNPAID: { className: NEUTRAL, icon: IconMinus },
   PAID: { className: GOOD, icon: IconCheck },
-  FAILED: { className: BAD, icon: IconAlert },
+  EXPIRED: { className: NEUTRAL, icon: IconClock },
   REFUNDED: { className: INFO, icon: IconRefund },
   CHECKED_IN: { className: GOOD, icon: IconCheck },
   NOT_CHECKED_IN: { className: NEUTRAL, icon: IconMinus },
