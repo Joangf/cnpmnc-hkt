@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import not_, or_, select
+from sqlalchemy import exists, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -11,8 +11,14 @@ from app.models import (
     Department,
     Doctor,
     DoctorSchedule,
+    Payment,
 )
-from app.models.enums import ACTIVE_APPOINTMENT_STATUSES, AppointmentStatus, StatusSource
+from app.models.enums import (
+    ACTIVE_APPOINTMENT_STATUSES,
+    AppointmentStatus,
+    PaymentStatus,
+    StatusSource,
+)
 from app.repositories.base import paginate
 
 Scope = Literal["upcoming", "past", "all"]
@@ -139,6 +145,33 @@ async def list_stale_pending(
         .limit(limit)
     )
     return list((await session.scalars(stmt)).all())
+
+
+async def next_payment_overdue(
+    session: AsyncSession, before: datetime, exclude: list[int]
+) -> Appointment | None:
+    """One CONFIRMED appointment whose payment deadline passed before `before` with no settled
+    payment, row-locked (SKIP LOCKED: rows another transaction holds are left for later).
+    Appointments in `exclude` are skipped."""
+    settled = exists().where(
+        Payment.appointment_id == Appointment.id,
+        Payment.status.in_((PaymentStatus.PAID, PaymentStatus.REFUNDED)),
+    )
+    stmt = (
+        select(Appointment)
+        .where(
+            Appointment.status == AppointmentStatus.CONFIRMED,
+            Appointment.payment_due_at < before,
+            not_(settled),
+        )
+        .order_by(Appointment.payment_due_at)
+        .limit(1)
+        .with_for_update(skip_locked=True)
+        .execution_options(populate_existing=True)
+    )
+    if exclude:
+        stmt = stmt.where(Appointment.id.not_in(exclude))
+    return await session.scalar(stmt)
 
 
 def add_history(

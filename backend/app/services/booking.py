@@ -13,17 +13,17 @@ Order of operations, all in one transaction until step 4 (FR-BOOK-05, BR-04):
    CONFIRMED (BR-02).
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import ErpUnavailable, InvalidState, NotFound, SlotTaken, ValidationFailed
-from app.core.metrics import BOOKINGS
+from app.core.metrics import BOOKINGS, PAYMENTS
 from app.core.security import generate_booking_reference
 from app.integrations.erp.base import (
     ErpAdapter,
@@ -33,12 +33,13 @@ from app.integrations.erp.base import (
     ErpTimeoutError,
     ErpUnavailableError,
 )
-from app.models import Appointment, AppointmentType, Doctor, PatientProfile
+from app.models import Appointment, AppointmentType, Doctor, PatientProfile, Payment
 from app.models.enums import (
     ACTIVE_APPOINTMENT_STATUSES,
     AppointmentStatus,
     CheckInStatus,
     NotificationType,
+    PaymentStatus,
     StatusSource,
 )
 from app.repositories import appointments as appointment_repo
@@ -124,6 +125,11 @@ async def transition(
     appointment.status_reason = reason[:500] if reason else None
     if new_status == AppointmentStatus.CANCELLED:
         appointment.cancelled_at = datetime.now(UTC)
+    if new_status == AppointmentStatus.CONFIRMED and appointment.fee_amount > 0:
+        # D6: an unpaid confirmed appointment holds its slot only until this deadline.
+        appointment.payment_due_at = datetime.now(UTC) + timedelta(
+            minutes=settings.payment_hold_minutes
+        )
 
     appointment_repo.add_history(
         session, appointment.id, "status", old_status, new_status, reason, source
@@ -143,6 +149,11 @@ async def transition(
     )
     if reason:
         content += f" Reason: {reason}"
+    if new_status == AppointmentStatus.CONFIRMED and appointment.payment_due_at is not None:
+        content += (
+            " Please pay before "
+            f"{availability.format_local(appointment.payment_due_at)} to keep this slot."
+        )
     await notifications.notify_patient(
         session,
         appointment.patient_id,
@@ -379,26 +390,61 @@ async def cancel_appointment(
             code="CancellationWindowClosed",
         )
 
-    if appointment.erp_booking_id:
-        try:
-            await erp.cancel_booking(appointment.erp_booking_id, reason)
-        except ErpRejectedError as exc:
-            raise InvalidState(str(exc), code="CancellationRejected") from exc
-        except (ErpUnavailableError, ErpTimeoutError) as exc:
-            raise ErpUnavailable() from exc
+    try:
+        await cancel(
+            session,
+            redis,
+            erp,
+            appointment,
+            reason=reason or "Cancelled by patient",
+            source=StatusSource.PATIENT,
+            actor_id=patient.user_id,
+        )
+    except ErpRejectedError as exc:
+        raise InvalidState(str(exc), code="CancellationRejected") from exc
+    except (ErpUnavailableError, ErpTimeoutError) as exc:
+        raise ErpUnavailable() from exc
+    return appointment.id
 
+
+async def cancel(
+    session: AsyncSession,
+    redis: Redis,
+    erp: ErpAdapter,
+    appointment: Appointment,
+    *,
+    reason: str,
+    source: StatusSource,
+    actor_id: int | None = None,
+) -> None:
+    """Cancel in the ERP, then locally; open payment attempts become EXPIRED. Commits.
+
+    Shared by patient cancellation and the payment-expiry job. ERP errors propagate
+    (ErpRejectedError / ErpUnavailableError / ErpTimeoutError) before anything changes here.
+    Never refunds: refunds are requested separately (D13).
+    """
+    if appointment.erp_booking_id:
+        await erp.cancel_booking(appointment.erp_booking_id, reason)
     await transition(
         session,
         appointment,
         AppointmentStatus.CANCELLED,
-        reason=reason or "Cancelled by patient",
-        source=StatusSource.PATIENT,
-        actor_id=patient.user_id,
+        reason=reason,
+        source=source,
+        actor_id=actor_id,
+    )
+    # A set-based UPDATE re-checks the status under the row lock, so a transfer settling the
+    # payment concurrently is never overwritten with EXPIRED.
+    result = await session.execute(
+        update(Payment)
+        .where(Payment.appointment_id == appointment.id, Payment.status == PaymentStatus.PENDING)
+        .values(status=PaymentStatus.EXPIRED)
+        .execution_options(synchronize_session=False)
     )
     await session.commit()
+    expired = getattr(result, "rowcount", 0) or 0
+    if expired:
+        PAYMENTS.labels(status=PaymentStatus.EXPIRED).inc(expired)
     await availability.invalidate(
         redis, appointment.doctor_id, availability.local_day(appointment.start_time)
     )
-    # Sprint 3 (S3-A): pending payments of this appointment become EXPIRED here.
-    # Cancelling never refunds automatically; refunds are requested separately (SCRUM-31).
-    return appointment.id
