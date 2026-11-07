@@ -158,6 +158,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/departments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Departments
+         * @description Publicly browse published departments and clinics (FR-DIS-02, FR-CLN-01).
+         */
+        get: operations["listDepartments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/departments/{department_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Department
+         * @description Public department detail, including its active doctors (FR-DIS-02).
+         */
+        get: operations["getDepartment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hospitals": {
         parameters: {
             query?: never;
@@ -1151,6 +1191,23 @@ export interface components {
          * @enum {string}
          */
         CheckInStatus: "NOT_CHECKED_IN" | "CHECKED_IN" | "UNKNOWN";
+        /** DepartmentAdminOut */
+        DepartmentAdminOut: {
+            /** Id */
+            id: number;
+            /** Hospital Id */
+            hospital_id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Location */
+            location: string | null;
+            specialty: components["schemas"]["SpecialtyOut"];
+            /** Is Active */
+            is_active: boolean;
+            visibility: components["schemas"]["DepartmentVisibility"];
+        };
         /** DepartmentCreate */
         DepartmentCreate: {
             /** Hospital Id */
@@ -1161,6 +1218,10 @@ export interface components {
             name: string;
             /** Description */
             description?: string | null;
+            /** Location */
+            location?: string | null;
+            /** @default PUBLIC */
+            visibility: components["schemas"]["DepartmentVisibility"];
         };
         /** DepartmentOut */
         DepartmentOut: {
@@ -1172,9 +1233,46 @@ export interface components {
             name: string;
             /** Description */
             description: string | null;
+            /** Location */
+            location: string | null;
             specialty: components["schemas"]["SpecialtyOut"];
             /** Is Active */
             is_active: boolean;
+        };
+        /** DepartmentPublicDetail */
+        DepartmentPublicDetail: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Location */
+            location: string | null;
+            hospital: components["schemas"]["RefOut"];
+            specialty: components["schemas"]["SpecialtyOut"];
+            /** Doctor Count */
+            doctor_count: number;
+            /** Doctors */
+            doctors: components["schemas"]["DoctorSummary"][];
+        };
+        /**
+         * DepartmentSummary
+         * @description Public department/clinic listing. Deliberately excludes admin-only fields.
+         */
+        DepartmentSummary: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Location */
+            location: string | null;
+            hospital: components["schemas"]["RefOut"];
+            specialty: components["schemas"]["SpecialtyOut"];
+            /** Doctor Count */
+            doctor_count: number;
         };
         /** DepartmentUpdate */
         DepartmentUpdate: {
@@ -1184,9 +1282,21 @@ export interface components {
             name?: string | null;
             /** Description */
             description?: string | null;
+            /** Location */
+            location?: string | null;
+            visibility?: components["schemas"]["DepartmentVisibility"] | null;
             /** Is Active */
             is_active?: boolean | null;
         };
+        /**
+         * DepartmentVisibility
+         * @description Whether a department/clinic is published in the public directory.
+         *
+         *     DISABLED is represented by Department.is_active = False; the two are checked
+         *     together so unpublished, hidden and inactive departments never leak publicly.
+         * @enum {string}
+         */
+        DepartmentVisibility: "PUBLIC" | "UNPUBLISHED" | "HIDDEN";
         /** DoctorCreate */
         DoctorCreate: {
             /** Department Id */
@@ -1496,6 +1606,17 @@ export interface components {
         Page_AuditLogOut_: {
             /** Items */
             items: components["schemas"]["AuditLogOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** Page[DepartmentSummary] */
+        Page_DepartmentSummary_: {
+            /** Items */
+            items: components["schemas"]["DepartmentSummary"][];
             /** Total */
             total: number;
             /** Page */
@@ -2307,6 +2428,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpecialtyOut"][];
+                };
+            };
+        };
+    };
+    listDepartments: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                hospital_id?: number | null;
+                specialty_id?: number | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_DepartmentSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDepartment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                department_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepartmentPublicDetail"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -3814,7 +4010,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DepartmentOut"][];
+                    "application/json": components["schemas"]["DepartmentAdminOut"][];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
@@ -3865,7 +4061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DepartmentOut"];
+                    "application/json": components["schemas"]["DepartmentAdminOut"];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
@@ -3927,7 +4123,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DepartmentOut"];
+                    "application/json": components["schemas"]["DepartmentAdminOut"];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */

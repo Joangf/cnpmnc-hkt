@@ -7,12 +7,13 @@ import AdminReviewsPage from './pages/admin/AdminReviewsPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AppointmentDetailPage from './pages/AppointmentDetailPage'
 import AppointmentsPage from './pages/AppointmentsPage'
+import DepartmentDetailPage from './pages/DepartmentDetailPage'
+import DepartmentsPage from './pages/DepartmentsPage'
 import DoctorDetailPage from './pages/DoctorDetailPage'
 import DoctorsPage from './pages/DoctorsPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import HomePage from './pages/HomePage'
 import HospitalDetailPage from './pages/HospitalDetailPage'
-import HospitalsPage from './pages/HospitalsPage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 import NotificationsPage from './pages/NotificationsPage'
@@ -27,8 +28,9 @@ export default function App() {
       <Route element={<Layout />}>
         {/* Guest-accessible (FRD section 2) */}
         <Route index element={<HomePage />} />
-        <Route path="hospitals" element={<HospitalsPage />} />
         <Route path="hospitals/:hospitalId" element={<HospitalDetailPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="departments/:departmentId" element={<DepartmentDetailPage />} />
         <Route path="doctors" element={<DoctorsPage />} />
         <Route path="doctors/:doctorId" element={<DoctorDetailPage />} />
         <Route path="symptoms" element={<SymptomCheckerPage />} />

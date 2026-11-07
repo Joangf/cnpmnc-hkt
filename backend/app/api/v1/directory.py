@@ -13,6 +13,8 @@ from app.repositories import reviews as review_repo
 from app.schemas.common import Page, error_responses
 from app.schemas.directory import (
     AppointmentTypeOut,
+    DepartmentPublicDetail,
+    DepartmentSummary,
     DoctorDetail,
     DoctorSummary,
     HospitalDetail,
@@ -29,6 +31,49 @@ SearchText = Annotated[str | None, Query(max_length=100)]
 @router.get("/specialties", response_model=list[SpecialtyOut], operation_id="listSpecialties")
 async def list_specialties(session: SessionDep) -> list[SpecialtyOut]:
     return [SpecialtyOut.model_validate(s) for s in await directory_repo.list_specialties(session)]
+
+
+@router.get(
+    "/departments",
+    response_model=Page[DepartmentSummary],
+    operation_id="listDepartments",
+)
+async def list_departments(
+    session: SessionDep,
+    paging: PageDep,
+    q: SearchText = None,
+    hospital_id: int | None = None,
+    specialty_id: int | None = None,
+) -> Page[DepartmentSummary]:
+    """Publicly browse published departments and clinics (FR-DIS-02, FR-CLN-01)."""
+    items, total = await directory_repo.list_public_departments(
+        session,
+        q=q,
+        hospital_id=hospital_id,
+        specialty_id=specialty_id,
+        page=paging.page,
+        page_size=paging.page_size,
+    )
+    return Page[DepartmentSummary](
+        items=[presenters.department_summary(d) for d in items],
+        total=total,
+        page=paging.page,
+        page_size=paging.page_size,
+    )
+
+
+@router.get(
+    "/departments/{department_id}",
+    response_model=DepartmentPublicDetail,
+    operation_id="getDepartment",
+    responses=error_responses(404),
+)
+async def get_department(department_id: int, session: SessionDep) -> DepartmentPublicDetail:
+    """Public department detail, including its active doctors (FR-DIS-02)."""
+    department = await directory_repo.get_public_department(session, department_id)
+    if department is None:
+        raise NotFound("Department not found.")
+    return presenters.department_public_detail(department)
 
 
 @router.get("/hospitals", response_model=Page[HospitalSummary], operation_id="listHospitals")

@@ -54,11 +54,15 @@ export default function HomePage() {
             booked in minutes.
           </h1>
           <p className="max-w-[500px] text-[1.1875rem] leading-relaxed text-muted">
-            See real availability across our hospitals and clinics. Browse without an account and sign in only when you book.
+            See real availability across HKT Hospital and our partner clinics. Browse departments
+            and doctors without an account and sign in only when you book.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link to="/doctors" className="btn-primary">
               Find a doctor
+            </Link>
+            <Link to="/departments" className="btn-secondary">
+              Browse departments
             </Link>
             <Link to="/symptoms" className="btn-secondary">
               Not sure which specialty?

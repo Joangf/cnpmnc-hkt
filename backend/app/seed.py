@@ -57,13 +57,13 @@ SPECIALTIES = [
 
 HOSPITALS = [
     {
-        "name": "Riverside General Hospital",
+        "name": "HKT Hospital",
         "facility_type": FacilityType.HOSPITAL,
-        "address": "12 Riverside Avenue, District 1",
+        "address": "12 HKT Street, District 1",
         "city": "Ho Chi Minh City",
         "phone": "+842800000001",
-        "email": "contact@riverside-general.example",
-        "description": "Fictional multi-specialty hospital used for demonstration.",
+        "email": "contact@hkt-hospital.example",
+        "description": "HKT General Hospital provides medical services to the community.",
         "departments": [
             "General Internal Medicine",
             "Respiratory Medicine",
@@ -224,6 +224,7 @@ async def _seed_directory(session: AsyncSession) -> None:
     await session.flush()
 
     index = 0
+    dept_index = 0
     for data in HOSPITALS:
         dept_names = data["departments"]
         hospital = Hospital(**{k: v for k, v in data.items() if k != "departments"})
@@ -234,7 +235,13 @@ async def _seed_directory(session: AsyncSession) -> None:
                 hospital_id=hospital.id,
                 specialty_id=specialties[specialty_name].id,
                 name=f"{specialty_name} Department",
+                description=(
+                    f"Khoa {specialty_name} tại {hospital.name}: tư vấn, thăm khám và "
+                    "điều trị chuyên khoa."
+                ),
+                location=f"Tầng {(dept_index % 4) + 1}, Tòa {chr(65 + dept_index % 3)}",
             )
+            dept_index += 1
             session.add(department)
             await session.flush()
             for _ in range(2):

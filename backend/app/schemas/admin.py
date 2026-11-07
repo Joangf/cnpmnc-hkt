@@ -4,9 +4,16 @@ from typing import Any
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models.enums import AccountStatus, ActorType, FacilityType, PaymentStatus, UserRole
+from app.models.enums import (
+    AccountStatus,
+    ActorType,
+    DepartmentVisibility,
+    FacilityType,
+    PaymentStatus,
+    UserRole,
+)
 from app.schemas.common import ORMModel
-from app.schemas.directory import AppointmentTypeOut
+from app.schemas.directory import AppointmentTypeOut, DepartmentOut
 from app.schemas.validators import LongText, Name, ShortText
 
 
@@ -63,13 +70,21 @@ class DepartmentCreate(BaseModel):
     specialty_id: int
     name: Name
     description: LongText | None = None
+    location: ShortText | None = None
+    visibility: DepartmentVisibility = DepartmentVisibility.PUBLIC
 
 
 class DepartmentUpdate(BaseModel):
     specialty_id: int | None = None
     name: Name | None = None
     description: LongText | None = None
+    location: ShortText | None = None
+    visibility: DepartmentVisibility | None = None
     is_active: bool | None = None
+
+
+class DepartmentAdminOut(DepartmentOut):
+    visibility: DepartmentVisibility
 
 
 class DoctorCreate(BaseModel):

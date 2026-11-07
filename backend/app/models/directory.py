@@ -6,7 +6,7 @@ from sqlalchemy import ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
-from app.models.enums import FacilityType, enum_column
+from app.models.enums import DepartmentVisibility, FacilityType, enum_column
 
 
 class Specialty(TimestampMixin, Base):
@@ -47,6 +47,11 @@ class Department(TimestampMixin, Base):
     specialty_id: Mapped[int] = mapped_column(ForeignKey("specialties.id"), index=True)
     name: Mapped[str] = mapped_column(String(150))
     description: Mapped[str | None] = mapped_column(Text)
+    # Public location shown on the website, e.g. "Tầng 3, Tòa A".
+    location: Mapped[str | None] = mapped_column(String(100))
+    visibility: Mapped[DepartmentVisibility] = mapped_column(
+        enum_column(DepartmentVisibility), default=DepartmentVisibility.PUBLIC
+    )
     is_active: Mapped[bool] = mapped_column(default=True)
 
     hospital: Mapped[Hospital] = relationship(back_populates="departments", lazy="raise")

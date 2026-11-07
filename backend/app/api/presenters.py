@@ -13,7 +13,8 @@ from app.models import (
     Review,
     User,
 )
-from app.schemas.admin import AdminUserOut, AppointmentTypeAdminOut
+from app.models.enums import DepartmentVisibility
+from app.schemas.admin import AdminUserOut, AppointmentTypeAdminOut, DepartmentAdminOut
 from app.schemas.appointments import (
     AdminAppointmentOut,
     AppointmentDetail,
@@ -26,6 +27,8 @@ from app.schemas.common import RefOut
 from app.schemas.directory import (
     AppointmentTypeOut,
     DepartmentOut,
+    DepartmentPublicDetail,
+    DepartmentSummary,
     DoctorDetail,
     DoctorSummary,
     HospitalDetail,
@@ -85,14 +88,53 @@ def department_out(department: Department) -> DepartmentOut:
         hospital_id=department.hospital_id,
         name=department.name,
         description=department.description,
+        location=department.location,
         specialty=SpecialtyOut.model_validate(department.specialty),
         is_active=department.is_active,
     )
 
 
+def department_admin_out(department: Department) -> DepartmentAdminOut:
+    """Needs: department.specialty."""
+    return DepartmentAdminOut(
+        **department_out(department).model_dump(),
+        visibility=department.visibility,
+    )
+
+
+def _active_doctors(department: Department) -> list[Doctor]:
+    return sorted((d for d in department.doctors if d.is_active), key=lambda d: d.full_name)
+
+
+def department_summary(department: Department) -> DepartmentSummary:
+    """Needs: department.hospital, department.specialty, department.doctors."""
+    return DepartmentSummary(
+        id=department.id,
+        name=department.name,
+        description=department.description,
+        location=department.location,
+        hospital=RefOut(id=department.hospital.id, name=department.hospital.name),
+        specialty=SpecialtyOut.model_validate(department.specialty),
+        doctor_count=len(_active_doctors(department)),
+    )
+
+
+def department_public_detail(department: Department) -> DepartmentPublicDetail:
+    """Needs: department.hospital/specialty and doctor hospital/department."""
+    return DepartmentPublicDetail(
+        **department_summary(department).model_dump(),
+        doctors=[doctor_summary(d) for d in _active_doctors(department)],
+    )
+
+
 def hospital_summary(hospital: Hospital, *, include_inactive: bool = False) -> HospitalSummary:
     """Needs: hospital.departments[].specialty."""
-    departments = [d for d in hospital.departments if include_inactive or d.is_active]
+    departments = [
+        d
+        for d in hospital.departments
+        if include_inactive
+        or (d.is_active and d.visibility == DepartmentVisibility.PUBLIC)
+    ]
     specialties = {d.specialty.id: d.specialty for d in departments if d.specialty.is_active}
     return HospitalSummary(
         id=hospital.id,
@@ -113,7 +155,13 @@ def hospital_summary(hospital: Hospital, *, include_inactive: bool = False) -> H
 def hospital_detail(hospital: Hospital, *, include_inactive: bool = False) -> HospitalDetail:
     summary = hospital_summary(hospital, include_inactive=include_inactive)
     departments = sorted(
-        (d for d in hospital.departments if include_inactive or d.is_active), key=lambda d: d.name
+        (
+            d
+            for d in hospital.departments
+            if include_inactive
+            or (d.is_active and d.visibility == DepartmentVisibility.PUBLIC)
+        ),
+        key=lambda d: d.name,
     )
     return HospitalDetail(
         **summary.model_dump(),

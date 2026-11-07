@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api, type AdminEntity } from '../../api/endpoints'
-import type { AppointmentTypeAdmin, Department, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
+import type { AppointmentTypeAdmin, Department, DepartmentVisibility, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
 import { Card, ErrorAlert, FilterChip, Spinner } from '../../components/ui'
 import { formatMoney } from '../../lib/format'
 import { AdminNav } from './AdminNav'
@@ -16,7 +16,7 @@ interface FieldDef {
   options?: { value: string | number; label: string }[]
 }
 
-type Row = { id: number; is_active: boolean; title: string; subtitle: string }
+type Row = { id: number; is_active: boolean; title: string; subtitle: string; visibility?: DepartmentVisibility }
 
 function EntityForm({ fields, onSubmit, busy }: { fields: FieldDef[]; onSubmit: (body: Record<string, unknown>) => void; busy: boolean }) {
   const handle = (e: FormEvent<HTMLFormElement>) => {
@@ -85,6 +85,11 @@ export default function AdminDirectoryPage() {
     mutationFn: (row: Row) => api.admin.update(entity, row.id, { is_active: !row.is_active }),
     onSuccess: invalidate,
   })
+  const setVisibility = useMutation({
+    mutationFn: ({ id, visibility }: { id: number; visibility: DepartmentVisibility }) =>
+      api.admin.update('departments', id, { visibility }),
+    onSuccess: invalidate,
+  })
 
   const hospitalName = new Map(hospitals.data?.map((h) => [h.id, h.name] as const))
   const specialtyOptions = specialties.data?.map((s) => ({ value: s.id, label: s.name })) ?? []
@@ -117,12 +122,24 @@ export default function AdminDirectoryPage() {
         id: d.id,
         is_active: d.is_active,
         title: d.name,
-        subtitle: `${hospitalName.get(d.hospital_id) ?? `Hospital #${d.hospital_id}`} · ${d.specialty.name}`,
+        subtitle: `${hospitalName.get(d.hospital_id) ?? `Hospital #${d.hospital_id}`} · ${d.specialty.name} · ${d.location ?? 'No location'}`,
+        visibility: d.visibility ?? 'PUBLIC',
       })),
       fields: [
         { name: 'hospital_id', label: 'Hospital', type: 'select', required: true, options: hospitals.data?.map((h) => ({ value: h.id, label: h.name })) },
         { name: 'specialty_id', label: 'Specialty', type: 'select', required: true, options: specialtyOptions },
         { name: 'name', label: 'Name', required: true },
+        { name: 'location', label: 'Location / floor' },
+        {
+          name: 'visibility',
+          label: 'Visibility',
+          type: 'select',
+          options: [
+            { value: 'PUBLIC', label: 'Public (published)' },
+            { value: 'UNPUBLISHED', label: 'Unpublished' },
+            { value: 'HIDDEN', label: 'Hidden' },
+          ],
+        },
         { name: 'description', label: 'Description', type: 'textarea' },
       ],
     },
@@ -190,6 +207,7 @@ export default function AdminDirectoryPage() {
           <h2 className="section-title mb-3">{current.label}</h2>
           {!current.rows && <Spinner />}
           <ErrorAlert error={toggle.error} />
+          <ErrorAlert error={setVisibility.error} />
           <ul className="divide-y divide-line">
             {current.rows?.map((row) => (
               <li key={row.id} className="flex items-center justify-between gap-3 py-3">
@@ -199,6 +217,25 @@ export default function AdminDirectoryPage() {
                     {!row.is_active && <span className="tag">Inactive</span>}
                   </div>
                   <div className="caption">{row.subtitle}</div>
+                  {row.visibility && (
+                    <label className="mt-2 flex max-w-[220px] items-center gap-2">
+                      <span className="caption shrink-0">Visibility</span>
+                      <select
+                        className="input py-1"
+                        value={row.visibility}
+                        onChange={(e) =>
+                          setVisibility.mutate({
+                            id: row.id,
+                            visibility: e.target.value as DepartmentVisibility,
+                          })
+                        }
+                      >
+                        <option value="PUBLIC">Public</option>
+                        <option value="UNPUBLISHED">Unpublished</option>
+                        <option value="HIDDEN">Hidden</option>
+                      </select>
+                    </label>
+                  )}
                 </div>
                 <button className="btn-secondary btn-sm shrink-0" onClick={() => toggle.mutate(row)}>
                   {row.is_active ? 'Deactivate' : 'Activate'}

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { DoctorCard } from '../components/DoctorCard'
+import { IconArrowRight } from '../components/icons'
 import { EmptyState, ErrorAlert, stagger, Spinner } from '../components/ui'
 import { humanize, telHref } from '../lib/format'
 
@@ -45,14 +46,31 @@ export default function HospitalDetailPage() {
       {h.description && <p className="max-w-3xl">{h.description}</p>}
 
       <section>
-        <h2 className="section-title mb-4">Departments</h2>
-        <div className="flex flex-wrap gap-3">
-          {h.departments.map((d) => (
-            <Link key={d.id} to={`/doctors?department_id=${d.id}`} className="chip no-underline hover:text-berry">
-              {d.name}
-            </Link>
-          ))}
-        </div>
+        <h2 className="section-title mb-4">Departments &amp; clinics</h2>
+        {h.departments.length === 0 && (
+          <EmptyState>No departments are published for this facility yet.</EmptyState>
+        )}
+        {!!h.departments.length && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {h.departments.map((d, i) => (
+              <Link
+                key={d.id}
+                to={`/departments/${d.id}`}
+                className="card-link reveal flex min-w-0 flex-col gap-1.5"
+                style={stagger(i)}
+              >
+                <span className="text-lg font-semibold leading-tight">{d.name}</span>
+                <span className="caption">
+                  {d.specialty.name}
+                  {d.location ? ` · ${d.location}` : ''}
+                </span>
+                <span className="mt-1 inline-flex items-center gap-1.5 text-caption font-semibold text-berry">
+                  View department &amp; doctors <IconArrowRight size={16} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       <section>

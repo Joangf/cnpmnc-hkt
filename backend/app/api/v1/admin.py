@@ -24,6 +24,7 @@ from app.schemas.admin import (
     AppointmentTypeCreate,
     AppointmentTypeUpdate,
     AuditLogOut,
+    DepartmentAdminOut,
     DepartmentCreate,
     DepartmentUpdate,
     DoctorCreate,
@@ -38,7 +39,7 @@ from app.schemas.admin import (
 )
 from app.schemas.appointments import AdminAppointmentOut
 from app.schemas.common import Page, error_responses
-from app.schemas.directory import DepartmentOut, DoctorDetail, HospitalDetail, SpecialtyOut
+from app.schemas.directory import DoctorDetail, HospitalDetail, SpecialtyOut
 from app.schemas.reviews import AdminReviewOut, ReviewModerate
 from app.services import audit, availability, erp_sync, reports
 from app.services import reviews as review_service
@@ -233,26 +234,28 @@ async def update_hospital(
 # --- Departments ------------------------------------------------------------------------------
 
 
-@router.get("/departments", response_model=list[DepartmentOut], operation_id="adminListDepartments")
+@router.get(
+    "/departments", response_model=list[DepartmentAdminOut], operation_id="adminListDepartments"
+)
 async def admin_list_departments(
     admin: AdminUser, session: SessionDep, hospital_id: int | None = None
-) -> list[DepartmentOut]:
+) -> list[DepartmentAdminOut]:
     items = await directory_repo.list_departments(
         session, hospital_id=hospital_id, include_inactive=True
     )
-    return [presenters.department_out(d) for d in items]
+    return [presenters.department_admin_out(d) for d in items]
 
 
 @router.post(
     "/departments",
     status_code=status.HTTP_201_CREATED,
-    response_model=DepartmentOut,
+    response_model=DepartmentAdminOut,
     operation_id="adminCreateDepartment",
     responses=error_responses(404, 422),
 )
 async def create_department(
     payload: DepartmentCreate, admin: AdminUser, session: SessionDep
-) -> DepartmentOut:
+) -> DepartmentAdminOut:
     if await session.get(Hospital, payload.hospital_id) is None:
         raise NotFound("Hospital not found.")
     if await session.get(Specialty, payload.specialty_id) is None:
@@ -264,18 +267,18 @@ async def create_department(
     await session.commit()
     loaded = await directory_repo.get_department(session, department.id)
     assert loaded is not None
-    return presenters.department_out(loaded)
+    return presenters.department_admin_out(loaded)
 
 
 @router.patch(
     "/departments/{department_id}",
-    response_model=DepartmentOut,
+    response_model=DepartmentAdminOut,
     operation_id="adminUpdateDepartment",
     responses=error_responses(404, 422),
 )
 async def update_department(
     department_id: int, payload: DepartmentUpdate, admin: AdminUser, session: SessionDep
-) -> DepartmentOut:
+) -> DepartmentAdminOut:
     department = await directory_repo.get_department(session, department_id)
     if department is None:
         raise NotFound("Department not found.")
@@ -296,7 +299,7 @@ async def update_department(
         await session.commit()
     loaded = await directory_repo.get_department(session, department_id)
     assert loaded is not None
-    return presenters.department_out(loaded)
+    return presenters.department_admin_out(loaded)
 
 
 # --- Doctors ----------------------------------------------------------------------------------
