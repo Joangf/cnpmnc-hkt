@@ -1,13 +1,26 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models.enums import AccountStatus, ActorType, FacilityType, PaymentStatus, UserRole
 from app.schemas.common import ORMModel
 from app.schemas.directory import AppointmentTypeOut
-from app.schemas.validators import LongText, Name, ShortText
+from app.schemas.validators import LongText, Name, bounded
+
+# Bounds mirror the columns in app/models/directory.py.
+SpecialtyName = Annotated[str, bounded(100, 1)]
+DepartmentName = Annotated[str, bounded(150, 1)]
+DoctorName = Annotated[str, bounded(150, 1)]
+DoctorTitle = Annotated[str, bounded(100)]
+Url = Annotated[str, bounded(500)]
+WebUrl = Annotated[str, bounded(255)]
+Address = Annotated[str, bounded(255, 1)]
+City = Annotated[str, bounded(100, 1)]
+FacilityPhone = Annotated[str, bounded(30)]
+# External identifier: unique when set, so an empty string is rejected rather than stored.
+ErpDoctorId = Annotated[str, bounded(64, 1)]
 
 
 class AdminUserOut(BaseModel):
@@ -25,12 +38,12 @@ class UserStatusUpdate(BaseModel):
 
 
 class SpecialtyCreate(BaseModel):
-    name: Name
+    name: SpecialtyName
     description: LongText | None = None
 
 
 class SpecialtyUpdate(BaseModel):
-    name: Name | None = None
+    name: SpecialtyName | None = None
     description: LongText | None = None
     is_active: bool | None = None
 
@@ -38,22 +51,22 @@ class SpecialtyUpdate(BaseModel):
 class HospitalCreate(BaseModel):
     name: Name
     facility_type: FacilityType = FacilityType.HOSPITAL
-    address: Name
-    city: Name
-    phone: ShortText | None = None
+    address: Address
+    city: City
+    phone: FacilityPhone | None = None
     email: EmailStr | None = None
-    website: ShortText | None = None
+    website: WebUrl | None = None
     description: LongText | None = None
 
 
 class HospitalUpdate(BaseModel):
     name: Name | None = None
     facility_type: FacilityType | None = None
-    address: Name | None = None
-    city: Name | None = None
-    phone: ShortText | None = None
+    address: Address | None = None
+    city: City | None = None
+    phone: FacilityPhone | None = None
     email: EmailStr | None = None
-    website: ShortText | None = None
+    website: WebUrl | None = None
     description: LongText | None = None
     is_active: bool | None = None
 
@@ -61,39 +74,40 @@ class HospitalUpdate(BaseModel):
 class DepartmentCreate(BaseModel):
     hospital_id: int
     specialty_id: int
-    name: Name
+    name: DepartmentName
     description: LongText | None = None
 
 
 class DepartmentUpdate(BaseModel):
     specialty_id: int | None = None
-    name: Name | None = None
+    name: DepartmentName | None = None
     description: LongText | None = None
     is_active: bool | None = None
 
 
 class DoctorCreate(BaseModel):
+    # The doctor's facility and specialty are those of its department.
     department_id: int
-    full_name: Name
-    title: ShortText | None = None
+    full_name: DoctorName
+    title: DoctorTitle | None = None
     qualifications: LongText | None = None
     experience_years: int = Field(default=0, ge=0, le=70)
     introduction: LongText | None = None
-    consultation_fee: Decimal | None = Field(default=None, ge=0)
-    avatar_url: ShortText | None = None
-    erp_doctor_id: ShortText | None = None
+    consultation_fee: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    avatar_url: Url | None = None
+    erp_doctor_id: ErpDoctorId | None = None
 
 
 class DoctorUpdate(BaseModel):
     department_id: int | None = None
-    full_name: Name | None = None
-    title: ShortText | None = None
+    full_name: DoctorName | None = None
+    title: DoctorTitle | None = None
     qualifications: LongText | None = None
     experience_years: int | None = Field(default=None, ge=0, le=70)
     introduction: LongText | None = None
-    consultation_fee: Decimal | None = Field(default=None, ge=0)
-    avatar_url: ShortText | None = None
-    erp_doctor_id: ShortText | None = None
+    consultation_fee: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    avatar_url: Url | None = None
+    erp_doctor_id: ErpDoctorId | None = None
     is_active: bool | None = None
 
 

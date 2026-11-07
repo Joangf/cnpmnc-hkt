@@ -42,3 +42,8 @@ Password = Annotated[
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 LongText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=5000)]
+
+
+def bounded(max_length: int, min_length: int = 0) -> StringConstraints:
+    """Stripped-string bounds matching a column's length, so oversize input is a 422."""
+    return StringConstraints(strip_whitespace=True, min_length=min_length, max_length=max_length)

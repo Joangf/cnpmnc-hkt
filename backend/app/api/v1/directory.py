@@ -20,6 +20,7 @@ from app.schemas.directory import (
     SpecialtyOut,
 )
 from app.schemas.reviews import ReviewPublic
+from app.services import policies
 
 router = APIRouter(tags=["directory"])
 
@@ -104,7 +105,7 @@ async def list_doctors(
 )
 async def get_doctor(doctor_id: int, session: SessionDep) -> DoctorDetail:
     doctor = await directory_repo.get_doctor(session, doctor_id)
-    if doctor is None or not doctor.is_active:
+    if doctor is None or not policies.doctor_is_published(doctor):
         raise NotFound("Doctor not found.")
     return presenters.doctor_detail(doctor)
 
@@ -119,7 +120,7 @@ async def list_doctor_appointment_types(
     doctor_id: int, session: SessionDep
 ) -> list[AppointmentTypeOut]:
     doctor = await directory_repo.get_doctor(session, doctor_id)
-    if doctor is None or not doctor.is_active:
+    if doctor is None or not policies.doctor_is_published(doctor):
         raise NotFound("Doctor not found.")
     types = await directory_repo.list_appointment_types_for_doctor(session, doctor)
     return [presenters.appointment_type_out(t, doctor) for t in types]
