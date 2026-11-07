@@ -18,6 +18,7 @@ const STYLES: Record<string, { className: string; icon: IconComponent }> = {
   UNPAID: { className: NEUTRAL, icon: IconMinus },
   PAID: { className: GOOD, icon: IconCheck },
   EXPIRED: { className: NEUTRAL, icon: IconClock },
+  REQUESTED: { className: WAIT, icon: IconClock },
   REFUNDED: { className: INFO, icon: IconRefund },
   CHECKED_IN: { className: GOOD, icon: IconCheck },
   NOT_CHECKED_IN: { className: NEUTRAL, icon: IconMinus },
