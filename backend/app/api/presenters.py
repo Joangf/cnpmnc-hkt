@@ -14,7 +14,12 @@ from app.models import (
     User,
 )
 from app.models.enums import DepartmentVisibility
-from app.schemas.admin import AdminUserOut, AppointmentTypeAdminOut, DepartmentAdminOut
+from app.schemas.admin import (
+    AdminDoctorDetail,
+    AdminUserOut,
+    AppointmentTypeAdminOut,
+    DepartmentAdminOut,
+)
 from app.schemas.appointments import (
     AdminAppointmentOut,
     AppointmentDetail,
@@ -197,6 +202,13 @@ def doctor_detail(doctor: Doctor) -> DoctorDetail:
         qualifications=doctor.qualifications,
         introduction=doctor.introduction,
         erp_doctor_id=doctor.erp_doctor_id,
+    )
+
+
+def admin_doctor_detail(doctor: Doctor) -> AdminDoctorDetail:
+    return AdminDoctorDetail(
+        **doctor_detail(doctor).model_dump(),
+        max_appointments_per_window=doctor.max_appointments_per_window,
     )
 
 

@@ -945,6 +945,40 @@ export interface components {
             /** Patient Id */
             patient_id: number;
         };
+        /** AdminDoctorDetail */
+        AdminDoctorDetail: {
+            /** Id */
+            id: number;
+            /** Full Name */
+            full_name: string;
+            /** Title */
+            title: string | null;
+            /** Experience Years */
+            experience_years: number;
+            /** Consultation Fee */
+            consultation_fee: string | null;
+            /** Currency */
+            currency: string;
+            /** Rating Avg */
+            rating_avg: string;
+            /** Rating Count */
+            rating_count: number;
+            /** Avatar Url */
+            avatar_url: string | null;
+            hospital: components["schemas"]["RefOut"];
+            department: components["schemas"]["RefOut"];
+            specialty: components["schemas"]["RefOut"];
+            /** Is Active */
+            is_active: boolean;
+            /** Qualifications */
+            qualifications: string | null;
+            /** Introduction */
+            introduction: string | null;
+            /** Erp Doctor Id */
+            erp_doctor_id: string | null;
+            /** Max Appointments Per Window */
+            max_appointments_per_window: number;
+        };
         /** AdminReviewOut */
         AdminReviewOut: {
             /** Id */
@@ -1354,6 +1388,11 @@ export interface components {
             avatar_url?: string | null;
             /** Erp Doctor Id */
             erp_doctor_id?: string | null;
+            /**
+             * Max Appointments Per Window
+             * @default 1
+             */
+            max_appointments_per_window: number;
         };
         /** DoctorDetail */
         DoctorDetail: {
@@ -1435,6 +1474,8 @@ export interface components {
             erp_doctor_id?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Max Appointments Per Window */
+            max_appointments_per_window?: number | null;
         };
         /** ErrorBody */
         ErrorBody: {
@@ -4377,7 +4418,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DoctorDetail"][];
+                    "application/json": components["schemas"]["AdminDoctorDetail"][];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
@@ -4428,7 +4469,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DoctorDetail"];
+                    "application/json": components["schemas"]["AdminDoctorDetail"];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
@@ -4490,7 +4531,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DoctorDetail"];
+                    "application/json": components["schemas"]["AdminDoctorDetail"];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
@@ -4627,6 +4668,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation failed (ValidationFailed) */
             422: {
                 headers: {
@@ -4682,6 +4732,15 @@ export interface operations {
             };
             /** @description Resource not found (NotFound) */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

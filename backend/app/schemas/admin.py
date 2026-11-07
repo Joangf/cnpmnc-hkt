@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.enums import (
     AccountStatus,
@@ -13,7 +13,7 @@ from app.models.enums import (
     UserRole,
 )
 from app.schemas.common import ORMModel
-from app.schemas.directory import AppointmentTypeOut, DepartmentOut
+from app.schemas.directory import AppointmentTypeOut, DepartmentOut, DoctorDetail
 from app.schemas.validators import LongText, Name, ShortText, bounded
 
 # Bounds mirror the columns in app/models/directory.py.
@@ -28,6 +28,10 @@ City = Annotated[str, bounded(100, 1)]
 FacilityPhone = Annotated[str, bounded(30)]
 # External identifier: unique when set, so an empty string is rejected rather than stored.
 ErpDoctorId = Annotated[str, bounded(64, 1)]
+Capacity = Annotated[int, Field(strict=True, gt=0, le=2147483647)]
+Duration = Annotated[int, Field(strict=True, ge=5, le=480)]
+Buffer = Annotated[int, Field(strict=True, ge=0, le=120)]
+ScopeId = Annotated[int, Field(strict=True, gt=0, le=2147483647)]
 
 
 class AdminUserOut(BaseModel):
@@ -113,6 +117,7 @@ class DoctorCreate(BaseModel):
     consultation_fee: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     avatar_url: Url | None = None
     erp_doctor_id: ErpDoctorId | None = None
+    max_appointments_per_window: Capacity = 1
 
 
 class DoctorUpdate(BaseModel):
@@ -126,27 +131,46 @@ class DoctorUpdate(BaseModel):
     avatar_url: Url | None = None
     erp_doctor_id: ErpDoctorId | None = None
     is_active: bool | None = None
+    max_appointments_per_window: Capacity | None = None
+
+    @field_validator("max_appointments_per_window", mode="before")
+    @classmethod
+    def capacity_cannot_be_null(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Capacity cannot be empty.")
+        return value
+
+
+class AdminDoctorDetail(DoctorDetail):
+    max_appointments_per_window: int
 
 
 class AppointmentTypeCreate(BaseModel):
     name: Name
     description: LongText | None = None
-    duration_minutes: int = Field(ge=5, le=480)
-    buffer_minutes: int = Field(default=0, ge=0, le=120)
+    duration_minutes: Duration
+    buffer_minutes: Buffer = 0
     fee_override: Decimal | None = Field(default=None, ge=0)
-    specialty_id: int | None = None
-    doctor_id: int | None = None
+    specialty_id: ScopeId | None = None
+    doctor_id: ScopeId | None = None
 
 
 class AppointmentTypeUpdate(BaseModel):
     name: Name | None = None
     description: LongText | None = None
-    duration_minutes: int | None = Field(default=None, ge=5, le=480)
-    buffer_minutes: int | None = Field(default=None, ge=0, le=120)
+    duration_minutes: Duration | None = None
+    buffer_minutes: Buffer | None = None
     fee_override: Decimal | None = Field(default=None, ge=0)
-    specialty_id: int | None = None
-    doctor_id: int | None = None
+    specialty_id: ScopeId | None = None
+    doctor_id: ScopeId | None = None
     is_active: bool | None = None
+
+    @field_validator("duration_minutes", "buffer_minutes", mode="before")
+    @classmethod
+    def timing_cannot_be_null(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Duration and buffer cannot be empty.")
+        return value
 
 
 class AppointmentTypeAdminOut(AppointmentTypeOut):

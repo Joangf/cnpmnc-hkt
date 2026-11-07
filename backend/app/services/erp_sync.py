@@ -54,6 +54,11 @@ async def sync_all_schedules(session: AsyncSession, erp: ErpAdapter) -> tuple[in
             failures += 1
             logger.warning("schedule_sync_failed", doctor_id=doctor.id)
             continue
+        # Serialize window replacement with local reservations; the ERP call above
+        # deliberately happens before locking, so network I/O does not hold the lock.
+        await session.execute(
+            select(Doctor.id).where(Doctor.id == doctor.id).with_for_update()
+        )
         await session.execute(
             delete(DoctorSchedule).where(
                 DoctorSchedule.doctor_id == doctor.id,
@@ -62,6 +67,8 @@ async def sync_all_schedules(session: AsyncSession, erp: ErpAdapter) -> tuple[in
             )
         )
         now = datetime.now(UTC)
+        # Also versions availability cache entries when ERP windows/limits change.
+        doctor.updated_at = now
         session.add_all(
             DoctorSchedule(
                 doctor_id=doctor.id,

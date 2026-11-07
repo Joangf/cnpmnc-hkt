@@ -72,3 +72,32 @@ make migration m="..."    # autogenerate an Alembic migration
 ```
 
 Frontend dev with hot reload: `cd frontend && npm install && npm run dev` (http://localhost:5173, proxies to the dev-exposed backend on :8000).
+
+## Scheduling constraints (SCRUM-21)
+
+Admins manage duration and buffer in **Directory → Appointment types**, including global,
+specialty, and doctor scopes. Duration is 5–480 whole minutes; buffer is 0–120 whole minutes.
+When both doctor and specialty are selected, they must match. The seeded standard consultation
+is 20 minutes with a 10-minute buffer. Missing or invalid appointment types and missing schedules
+never create bookable offers.
+
+**Directory → Doctors → Capacity per work window** sets the total number of pending or confirmed
+bookings permitted in each ERP work window, shared across all appointment types. The migration
+backfills existing doctors to **1**, and new doctors also default to **1** until an admin raises it.
+Capacity is a positive integer. A positive ERP limit further restricts the local limit (the smaller
+limit wins); an absent ERP limit uses the doctor's finite limit, while zero or invalid ERP limits
+close the window. This does not allow overlapping consultations for the same doctor.
+
+Capacity counts appointment starts in `[window start, window end)`. Cancelled and rejected
+appointments release capacity. Duration plus buffer must fit completely inside the work window,
+and existing reserved intervals and blocked periods are respected.
+
+Changes apply to subsequent offers and new bookings. Existing appointment times, buffers and
+statuses are preserved. Lowering capacity below existing bookings stops further offers without
+cancelling those bookings. Browsing uses a short-lived cache keyed by persisted settings; booking
+always rechecks the database under a doctor lock. A displayed slot is not a reservation.
+Failed saves roll back settings and their audit record together and report an error.
+
+Apply `alembic upgrade head` before starting the updated backend. Scheduling integration tests
+use `TEST_DATABASE_URL`; point it only at a disposable database, since the existing overlap test
+resets its schema.

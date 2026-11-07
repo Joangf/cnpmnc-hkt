@@ -33,7 +33,10 @@ def type_applies_to_doctor(appointment_type: AppointmentType, doctor: Doctor) ->
     if not appointment_type.is_active:
         return False
     if appointment_type.doctor_id is not None:
-        return appointment_type.doctor_id == doctor.id
+        return appointment_type.doctor_id == doctor.id and (
+            appointment_type.specialty_id is None
+            or appointment_type.specialty_id == doctor.department.specialty_id
+        )
     if appointment_type.specialty_id is not None:
         return appointment_type.specialty_id == doctor.department.specialty_id
     return True

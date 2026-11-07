@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, String, Text
+from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -62,6 +62,11 @@ class Department(TimestampMixin, Base):
 
 class Doctor(TimestampMixin, Base):
     __tablename__ = "doctors"
+    __table_args__ = (
+        CheckConstraint(
+            "max_appointments_per_window > 0", name="ck_doctors_capacity_positive"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), index=True)
@@ -75,6 +80,8 @@ class Doctor(TimestampMixin, Base):
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     # Identifier of this doctor in the hospital ERP/HIS; null = not integrated.
     erp_doctor_id: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # Total bookings per ERP work window, shared across all appointment types.
+    max_appointments_per_window: Mapped[int] = mapped_column(default=1, server_default="1")
     # Denormalised from published reviews (see services/reviews.recompute_doctor_rating).
     rating_avg: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("0"))
     rating_count: Mapped[int] = mapped_column(default=0)

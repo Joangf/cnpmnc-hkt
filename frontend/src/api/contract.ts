@@ -20,6 +20,7 @@ export const responseContract: {
   DepartmentDetail: Fits<S['DepartmentPublicDetail'], T.DepartmentPublicDetail>
   DoctorPage: Fits<S['Page_DoctorSummary_'], T.Page<T.DoctorSummary>>
   DoctorDetail: Fits<S['DoctorDetail'], T.DoctorDetail>
+  AdminDoctorDetail: Fits<S['AdminDoctorDetail'], T.AdminDoctorDetail>
   AppointmentType: Fits<S['AppointmentTypeOut'], T.AppointmentType>
   Availability: Fits<S['AvailabilityResponse'], T.Availability>
   AppointmentPage: Fits<S['Page_AppointmentSummary_'], T.Page<T.AppointmentSummary>>
@@ -50,6 +51,7 @@ export const responseContract: {
   DepartmentDetail: true,
   DoctorPage: true,
   DoctorDetail: true,
+  AdminDoctorDetail: true,
   AppointmentType: true,
   Availability: true,
   AppointmentPage: true,

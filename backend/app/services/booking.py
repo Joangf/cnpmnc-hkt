@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 import structlog
 from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,7 +28,7 @@ from app.integrations.erp.base import (
     ErpUnavailableError,
 )
 from app.integrations.payment.base import PaymentGateway
-from app.models import Appointment, AppointmentType, PatientProfile
+from app.models import Appointment, AppointmentType, Doctor, PatientProfile
 from app.models.enums import (
     ACTIVE_APPOINTMENT_STATUSES,
     AppointmentStatus,
@@ -39,6 +40,7 @@ from app.repositories import appointments as appointment_repo
 from app.repositories import directory as directory_repo
 from app.schemas.appointments import AppointmentCreate
 from app.services import audit, availability, idempotency, notifications, policies
+from app.services.scheduling_settings import resolve
 
 logger = structlog.get_logger(__name__)
 
@@ -202,10 +204,18 @@ async def _create(
     user_id: int,
     payload: AppointmentCreate,
 ) -> int:
+    # Consistent lock order: type (shared), then doctor (exclusive). Re-read after locking:
+    # authentication / previous queries may have populated this session's identity map.
+    appointment_type = await session.scalar(
+        select(AppointmentType).where(AppointmentType.id == payload.appointment_type_id)
+        .with_for_update(read=True).execution_options(populate_existing=True)
+    )
+    await session.execute(
+        select(Doctor.id).where(Doctor.id == payload.doctor_id).with_for_update()
+    )
     doctor = await directory_repo.get_doctor(session, payload.doctor_id)
     if doctor is None or not policies.doctor_is_published(doctor):
         raise NotFound("Doctor not found.")
-    appointment_type = await session.get(AppointmentType, payload.appointment_type_id)
     if appointment_type is None or not policies.type_applies_to_doctor(appointment_type, doctor):
         raise ValidationFailed("This appointment type is not offered by the selected doctor.")
 
@@ -214,7 +224,10 @@ async def _create(
     availability.check_booking_window(day)
 
     # BR-03: revalidate at submission time, bypassing the browse cache.
-    slots = await availability.compute_slots(session, doctor.id, appointment_type, day)
+    effective = resolve(doctor, appointment_type)
+    slots = await availability.compute_slots(
+        session, doctor.id, appointment_type, day, effective=effective
+    )
     if not any(slot.start == start for slot in slots):
         BOOKINGS.labels(result="unavailable").inc()
         raise SlotTaken(
@@ -222,15 +235,14 @@ async def _create(
             code="SlotUnavailable",
         )
 
-    duration, buffer = availability.durations(appointment_type)
     appointment = Appointment(
         booking_reference=generate_booking_reference(),
         patient_id=patient_id,
         doctor_id=doctor.id,
         appointment_type_id=appointment_type.id,
         start_time=start,
-        end_time=start + duration,
-        end_with_buffer=start + duration + buffer,
+        end_time=start + effective.duration,
+        end_with_buffer=start + effective.duration + effective.buffer,
         status=AppointmentStatus.PENDING,
         check_in_status=CheckInStatus.NOT_CHECKED_IN,
         reason_for_visit=payload.reason_for_visit,
