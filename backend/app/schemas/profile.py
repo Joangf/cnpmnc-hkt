@@ -9,8 +9,8 @@ class ProfileOut(BaseModel):
     id: int
     email: str
     full_name: str
-    date_of_birth: date
-    phone_number: str
+    date_of_birth: date | None
+    phone_number: str | None
     address: str | None
 
 

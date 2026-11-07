@@ -48,8 +48,8 @@ export interface RegisterPayload {
   email: string
   password: string
   full_name: string
-  date_of_birth: string
-  phone_number: string
+  date_of_birth?: string | null
+  phone_number?: string | null
 }
 
 export interface RegistrationPending {
@@ -68,8 +68,8 @@ export interface Profile {
   id: number
   email: string
   full_name: string
-  date_of_birth: string
-  phone_number: string
+  date_of_birth: string | null
+  phone_number: string | null
   address: string | null
 }
 

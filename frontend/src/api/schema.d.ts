@@ -1671,13 +1671,10 @@ export interface components {
             email: string;
             /** Full Name */
             full_name: string;
-            /**
-             * Date Of Birth
-             * Format: date
-             */
-            date_of_birth: string;
+            /** Date Of Birth */
+            date_of_birth: string | null;
             /** Phone Number */
-            phone_number: string;
+            phone_number: string | null;
             /** Address */
             address: string | null;
         };
@@ -1745,13 +1742,10 @@ export interface components {
             password: string;
             /** Full Name */
             full_name: string;
-            /**
-             * Date Of Birth
-             * Format: date
-             */
-            date_of_birth: string;
+            /** Date Of Birth */
+            date_of_birth?: string | null;
             /** Phone Number */
-            phone_number: string;
+            phone_number?: string | null;
         };
         /** RegistrationPending */
         RegistrationPending: {

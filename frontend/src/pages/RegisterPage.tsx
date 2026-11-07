@@ -32,8 +32,8 @@ export default function RegisterPage() {
         email: parsed.email,
         password: parsed.password,
         full_name: parsed.full_name,
-        date_of_birth: parsed.date_of_birth,
-        phone_number: parsed.phone_number,
+        date_of_birth: parsed.date_of_birth || null,
+        phone_number: parsed.phone_number || null,
       })
       setOtp(res.dev_otp ?? '')
       setPending(res)
@@ -144,10 +144,10 @@ export default function RegisterPage() {
             <input className="input" type="email" autoComplete="email" {...register('email')} />
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Date of birth" hint="Hospitals use it to find your medical record" error={errors.date_of_birth?.message}>
+            <Field label="Date of birth (optional)" hint="Hospitals use it to find your medical record" error={errors.date_of_birth?.message}>
               <input className="input" type="date" {...register('date_of_birth')} />
             </Field>
-            <Field label="Phone number" hint="So the hospital can reach you about a visit" error={errors.phone_number?.message}>
+            <Field label="Phone number (optional)" hint="So the hospital can reach you about a visit" error={errors.phone_number?.message}>
               <input className="input" type="tel" autoComplete="tel" {...register('phone_number')} />
             </Field>
           </div>
