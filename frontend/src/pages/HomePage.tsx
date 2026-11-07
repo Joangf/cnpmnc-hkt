@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { IconArrowRight, IconBone, IconFemale, IconHeart, IconPerson, IconStethoscope, type IconComponent } from '../components/icons'
@@ -14,7 +14,7 @@ const SPECIALTY_ICONS: [RegExp, IconComponent][] = [
 ]
 const specialtyIcon = (name: string) => SPECIALTY_ICONS.find(([re]) => re.test(name))?.[1] ?? IconStethoscope
 
-/** Placeholder art on Peach cream (design board 04) until real, consented photos are available. */
+/** Placeholder art on Peach cream (design board 04) when hospital photo is not available. */
 function HeroArt() {
   return (
     <svg viewBox="0 0 320 320" className="h-auto w-[200px] sm:w-[260px]" fill="none" aria-hidden="true" focusable="false">
@@ -33,6 +33,16 @@ export default function HomePage() {
   const [q, setQ] = useState('')
   const [specialtyId, setSpecialtyId] = useState('')
   const [hospitalId, setHospitalId] = useState('')
+  const [imgError, setImgError] = useState(false)
+
+  // Bệnh viện duy nhất của hệ thống (lấy record đầu tiên)
+  const hospital = hospitals.data?.items?.[0]
+
+  useEffect(() => {
+    setImgError(false)
+  }, [hospital?.avatar_url])
+
+  const showImage = Boolean(hospital?.avatar_url && !imgError)
 
   const search = (e: FormEvent) => {
     e.preventDefault()
@@ -48,13 +58,26 @@ export default function HomePage() {
       {/* Hero stacks on small screens: text above image. */}
       <section className="flex flex-wrap gap-6 pt-6 sm:pt-10">
         <div className="panel flex min-h-[420px] flex-[1_1_460px] flex-col justify-center gap-6 bg-blush px-6 py-12 sm:px-14 sm:py-16 lg:min-h-[480px]">
-          <h1 className="text-[2.5rem] font-bold leading-[1.1] tracking-[-0.02em] sm:text-hero">
-            Find the right care,
-            <br />
-            booked in minutes.
-          </h1>
+          <div className="space-y-3">
+            {hospital && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="tag border border-line bg-canvas font-semibold text-berry shadow-sm">
+                  {hospital.name}
+                </span>
+                <span className="caption text-muted">
+                  {hospital.address}, {hospital.city}
+                </span>
+              </div>
+            )}
+            <h1 className="text-[2.5rem] font-bold leading-[1.1] tracking-[-0.02em] sm:text-hero">
+              Find the right care,
+              <br />
+              booked in minutes.
+            </h1>
+          </div>
           <p className="max-w-[500px] text-[1.1875rem] leading-relaxed text-muted">
-            See real availability across our hospitals and clinics. Browse without an account and sign in only when you book.
+            {hospital?.description ||
+              'See real availability across our hospitals and clinics. Browse without an account and sign in only when you book.'}
           </p>
           <div className="flex flex-wrap gap-3">
             <Link to="/doctors" className="btn-primary">
@@ -65,8 +88,17 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
-        <div className="panel flex min-h-[260px] flex-[1_1_460px] items-center justify-center bg-peach sm:min-h-[360px] lg:min-h-[480px]">
-          <HeroArt />
+        <div className="panel relative flex min-h-[260px] flex-[1_1_460px] items-center justify-center overflow-hidden bg-peach sm:min-h-[360px] lg:min-h-[480px]">
+          {showImage ? (
+            <img
+              src={hospital!.avatar_url!}
+              alt={hospital?.name ?? 'Hospital'}
+              className="h-full w-full object-cover transition-transform duration-slow hover:scale-105"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <HeroArt />
+          )}
         </div>
       </section>
 
