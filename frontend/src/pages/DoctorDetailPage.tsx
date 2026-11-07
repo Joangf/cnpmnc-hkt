@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { BookingPanel } from '../components/BookingPanel'
 import { DoctorAvatar, Rating } from '../components/DoctorCard'
@@ -34,10 +34,7 @@ export default function DoctorDetailPage() {
               <h1 className="page-title">{d.full_name}</h1>
               {d.title && <p>{d.title}</p>}
               <p className="text-muted">
-                <Link className="link" to={`/hospitals/${d.hospital.id}`}>
-                  {d.hospital.name}
-                </Link>{' '}
-                · {d.department.name}
+                {d.hospital.name} · {d.department.name}
               </p>
             </div>
           </div>
