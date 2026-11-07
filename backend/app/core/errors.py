@@ -65,12 +65,6 @@ class ErpUnavailable(AppError):
     message = "The hospital system is temporarily unavailable. Please try again later."
 
 
-class PaymentGatewayUnavailable(AppError):
-    status_code = 503
-    code = "PaymentGatewayUnavailable"
-    message = "The payment provider is temporarily unavailable. Please try again later."
-
-
 class EmailDeliveryFailed(AppError):
     status_code = 503
     code = "EmailDeliveryFailed"

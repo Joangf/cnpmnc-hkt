@@ -33,7 +33,6 @@ from app.integrations.erp.base import (
     ErpTimeoutError,
     ErpUnavailableError,
 )
-from app.integrations.payment.base import PaymentGateway
 from app.models import Appointment, AppointmentType, Doctor, PatientProfile
 from app.models.enums import (
     ACTIVE_APPOINTMENT_STATUSES,
@@ -213,7 +212,10 @@ async def _create(
     appointment_type_id = payload.appointment_type_id
     if appointment_type_id is None:
         default_type = await session.scalar(
-            select(AppointmentType).where(AppointmentType.is_active.is_(True)).order_by(AppointmentType.id).limit(1)
+            select(AppointmentType)
+            .where(AppointmentType.is_active.is_(True))
+            .order_by(AppointmentType.id)
+            .limit(1)
         )
         if default_type is None:
             raise ValidationFailed("No active appointment types available.")
@@ -222,12 +224,12 @@ async def _create(
     # Consistent lock order: type (shared), then doctor (exclusive). Re-read after locking:
     # authentication / previous queries may have populated this session's identity map.
     appointment_type = await session.scalar(
-        select(AppointmentType).where(AppointmentType.id == appointment_type_id)
-        .with_for_update(read=True).execution_options(populate_existing=True)
+        select(AppointmentType)
+        .where(AppointmentType.id == appointment_type_id)
+        .with_for_update(read=True)
+        .execution_options(populate_existing=True)
     )
-    await session.execute(
-        select(Doctor.id).where(Doctor.id == payload.doctor_id).with_for_update()
-    )
+    await session.execute(select(Doctor.id).where(Doctor.id == payload.doctor_id).with_for_update())
     doctor = await directory_repo.get_doctor(session, payload.doctor_id)
     if doctor is None or not policies.doctor_is_published(doctor):
         raise NotFound("Doctor not found.")
@@ -355,13 +357,10 @@ async def cancel_appointment(
     session: AsyncSession,
     redis: Redis,
     erp: ErpAdapter,
-    gateway: PaymentGateway,
     patient: PatientProfile,
     appointment_id: int,
     reason: str | None,
 ) -> int:
-    from app.services import payments as payment_service  # avoid import cycle
-
     appointment = await appointment_repo.get_detail(session, appointment_id)
     if appointment is None or appointment.patient_id != patient.id:
         raise NotFound("Appointment not found.")  # BR-12: do not reveal other patients' data
@@ -400,5 +399,6 @@ async def cancel_appointment(
     await availability.invalidate(
         redis, appointment.doctor_id, availability.local_day(appointment.start_time)
     )
-    await payment_service.refund_if_paid(session, gateway, appointment)
+    # Sprint 3 (S3-A): pending payments of this appointment become EXPIRED here.
+    # Cancelling never refunds automatically; refunds are requested separately (SCRUM-31).
     return appointment.id

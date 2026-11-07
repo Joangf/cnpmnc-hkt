@@ -454,7 +454,7 @@ export interface paths {
         put?: never;
         /**
          * Initiate Payment
-         * @description Creates a payment attempt and returns the gateway checkout URL (FR-PAY-01/02).
+         * @description Issues a VietQR bank-transfer payment for a confirmed appointment (FR-PAY-01/02). Returns the still-open PENDING attempt if there is one, so repeated calls never create a second payment code. The QR expires at the appointment's payment deadline.
          */
         post: operations["initiatePayment"];
         delete?: never;
@@ -470,7 +470,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Payment */
+        /**
+         * Get Payment
+         * @description Authoritative payment status, updated by the SePay webhook or poller.
+         */
         get: operations["getPayment"];
         put?: never;
         post?: never;
@@ -480,7 +483,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/payments/callback": {
+    "/api/v1/payments/sepay-webhook": {
         parameters: {
             query?: never;
             header?: never;
@@ -490,10 +493,84 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Payment Callback
-         * @description Server-to-server callback from the payment gateway. Signed with X-Mock-Timestamp / X-Mock-Signature (HMAC-SHA256 over '{timestamp}.{body}').
+         * Sepay Webhook
+         * @description SePay bank-transaction webhook, authenticated with `Authorization: Apikey <key>`. Incoming transfers whose content contains a payment code settle that payment. Always answers {"success": true} for authenticated calls so SePay does not retry.
          */
-        post: operations["receivePaymentCallback"];
+        post: operations["receiveSepayWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/{payment_id}/refund-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Refund
+         * @description Requests a full refund of a paid payment whose appointment was cancelled or rejected (and never checked in). The hospital pays it out manually to the given account.
+         */
+        post: operations["requestRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin List Refunds */
+        get: operations["adminListRefunds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/refunds/{payment_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Complete Refund
+         * @description Marks a requested refund as transferred; the payment becomes REFUNDED.
+         */
+        post: operations["adminCompleteRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/refunds/{payment_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Reject Refund */
+        post: operations["adminRejectRefund"];
         delete?: never;
         options?: never;
         head?: never;
@@ -942,6 +1019,8 @@ export interface components {
             fee_amount: string;
             /** Currency */
             currency: string;
+            /** Payment Due At */
+            payment_due_at: string | null;
             /** Patient Id */
             patient_id: number;
         };
@@ -955,10 +1034,6 @@ export interface components {
             title: string | null;
             /** Experience Years */
             experience_years: number;
-            /** Consultation Fee */
-            consultation_fee: string | null;
-            /** Currency */
-            currency: string;
             /** Rating Avg */
             rating_avg: string;
             /** Rating Count */
@@ -978,6 +1053,75 @@ export interface components {
             erp_doctor_id: string | null;
             /** Max Appointments Per Window */
             max_appointments_per_window: number;
+        };
+        /** AdminRefundOut */
+        AdminRefundOut: {
+            /** Id */
+            id: number;
+            /** Appointment Id */
+            appointment_id: number;
+            /** Booking Reference */
+            booking_reference: string;
+            status: components["schemas"]["PaymentStatus"];
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Payment Code
+             * @description Transfer content; must appear in the bank transfer.
+             */
+            payment_code: string;
+            /** Expires At */
+            expires_at: string | null;
+            /** Qr Image Url */
+            qr_image_url: string;
+            /** Bank Code */
+            bank_code: string;
+            /** Account Number */
+            account_number: string;
+            /** Account Name */
+            account_name: string;
+            /**
+             * Provider Reference
+             * @description SePay transaction id once settled.
+             */
+            provider_reference: string | null;
+            /** Failure Reason */
+            failure_reason: string | null;
+            /** Paid At */
+            paid_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            refund_status: components["schemas"]["RefundStatus"] | null;
+            /** Refund Reference */
+            refund_reference: string | null;
+            /** Refund Bank Name */
+            refund_bank_name: string | null;
+            /** Refund Account Number */
+            refund_account_number: string | null;
+            /** Refund Account Name */
+            refund_account_name: string | null;
+            /** Refund Reason */
+            refund_reason: string | null;
+            /** Refund Note */
+            refund_note: string | null;
+            /** Refund Requested At */
+            refund_requested_at: string | null;
+            /** Refunded At */
+            refunded_at: string | null;
+            /** Patient Name */
+            patient_name: string;
+            /** Patient Email */
+            patient_email: string;
+            /**
+             * Refund Qr Image Url
+             * @description VietQR image paying the refund to the patient's account (admin scans it).
+             */
+            refund_qr_image_url: string | null;
         };
         /** AdminReviewOut */
         AdminReviewOut: {
@@ -1027,7 +1171,7 @@ export interface components {
             /** Doctor Id */
             doctor_id: number;
             /** Appointment Type Id */
-            appointment_type_id: number;
+            appointment_type_id?: number | null;
             /**
              * Start Time
              * Format: date-time
@@ -1065,6 +1209,8 @@ export interface components {
             fee_amount: string;
             /** Currency */
             currency: string;
+            /** Payment Due At */
+            payment_due_at: string | null;
             /** Reason For Visit */
             reason_for_visit: string | null;
             /** History */
@@ -1075,6 +1221,8 @@ export interface components {
             can_cancel: boolean;
             /** Can Pay */
             can_pay: boolean;
+            /** Can Request Refund */
+            can_request_refund: boolean;
             /** Can Review */
             can_review: boolean;
             /** Has Review */
@@ -1119,6 +1267,8 @@ export interface components {
             fee_amount: string;
             /** Currency */
             currency: string;
+            /** Payment Due At */
+            payment_due_at: string | null;
         };
         /** AppointmentTypeAdminOut */
         AppointmentTypeAdminOut: {
@@ -1382,8 +1532,6 @@ export interface components {
             experience_years: number;
             /** Introduction */
             introduction?: string | null;
-            /** Consultation Fee */
-            consultation_fee?: number | string | null;
             /** Avatar Url */
             avatar_url?: string | null;
             /** Erp Doctor Id */
@@ -1404,10 +1552,6 @@ export interface components {
             title: string | null;
             /** Experience Years */
             experience_years: number;
-            /** Consultation Fee */
-            consultation_fee: string | null;
-            /** Currency */
-            currency: string;
             /** Rating Avg */
             rating_avg: string;
             /** Rating Count */
@@ -1436,10 +1580,6 @@ export interface components {
             title: string | null;
             /** Experience Years */
             experience_years: number;
-            /** Consultation Fee */
-            consultation_fee: string | null;
-            /** Currency */
-            currency: string;
             /** Rating Avg */
             rating_avg: string;
             /** Rating Count */
@@ -1466,8 +1606,6 @@ export interface components {
             experience_years?: number | null;
             /** Introduction */
             introduction?: string | null;
-            /** Consultation Fee */
-            consultation_fee?: number | string | null;
             /** Avatar Url */
             avatar_url?: string | null;
             /** Erp Doctor Id */
@@ -1654,6 +1792,17 @@ export interface components {
             /** Page Size */
             page_size: number;
         };
+        /** Page[AdminRefundOut] */
+        Page_AdminRefundOut_: {
+            /** Items */
+            items: components["schemas"]["AdminRefundOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
         /** Page[AdminReviewOut] */
         Page_AdminReviewOut_: {
             /** Items */
@@ -1764,18 +1913,6 @@ export interface components {
             /** Dev Reset Token */
             dev_reset_token?: string | null;
         };
-        /** PaymentInitResponse */
-        PaymentInitResponse: {
-            /** Payment Id */
-            payment_id: number;
-            status: components["schemas"]["PaymentStatus"];
-            /** Amount */
-            amount: string;
-            /** Currency */
-            currency: string;
-            /** Checkout Url */
-            checkout_url: string;
-        };
         /** PaymentOut */
         PaymentOut: {
             /** Id */
@@ -1789,7 +1926,25 @@ export interface components {
             amount: string;
             /** Currency */
             currency: string;
-            /** Provider Reference */
+            /**
+             * Payment Code
+             * @description Transfer content; must appear in the bank transfer.
+             */
+            payment_code: string;
+            /** Expires At */
+            expires_at: string | null;
+            /** Qr Image Url */
+            qr_image_url: string;
+            /** Bank Code */
+            bank_code: string;
+            /** Account Number */
+            account_number: string;
+            /** Account Name */
+            account_name: string;
+            /**
+             * Provider Reference
+             * @description SePay transaction id once settled.
+             */
             provider_reference: string | null;
             /** Failure Reason */
             failure_reason: string | null;
@@ -1800,12 +1955,29 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            refund_status: components["schemas"]["RefundStatus"] | null;
+            /** Refund Reference */
+            refund_reference: string | null;
+            /** Refund Bank Name */
+            refund_bank_name: string | null;
+            /** Refund Account Number */
+            refund_account_number: string | null;
+            /** Refund Account Name */
+            refund_account_name: string | null;
+            /** Refund Reason */
+            refund_reason: string | null;
+            /** Refund Note */
+            refund_note: string | null;
+            /** Refund Requested At */
+            refund_requested_at: string | null;
+            /** Refunded At */
+            refunded_at: string | null;
         };
         /**
          * PaymentStatus
          * @enum {string}
          */
-        PaymentStatus: "UNPAID" | "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+        PaymentStatus: "UNPAID" | "PENDING" | "PAID" | "EXPIRED" | "REFUNDED";
         /** PaymentStatusSummary */
         PaymentStatusSummary: {
             status: components["schemas"]["PaymentStatus"];
@@ -1823,6 +1995,11 @@ export interface components {
             amount: string;
             /** Currency */
             currency: string;
+            /** Payment Code */
+            payment_code: string;
+            /** Expires At */
+            expires_at: string | null;
+            refund_status: components["schemas"]["RefundStatus"] | null;
             /** Provider Reference */
             provider_reference: string | null;
             /** Failure Reason */
@@ -1903,6 +2080,37 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** RefundCompleteIn */
+        RefundCompleteIn: {
+            /**
+             * Note
+             * @description Bank transaction reference, if any.
+             */
+            note?: string | null;
+        };
+        /** RefundRejectIn */
+        RefundRejectIn: {
+            /** Reason */
+            reason: string;
+        };
+        /** RefundRequestIn */
+        RefundRequestIn: {
+            /** Bank Bin */
+            bank_bin: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Account Number */
+            account_number: string;
+            /** Account Name */
+            account_name: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * RefundStatus
+         * @enum {string}
+         */
+        RefundStatus: "REQUESTED" | "COMPLETED" | "REJECTED";
         /** RegisterRequest */
         RegisterRequest: {
             /**
@@ -2022,6 +2230,52 @@ export interface components {
             doctors_synced: number;
             /** Success */
             success: boolean;
+        };
+        /** SepayWebhookAck */
+        SepayWebhookAck: {
+            /**
+             * Success
+             * @default true
+             * @constant
+             * @enum {boolean}
+             */
+            success: true;
+        };
+        /**
+         * SepayWebhookIn
+         * @description SePay transaction webhook body (https://docs.sepay.vn/tich-hop-webhooks.html).
+         */
+        SepayWebhookIn: {
+            /** Id */
+            id: number;
+            /** Gateway */
+            gateway?: string | null;
+            /** Transactiondate */
+            transactionDate: string;
+            /** Accountnumber */
+            accountNumber?: string | null;
+            /** Subaccount */
+            subAccount?: string | null;
+            /** Code */
+            code?: string | null;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Transfertype
+             * @enum {string}
+             */
+            transferType: "in" | "out";
+            /** Transferamount */
+            transferAmount: number | string;
+            /** Accumulated */
+            accumulated?: number | string | null;
+            /** Referencecode */
+            referenceCode?: string | null;
+            /** Description */
+            description?: string | null;
         };
         /** SlotOut */
         SlotOut: {
@@ -2236,7 +2490,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
+            /** @description Integration unavailable (ErpUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2287,7 +2541,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
+            /** @description Integration unavailable (ErpUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2809,6 +3063,8 @@ export interface operations {
                 hospital_id?: number | null;
                 department_id?: number | null;
                 specialty_id?: number | null;
+                available_from?: string | null;
+                available_to?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -2957,7 +3213,7 @@ export interface operations {
             query: {
                 /** @description Clinic-local date (YYYY-MM-DD) */
                 date: string;
-                appointment_type_id: number;
+                appointment_type_id?: number | null;
             };
             header?: never;
             path: {
@@ -3170,7 +3426,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
+            /** @description Integration unavailable (ErpUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3308,7 +3564,7 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
+            /** @description Integration unavailable (ErpUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3322,9 +3578,7 @@ export interface operations {
     initiatePayment: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 appointment_id: number;
             };
@@ -3338,7 +3592,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaymentInitResponse"];
+                    "application/json": components["schemas"]["PaymentOut"];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
@@ -3384,15 +3638,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3455,14 +3700,20 @@ export interface operations {
             };
         };
     };
-    receivePaymentCallback: {
+    receiveSepayWebhook: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SepayWebhookIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3470,11 +3721,64 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WebhookAck"];
+                    "application/json": components["schemas"]["SepayWebhookAck"];
                 };
             };
             /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRequestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3491,13 +3795,215 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Validation failed (ValidationFailed) */
-            422: {
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adminListRefunds: {
+        parameters: {
+            query?: {
+                refund_status?: components["schemas"]["RefundStatus"] | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AdminRefundOut_"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adminCompleteRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundCompleteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefundOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adminRejectRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRejectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefundOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5065,7 +5571,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed) */
+            /** @description Integration unavailable (ErpUnavailable, EmailDeliveryFailed) */
             503: {
                 headers: {
                     [name: string]: unknown;

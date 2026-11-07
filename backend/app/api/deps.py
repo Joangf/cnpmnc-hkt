@@ -11,7 +11,6 @@ from app.core.errors import Forbidden, Unauthorized
 from app.core.redis import get_redis
 from app.core.security import decode_token
 from app.integrations.erp.base import ErpAdapter
-from app.integrations.payment.base import PaymentGateway
 from app.models import PatientProfile, User
 from app.models.enums import AccountStatus, UserRole
 from app.repositories import users as user_repo
@@ -64,12 +63,7 @@ def get_erp(request: Request) -> ErpAdapter:
     return request.app.state.erp  # type: ignore[no-any-return]
 
 
-def get_payment_gateway(request: Request) -> PaymentGateway:
-    return request.app.state.payment_gateway  # type: ignore[no-any-return]
-
-
 ErpDep = Annotated[ErpAdapter, Depends(get_erp)]
-GatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
 
 
 class PageParams:

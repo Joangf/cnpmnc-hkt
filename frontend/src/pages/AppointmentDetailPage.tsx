@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import type { AppointmentDetail } from '../api/types'
 import { IconArrowLeft } from '../components/icons'
+import { RefundPanel } from '../components/RefundPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { Card, ErrorAlert, Field, Notice, Spinner } from '../components/ui'
 import { formatDateTime, formatMoney, humanize } from '../lib/format'
-import { newIdempotencyKey } from '../lib/ids'
 import { reviewSchema } from '../lib/validation'
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -97,6 +97,8 @@ export default function AppointmentDetailPage() {
 
       {a.can_pay && <PaymentCard appointment={a} />}
       {a.can_cancel && <CancelCard appointment={a} onDone={refresh} />}
+      {/* Owned by S3-C (components/RefundPanel.tsx): renders nothing unless a refund applies. */}
+      <RefundPanel appointment={a} onDone={() => appointment.refetch()} />
       {a.can_review && <ReviewCard appointmentId={a.id} onDone={() => appointment.refetch()} />}
       {a.has_review && <Notice tone="success">Thank you - you have reviewed this appointment.</Notice>}
 
@@ -139,10 +141,11 @@ export default function AppointmentDetailPage() {
 }
 
 function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
-  const [key] = useState(newIdempotencyKey)
+  const navigate = useNavigate()
+  // Phase 0 minimal wiring; S3-B owns the real payment UI (docs/sprint3-sepay-plan.md).
   const pay = useMutation({
-    mutationFn: () => api.appointments.pay(appointment.id, key),
-    onSuccess: (res) => window.location.assign(res.checkout_url),
+    mutationFn: () => api.appointments.pay(appointment.id),
+    onSuccess: (res) => navigate(`/payments/${res.id}`),
   })
   return (
     <Card className="space-y-4">
@@ -154,10 +157,9 @@ function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
           </p>
         </div>
         <button className="btn-primary" disabled={pay.isPending} onClick={() => pay.mutate()}>
-          {pay.isPending ? 'Redirecting…' : 'Pay online'}
+          {pay.isPending ? 'Preparing…' : 'Pay by bank transfer'}
         </button>
       </div>
-      {appointment.payment_status === 'FAILED' && <p className="field-error">Your last payment attempt failed. You can try again.</p>}
       <ErrorAlert error={pay.error} />
     </Card>
   )

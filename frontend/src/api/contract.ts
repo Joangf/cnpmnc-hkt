@@ -25,8 +25,9 @@ export const responseContract: {
   Availability: Fits<S['AvailabilityResponse'], T.Availability>
   AppointmentPage: Fits<S['Page_AppointmentSummary_'], T.Page<T.AppointmentSummary>>
   AppointmentDetail: Fits<S['AppointmentDetail'], T.AppointmentDetail>
-  PaymentInit: Fits<S['PaymentInitResponse'], T.PaymentInit>
   Payment: Fits<S['PaymentOut'], T.Payment>
+  AdminRefundPage: Fits<S['Page_AdminRefundOut_'], T.Page<T.AdminRefund>>
+  AdminRefund: Fits<S['AdminRefundOut'], T.AdminRefund>
   Review: Fits<S['ReviewOut'], T.Review>
   ReviewPage: Fits<S['Page_ReviewPublic_'], T.Page<T.ReviewPublic>>
   Symptom: Fits<S['SymptomOut'], T.Symptom>
@@ -56,8 +57,9 @@ export const responseContract: {
   Availability: true,
   AppointmentPage: true,
   AppointmentDetail: true,
-  PaymentInit: true,
   Payment: true,
+  AdminRefundPage: true,
+  AdminRefund: true,
   Review: true,
   ReviewPage: true,
   Symptom: true,
@@ -79,9 +81,11 @@ export const requestContract: {
   ProfileUpdate: Fits<T.ProfileUpdate, S['ProfileUpdate']>
   AppointmentCreate: Fits<T.AppointmentCreate, S['AppointmentCreate']>
   ReviewCreate: Fits<T.ReviewCreate, S['ReviewCreate']>
+  RefundRequest: Fits<T.RefundRequest, S['RefundRequestIn']>
 } = {
   Register: true,
   ProfileUpdate: true,
   AppointmentCreate: true,
   ReviewCreate: true,
+  RefundRequest: true,
 }

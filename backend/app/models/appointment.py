@@ -32,6 +32,7 @@ class Appointment(TimestampMixin, Base):
     __tablename__ = "appointments"
     __table_args__ = (
         Index("ix_appointments_doctor_start", "doctor_id", "start_time"),
+        Index("ix_appointments_status_payment_due", "status", "payment_due_at"),
         CheckConstraint("end_time > start_time", name="ck_appointments_time_range"),
         CheckConstraint("end_with_buffer >= end_time", name="ck_appointments_buffer_range"),
     )
@@ -56,6 +57,9 @@ class Appointment(TimestampMixin, Base):
     fee_amount: Mapped[Decimal] = mapped_column(default=Decimal("0"))
     currency: Mapped[str] = mapped_column(String(3))
     cancelled_at: Mapped[datetime | None]
+    # Set when the appointment becomes CONFIRMED with a fee: unpaid past this moment, the
+    # appointment is cancelled and its slot released (services.payments.expire_unpaid).
+    payment_due_at: Mapped[datetime | None]
 
     doctor: Mapped[Doctor] = relationship(lazy="raise")
     appointment_type: Mapped[AppointmentType] = relationship(lazy="raise")

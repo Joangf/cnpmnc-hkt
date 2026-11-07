@@ -11,6 +11,7 @@ from app.models.enums import (
     AppointmentStatus,
     CheckInStatus,
     PaymentStatus,
+    RefundStatus,
 )
 
 
@@ -72,19 +73,33 @@ def payment_status_of(payments: Sequence[Payment]) -> PaymentStatus:
     return payments[-1].status
 
 
-def payment_allowed_for_status(status: AppointmentStatus) -> bool:
-    # OQ-03: whether payment happens before or after hospital confirmation is configurable.
-    if settings.payment_requires_confirmation:
-        return status == AppointmentStatus.CONFIRMED
-    return status in ACTIVE_APPOINTMENT_STATUSES
-
-
-def can_pay(appointment: Appointment) -> bool:
+def can_pay(appointment: Appointment, now: datetime | None = None) -> bool:
+    """Pay only a confirmed appointment with a fee, not yet paid, inside its payment window
+    (docs/sprint3-sepay-plan.md D6/D8). `payment_due_at` is None for legacy rows: no deadline."""
+    now = now or datetime.now(UTC)
     return (
         appointment.fee_amount > 0
-        and payment_allowed_for_status(appointment.status)
+        and appointment.status == AppointmentStatus.CONFIRMED
         and payment_status_of(appointment.payments)
-        in (PaymentStatus.UNPAID, PaymentStatus.FAILED, PaymentStatus.PENDING)
+        in (PaymentStatus.UNPAID, PaymentStatus.PENDING, PaymentStatus.EXPIRED)
+        and (appointment.payment_due_at is None or now <= appointment.payment_due_at)
+    )
+
+
+def refundable_payment(appointment: Appointment) -> Payment | None:
+    """The settled payment of an appointment that may be refunded (D12), if any."""
+    return next((p for p in appointment.payments if p.status == PaymentStatus.PAID), None)
+
+
+def can_request_refund(appointment: Appointment) -> bool:
+    """D12: a paid appointment that will not take place (cancelled or rejected, never checked
+    in) may request one full refund; a rejected request may be submitted again."""
+    payment = refundable_payment(appointment)
+    return (
+        payment is not None
+        and appointment.status in (AppointmentStatus.CANCELLED, AppointmentStatus.REJECTED)
+        and appointment.check_in_status != CheckInStatus.CHECKED_IN
+        and payment.refund_status in (None, RefundStatus.REJECTED)
     )
 
 

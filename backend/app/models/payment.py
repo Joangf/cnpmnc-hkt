@@ -8,14 +8,18 @@ from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
-from app.models.enums import PaymentStatus, enum_column
+from app.models.enums import PaymentStatus, RefundStatus, enum_column
 
 if TYPE_CHECKING:
     from app.models.appointment import Appointment
 
 
 class Payment(TimestampMixin, Base):
-    """One payment attempt. Status is tracked separately from the appointment (BR-07)."""
+    """One VietQR bank-transfer attempt, matched by `payment_code` in the transfer content.
+
+    Status is tracked separately from the appointment (BR-07). A refund is at most one full
+    refund per payment, paid out manually by an admin, so its fields live on this row.
+    """
 
     __tablename__ = "payments"
 
@@ -26,12 +30,22 @@ class Payment(TimestampMixin, Base):
     status: Mapped[PaymentStatus] = mapped_column(
         enum_column(PaymentStatus), default=PaymentStatus.PENDING
     )
-    provider: Mapped[str] = mapped_column(String(32))
+    payment_code: Mapped[str] = mapped_column(String(16), unique=True)
+    expires_at: Mapped[datetime | None]
+    # SePay transaction id of the transfer that settled this payment.
     provider_reference: Mapped[str | None] = mapped_column(String(64), unique=True)
-    checkout_url: Mapped[str | None] = mapped_column(String(500))
     failure_reason: Mapped[str | None] = mapped_column(String(500))
-    last_event_id: Mapped[str | None] = mapped_column(String(64))
     paid_at: Mapped[datetime | None]
+
+    refund_status: Mapped[RefundStatus | None] = mapped_column(enum_column(RefundStatus))
+    refund_reference: Mapped[str | None] = mapped_column(String(16), unique=True)
+    refund_bank_bin: Mapped[str | None] = mapped_column(String(8))
+    refund_bank_name: Mapped[str | None] = mapped_column(String(64))
+    refund_account_number: Mapped[str | None] = mapped_column(String(32))
+    refund_account_name: Mapped[str | None] = mapped_column(String(128))
+    refund_reason: Mapped[str | None] = mapped_column(String(500))
+    refund_note: Mapped[str | None] = mapped_column(String(500))
+    refund_requested_at: Mapped[datetime | None]
     refunded_at: Mapped[datetime | None]
 
     appointment: Mapped[Appointment] = relationship(back_populates="payments", lazy="raise")

@@ -7,7 +7,8 @@ export type FacilityType = 'HOSPITAL' | 'CLINIC'
 export type DepartmentVisibility = 'PUBLIC' | 'UNPUBLISHED' | 'HIDDEN'
 export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'
 export type CheckInStatus = 'NOT_CHECKED_IN' | 'CHECKED_IN' | 'UNKNOWN'
-export type PaymentStatus = 'UNPAID' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
+export type PaymentStatus = 'UNPAID' | 'PENDING' | 'PAID' | 'EXPIRED' | 'REFUNDED'
+export type RefundStatus = 'REQUESTED' | 'COMPLETED' | 'REJECTED'
 export type ReviewStatus = 'PENDING' | 'PUBLISHED' | 'HIDDEN' | 'REMOVED'
 export type Decimal = string // Pydantic serialises Decimal as a string
 
@@ -203,6 +204,9 @@ export interface PaymentSummary {
   status: PaymentStatus
   amount: Decimal
   currency: string
+  payment_code: string
+  expires_at: string | null
+  refund_status: RefundStatus | null
   provider_reference: string | null
   failure_reason: string | null
   paid_at: string | null
@@ -224,6 +228,8 @@ export interface AppointmentSummary {
   appointment_type: Ref
   fee_amount: Decimal
   currency: string
+  /** Pay before this or the appointment is cancelled (set once CONFIRMED with a fee). */
+  payment_due_at: string | null
 }
 
 export interface AppointmentDetail extends AppointmentSummary {
@@ -232,19 +238,13 @@ export interface AppointmentDetail extends AppointmentSummary {
   payments: PaymentSummary[]
   can_cancel: boolean
   can_pay: boolean
+  can_request_refund: boolean
   can_review: boolean
   has_review: boolean
   cancellation_deadline: string
 }
 
-export interface PaymentInit {
-  payment_id: number
-  status: PaymentStatus
-  amount: Decimal
-  currency: string
-  checkout_url: string
-}
-
+/** VietQR bank-transfer payment (Sprint 3). Also carries its refund, if any. */
 export interface Payment {
   id: number
   appointment_id: number
@@ -252,10 +252,41 @@ export interface Payment {
   status: PaymentStatus
   amount: Decimal
   currency: string
+  /** Transfer content the patient must keep in the bank transfer. */
+  payment_code: string
+  expires_at: string | null
+  qr_image_url: string
+  bank_code: string
+  account_number: string
+  account_name: string
   provider_reference: string | null
   failure_reason: string | null
   paid_at: string | null
   created_at: string
+  refund_status: RefundStatus | null
+  refund_reference: string | null
+  refund_bank_name: string | null
+  refund_account_number: string | null
+  refund_account_name: string | null
+  refund_reason: string | null
+  refund_note: string | null
+  refund_requested_at: string | null
+  refunded_at: string | null
+}
+
+export interface AdminRefund extends Payment {
+  patient_name: string
+  patient_email: string
+  refund_qr_image_url: string | null
+}
+
+export interface RefundRequest {
+  /** 6-digit bank BIN (api.vietqr.io/v2/banks `bin`). */
+  bank_bin: string
+  bank_name: string
+  account_number: string
+  account_name: string
+  reason?: string | null
 }
 
 // --- reviews / symptoms / notifications ------------------------------------------------------

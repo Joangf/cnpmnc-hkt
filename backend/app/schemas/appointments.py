@@ -3,7 +3,13 @@ from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, Field
 
-from app.models.enums import AppointmentStatus, CheckInStatus, PaymentStatus, StatusSource
+from app.models.enums import (
+    AppointmentStatus,
+    CheckInStatus,
+    PaymentStatus,
+    RefundStatus,
+    StatusSource,
+)
 from app.schemas.common import ORMModel, RefOut
 from app.schemas.validators import ShortText
 
@@ -33,6 +39,9 @@ class PaymentSummary(ORMModel):
     status: PaymentStatus
     amount: Decimal
     currency: str
+    payment_code: str
+    expires_at: datetime | None
+    refund_status: RefundStatus | None
     provider_reference: str | None
     failure_reason: str | None
     paid_at: datetime | None
@@ -54,6 +63,7 @@ class AppointmentSummary(BaseModel):
     appointment_type: RefOut
     fee_amount: Decimal
     currency: str
+    payment_due_at: datetime | None
 
 
 class AppointmentDetail(AppointmentSummary):
@@ -62,6 +72,7 @@ class AppointmentDetail(AppointmentSummary):
     payments: list[PaymentSummary]
     can_cancel: bool
     can_pay: bool
+    can_request_refund: bool
     can_review: bool
     has_review: bool
     cancellation_deadline: datetime

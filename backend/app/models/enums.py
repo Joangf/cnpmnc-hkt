@@ -53,11 +53,17 @@ class CheckInStatus(StrEnum):
 
 
 class PaymentStatus(StrEnum):
-    UNPAID = "UNPAID"
-    PENDING = "PENDING"
+    UNPAID = "UNPAID"  # derived only (appointment without attempts); never stored
+    PENDING = "PENDING"  # QR issued, waiting for the bank transfer
     PAID = "PAID"
-    FAILED = "FAILED"
+    EXPIRED = "EXPIRED"  # QR / payment window passed without a matching transfer
     REFUNDED = "REFUNDED"
+
+
+class RefundStatus(StrEnum):
+    REQUESTED = "REQUESTED"
+    COMPLETED = "COMPLETED"
+    REJECTED = "REJECTED"
 
 
 class ReviewStatus(StrEnum):

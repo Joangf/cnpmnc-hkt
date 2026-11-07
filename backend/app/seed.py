@@ -121,6 +121,8 @@ GIVEN_NAMES = [
 # (name, description, duration, buffer, fee_override, specialty name or None)
 APPOINTMENT_TYPES = [
     ("General Consultation", "Standard consultation fee.", 20, 10, Decimal("200000"), None),
+    # Sprint 3: lets the team pay a real 2,000 VND VietQR transfer end to end.
+    ("Payment Test (2,000 VND)", "Low fee for testing real payments.", 20, 10, Decimal(2000), None),
 ]
 
 # (name, keywords, [(specialty, weight)], red_flag_message)  -- PENDING CLINICAL REVIEW
@@ -269,18 +271,6 @@ async def _seed_directory(session: AsyncSession) -> None:
                     )
                 )
 
-    for name, desc, duration, buffer, fee, type_specialty in APPOINTMENT_TYPES:
-        session.add(
-            AppointmentType(
-                name=name,
-                description=desc,
-                duration_minutes=duration,
-                buffer_minutes=buffer,
-                fee_override=fee,
-                specialty_id=specialties[type_specialty].id if type_specialty else None,
-            )
-        )
-
     for name, keywords, rules, red_flag in SYMPTOMS:
         symptom = Symptom(
             name=name,
@@ -301,6 +291,30 @@ async def _seed_directory(session: AsyncSession) -> None:
 
     await session.commit()
     print(f"seeded {len(SPECIALTIES)} specialties, {len(HOSPITALS)} facilities, {index} doctors")
+
+
+async def _ensure_appointment_types(session: AsyncSession) -> None:
+    """Add any APPOINTMENT_TYPES missing by name, so new types also reach seeded databases."""
+    for name, desc, duration, buffer, fee, type_specialty in APPOINTMENT_TYPES:
+        if await session.scalar(select(AppointmentType.id).where(AppointmentType.name == name)):
+            continue
+        specialty_id = (
+            await session.scalar(select(Specialty.id).where(Specialty.name == type_specialty))
+            if type_specialty
+            else None
+        )
+        session.add(
+            AppointmentType(
+                name=name,
+                description=desc,
+                duration_minutes=duration,
+                buffer_minutes=buffer,
+                fee_override=fee,
+                specialty_id=specialty_id,
+            )
+        )
+        print(f"added appointment type {name!r}")
+    await session.commit()
 
 
 async def _ensure_user(
@@ -409,6 +423,7 @@ async def _seed_loadtest_users(session: AsyncSession, count: int) -> None:
 async def main(loadtest_users: int) -> None:
     async with SessionLocal() as session:
         await _seed_directory(session)
+        await _ensure_appointment_types(session)
         await _ensure_user(
             session, settings.admin_email, settings.admin_password, UserRole.ADMIN, None
         )

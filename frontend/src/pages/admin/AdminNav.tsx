@@ -5,6 +5,7 @@ const items = [
   { to: '/admin/directory', label: 'Directory' },
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/reviews', label: 'Reviews' },
+  { to: '/admin/refunds', label: 'Refunds' },
 ]
 
 export function AdminNav() {

@@ -78,13 +78,15 @@ export const api = {
       request<T.AppointmentDetail>('POST', '/appointments', { body, headers: { 'Idempotency-Key': idempotencyKey } }),
     cancel: (id: number, reason?: string) =>
       request<T.AppointmentDetail>('POST', `/appointments/${id}/cancel`, { body: { reason } }),
-    pay: (id: number, idempotencyKey: string) =>
-      request<T.PaymentInit>('POST', `/appointments/${id}/payments`, { headers: { 'Idempotency-Key': idempotencyKey } }),
+    /** Returns the open PENDING payment if there is one, so repeated calls are safe. */
+    pay: (id: number) => request<T.Payment>('POST', `/appointments/${id}/payments`),
     review: (id: number, body: T.ReviewCreate) => request<T.Review>('POST', `/appointments/${id}/review`, { body }),
   },
 
   payments: {
     get: (id: number) => request<T.Payment>('GET', `/payments/${id}`),
+    requestRefund: (id: number, body: T.RefundRequest) =>
+      request<T.Payment>('POST', `/payments/${id}/refund-request`, { body }),
   },
 
   notifications: {
@@ -105,6 +107,12 @@ export const api = {
     appointments: (query: { appointment_status?: string; page?: number }) =>
       request<T.Page<T.AdminAppointment>>('GET', '/admin/appointments', { query }),
     auditLogs: (page = 1) => request<T.Page<T.AuditLog>>('GET', '/admin/audit-logs', { query: { page } }),
+    refunds: (query: { refund_status?: T.RefundStatus; page?: number }) =>
+      request<T.Page<T.AdminRefund>>('GET', '/admin/refunds', { query }),
+    completeRefund: (paymentId: number, note?: string) =>
+      request<T.AdminRefund>('POST', `/admin/refunds/${paymentId}/complete`, { body: { note } }),
+    rejectRefund: (paymentId: number, reason: string) =>
+      request<T.AdminRefund>('POST', `/admin/refunds/${paymentId}/reject`, { body: { reason } }),
     syncSchedules: () =>
       request<{ doctors_synced: number; success: boolean }>('POST', '/admin/integrations/erp/sync-schedules'),
 

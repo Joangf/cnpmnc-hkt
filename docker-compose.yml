@@ -9,15 +9,17 @@ x-backend-env: &backend-env
   ERP_ADAPTER: http
   ERP_BASE_URL: http://mock-erp:8100
   ERP_WEBHOOK_SECRET: ${ERP_WEBHOOK_SECRET:-erp-webhook-secret}
-  PAYMENT_BASE_URL: http://mock-payment:8200
-  PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment-webhook-secret}
-  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
   RESEND_API_KEY: ${RESEND_API_KEY:-}
   EMAIL_FROM: ${EMAIL_FROM:-CareBook Hospital Booking <onboarding@resend.dev>}
-  INTERNAL_BASE_URL: http://backend:8000
-  PAYMENT_REQUIRES_CONFIRMATION: ${PAYMENT_REQUIRES_CONFIRMATION:-true}
   CANCELLATION_CUTOFF_HOURS: ${CANCELLATION_CUTOFF_HOURS:-24}
-  REFUND_ON_CANCELLATION: ${REFUND_ON_CANCELLATION:-true}
+  # Payments: VietQR transfer to a SePay-monitored account (docs/sprint3-sepay-plan.md)
+  SEPAY_ACCOUNT: ${SEPAY_ACCOUNT:-SEPNK33418}
+  SEPAY_BANK: ${SEPAY_BANK:-OCB}
+  SEPAY_ACCOUNT_NAME: ${SEPAY_ACCOUNT_NAME:-NGUYEN TAN KHANG}
+  SEPAY_WEBHOOK_API_KEY: ${SEPAY_WEBHOOK_API_KEY:-dev-sepay-key}
+  SEPAY_API_TOKEN: ${SEPAY_API_TOKEN:-}
+  PAYMENT_CODE_PREFIX: ${PAYMENT_CODE_PREFIX:-CB}
+  PAYMENT_HOLD_MINUTES: ${PAYMENT_HOLD_MINUTES:-15}
   ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
   ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345!}
   DEMO_PATIENT_EMAIL: ${DEMO_PATIENT_EMAIL:-patient@example.com}
@@ -65,17 +67,6 @@ services:
       timeout: 3s
       retries: 20
 
-  mock-payment:
-    build: ./mock-payment
-    environment:
-      MOCK_PAYMENT_PUBLIC_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}/mock-payment
-      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment-webhook-secret}
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8200/health')"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   backend:
     build: ./backend
     environment: *backend-env
@@ -85,8 +76,6 @@ services:
       redis:
         condition: service_healthy
       mock-erp:
-        condition: service_healthy
-      mock-payment:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"]
@@ -101,8 +90,6 @@ services:
       - "${WEB_PORT:-8080}:80"
     depends_on:
       backend:
-        condition: service_healthy
-      mock-payment:
         condition: service_healthy
 
   prometheus:

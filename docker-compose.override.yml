@@ -28,10 +28,6 @@ services:
     ports:
       - "8100:8100"
 
-  mock-payment:
-    ports:
-      - "8200:8200"
-
   web:
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro
