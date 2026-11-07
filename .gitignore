@@ -19,3 +19,6 @@ openapi.json
 .vscode/
 test-results/
 playwright-report/
+
+# QA-Scrum kit
+reports/

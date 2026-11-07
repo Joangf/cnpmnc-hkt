@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python tools/jira.py:*)",
+      "Bash(pytest:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}
