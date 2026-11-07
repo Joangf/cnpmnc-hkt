@@ -2,7 +2,7 @@
 // (schema.d.ts, `make gen-client`) at compile time in ./contract.ts.
 
 export type UserRole = 'PATIENT' | 'ADMIN'
-export type AccountStatus = 'ACTIVE' | 'INACTIVE'
+export type AccountStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE'
 export type FacilityType = 'HOSPITAL' | 'CLINIC'
 export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'
 export type CheckInStatus = 'NOT_CHECKED_IN' | 'CHECKED_IN' | 'UNKNOWN'
@@ -50,6 +50,13 @@ export interface RegisterPayload {
   full_name: string
   date_of_birth: string
   phone_number: string
+}
+
+export interface RegistrationPending {
+  email: string
+  message: string
+  expires_in: number
+  dev_otp?: string | null
 }
 
 export interface PasswordResetRequested {

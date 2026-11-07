@@ -69,3 +69,9 @@ class PaymentGatewayUnavailable(AppError):
     status_code = 503
     code = "PaymentGatewayUnavailable"
     message = "The payment provider is temporarily unavailable. Please try again later."
+
+
+class EmailDeliveryFailed(AppError):
+    status_code = 503
+    code = "EmailDeliveryFailed"
+    message = "We could not send the verification email. Please try again in a moment."

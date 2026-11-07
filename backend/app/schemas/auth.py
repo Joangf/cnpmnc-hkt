@@ -14,6 +14,23 @@ class RegisterRequest(BaseModel):
     phone_number: PhoneNumber
 
 
+class RegistrationPending(BaseModel):
+    email: str
+    message: str
+    expires_in: int
+    # Only populated when ENV=dev and no email provider is configured (RESEND_API_KEY unset).
+    dev_otp: str | None = None
+
+
+class VerifyRegistrationRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(pattern=r"^\d{6}$")
+
+
+class ResendOtpRequest(BaseModel):
+    email: EmailStr
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)

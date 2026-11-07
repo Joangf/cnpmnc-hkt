@@ -18,8 +18,11 @@ from app.schemas.auth import (
     PasswordResetRequest,
     PasswordResetRequested,
     RegisterRequest,
+    RegistrationPending,
+    ResendOtpRequest,
     TokenResponse,
     UserMe,
+    VerifyRegistrationRequest,
 )
 from app.schemas.common import MessageResponse, error_responses
 from app.services import auth as auth_service
@@ -52,17 +55,52 @@ async def _revoke(redis: Redis, payload: dict[str, Any]) -> bool:
     return bool(await redis.set(f"revoked:{payload['jti']}", "1", nx=True, ex=ttl))
 
 
+def _pending(address: str, dev_otp: str | None) -> RegistrationPending:
+    return RegistrationPending(
+        email=address.lower(),
+        message="If this email is awaiting verification, a 6-digit code has been sent to it.",
+        expires_in=settings.otp_ttl_seconds,
+        dev_otp=dev_otp,
+    )
+
+
 @router.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
-    response_model=TokenResponse,
+    response_model=RegistrationPending,
     operation_id="register",
-    responses=error_responses(409, 422),
+    responses=error_responses(409, 422, 429, 503),
 )
 async def register(
-    payload: RegisterRequest, response: Response, session: SessionDep
+    payload: RegisterRequest, session: SessionDep, redis: RedisDep
+) -> RegistrationPending:
+    dev_otp = await auth_service.register(session, redis, payload)
+    return _pending(payload.email, dev_otp)
+
+
+@router.post(
+    "/register/resend",
+    response_model=RegistrationPending,
+    operation_id="resendRegistrationOtp",
+    responses=error_responses(422, 429, 503),
+)
+async def resend_registration_otp(
+    payload: ResendOtpRequest, session: SessionDep, redis: RedisDep
+) -> RegistrationPending:
+    dev_otp = await auth_service.resend_registration_otp(session, redis, payload.email)
+    return _pending(payload.email, dev_otp)
+
+
+@router.post(
+    "/register/verify",
+    response_model=TokenResponse,
+    operation_id="verifyRegistration",
+    responses=error_responses(422, 429),
+)
+async def verify_registration(
+    payload: VerifyRegistrationRequest, response: Response, session: SessionDep, redis: RedisDep
 ) -> TokenResponse:
-    user = await auth_service.register(session, payload)
+    user = await auth_service.verify_registration(session, redis, payload.email, payload.otp)
     return _issue_tokens(response, user)
 
 
