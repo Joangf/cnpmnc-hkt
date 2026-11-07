@@ -11,9 +11,5 @@ async def paginate(
 ) -> tuple[list[T], int]:
     count_stmt: Select[Any] = select(func.count()).select_from(stmt.order_by(None).subquery())
     total = await session.scalar(count_stmt)
-    result = await session.scalars(
-        stmt.limit(page_size)
-        .offset((page - 1) * page_size)
-        .execution_options(populate_existing=True)
-    )
+    result = await session.scalars(stmt.limit(page_size).offset((page - 1) * page_size))
     return list(result.unique().all()), int(total or 0)

@@ -57,13 +57,15 @@ SPECIALTIES = [
 
 HOSPITALS = [
     {
-        "name": "Riverside General Hospital",
+        "name": "HKT Hospital",
         "facility_type": FacilityType.HOSPITAL,
-        "address": "12 Riverside Avenue, District 1",
+        "address": "12 HKT Street, District 1",
         "city": "Ho Chi Minh City",
         "phone": "+842800000001",
-        "email": "contact@riverside-general.example",
-        "description": "Fictional multi-specialty hospital used for demonstration.",
+        "email": "contact@hkt-hospital.example",
+        "website": "https://hkt-hospital.example",
+        "avatar_url": "https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&w=800&q=80",
+        "description": "HKT General Hospital provides medical services to the community.",
         "departments": [
             "General Internal Medicine",
             "Respiratory Medicine",
@@ -72,7 +74,29 @@ HOSPITALS = [
             "Dermatology",
             "Ophthalmology",
             "Orthopedics",
-            "Rheumatology",
+        ],
+    },
+    {
+        "name": "Lotus Skin & Eye Clinic",
+        "facility_type": FacilityType.CLINIC,
+        "address": "88 Lotus Street, District 3",
+        "city": "Ho Chi Minh City",
+        "phone": "+842800000002",
+        "email": "hello@lotus-clinic.example",
+        "description": "Fictional outpatient clinic for dermatology and ophthalmology.",
+        "departments": ["Dermatology", "Ophthalmology"],
+    },
+    {
+        "name": "Green Valley Medical Center",
+        "facility_type": FacilityType.HOSPITAL,
+        "address": "5 Green Valley Road, Cau Giay",
+        "city": "Hanoi",
+        "phone": "+842400000003",
+        "email": "info@greenvalley-medical.example",
+        "description": "Fictional regional medical center.",
+        "departments": [
+            "General Internal Medicine",
+            "Pediatrics",
             "Otorhinolaryngology (ENT)",
             "Neurology",
             "Pediatrics",
@@ -169,7 +193,19 @@ SYMPTOMS: list[tuple[str, str, list[tuple[str, float]], str | None]] = [
 
 async def _seed_directory(session: AsyncSession) -> None:
     if await session.scalar(select(func.count(Specialty.id))):
-        print("directory already seeded")
+        updated = False
+        for data in HOSPITALS:
+            existing = await session.scalar(select(Hospital).where(Hospital.name == data["name"]))
+            if existing and not existing.avatar_url:
+                existing.avatar_url = data.get("avatar_url")
+                existing.website = existing.website or data.get("website")
+                existing.description = data.get("description") or existing.description
+                updated = True
+        if updated:
+            await session.commit()
+            print("backfilled hospital avatars and descriptions")
+        else:
+            print("directory already seeded")
         return
 
     specialties = {name: Specialty(name=name, description=desc) for name, desc in SPECIALTIES}
@@ -177,6 +213,7 @@ async def _seed_directory(session: AsyncSession) -> None:
     await session.flush()
 
     index = 0
+    dept_index = 0
     for data in HOSPITALS:
         dept_names = data["departments"]
         hospital = Hospital(**{k: v for k, v in data.items() if k != "departments"})
@@ -187,7 +224,13 @@ async def _seed_directory(session: AsyncSession) -> None:
                 hospital_id=hospital.id,
                 specialty_id=specialties[specialty_name].id,
                 name=f"{specialty_name} Department",
+                description=(
+                    f"Khoa {specialty_name} tại {hospital.name}: tư vấn, thăm khám và "
+                    "điều trị chuyên khoa."
+                ),
+                location=f"Tầng {(dept_index % 4) + 1}, Tòa {chr(65 + dept_index % 3)}",
             )
+            dept_index += 1
             session.add(department)
             await session.flush()
             doctor_count = (

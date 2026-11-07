@@ -13,12 +13,28 @@ def effective_fee(doctor: Doctor, appointment_type: AppointmentType) -> Decimal:
     return appointment_type.fee_override or Decimal("0")
 
 
+def doctor_is_published(doctor: Doctor) -> bool:
+    """A doctor is public and bookable only while it and every record it links to
+    (department, specialty, facility) are active. Mirrors `directory._published_doctor()`.
+    Requires `doctor.hospital` and `doctor.department.specialty` to be loaded."""
+    department = doctor.department
+    return (
+        doctor.is_active
+        and doctor.hospital.is_active
+        and department.is_active
+        and department.specialty.is_active
+    )
+
+
 def type_applies_to_doctor(appointment_type: AppointmentType, doctor: Doctor) -> bool:
     """Requires `doctor.department` to be loaded."""
     if not appointment_type.is_active:
         return False
     if appointment_type.doctor_id is not None:
-        return appointment_type.doctor_id == doctor.id
+        return appointment_type.doctor_id == doctor.id and (
+            appointment_type.specialty_id is None
+            or appointment_type.specialty_id == doctor.department.specialty_id
+        )
     if appointment_type.specialty_id is not None:
         return appointment_type.specialty_id == doctor.department.specialty_id
     return True

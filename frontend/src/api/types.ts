@@ -4,6 +4,7 @@
 export type UserRole = 'PATIENT' | 'ADMIN'
 export type AccountStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE'
 export type FacilityType = 'HOSPITAL' | 'CLINIC'
+export type DepartmentVisibility = 'PUBLIC' | 'UNPUBLISHED' | 'HIDDEN'
 export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'
 export type CheckInStatus = 'NOT_CHECKED_IN' | 'CHECKED_IN' | 'UNKNOWN'
 export type PaymentStatus = 'UNPAID' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
@@ -89,8 +90,25 @@ export interface Department {
   hospital_id: number
   name: string
   description: string | null
+  location: string | null
   specialty: Specialty
   is_active: boolean
+  // Present on admin responses only.
+  visibility?: DepartmentVisibility
+}
+
+export interface DepartmentSummary {
+  id: number
+  name: string
+  description: string | null
+  location: string | null
+  hospital: Ref
+  specialty: Specialty
+  doctor_count: number
+}
+
+export interface DepartmentPublicDetail extends DepartmentSummary {
+  doctors: DoctorSummary[]
 }
 
 export interface HospitalSummary {
@@ -101,12 +119,13 @@ export interface HospitalSummary {
   city: string
   phone: string | null
   email: string | null
+  avatar_url: string | null
+  description: string | null
   is_active: boolean
   specialties: Specialty[]
 }
 
 export interface HospitalDetail extends HospitalSummary {
-  description: string | null
   website: string | null
   departments: Department[]
 }
@@ -129,6 +148,10 @@ export interface DoctorDetail extends DoctorSummary {
   qualifications: string | null
   introduction: string | null
   erp_doctor_id: string | null
+}
+
+export interface AdminDoctorDetail extends DoctorDetail {
+  max_appointments_per_window: number
 }
 
 export interface AppointmentType {

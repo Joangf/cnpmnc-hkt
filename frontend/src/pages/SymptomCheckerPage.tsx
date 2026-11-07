@@ -191,8 +191,8 @@ export default function SymptomCheckerPage() {
               <Link to="/doctors" className="link inline-flex min-h-12 items-center gap-2">
                 Doctors <IconArrowRight size={18} />
               </Link>
-              <Link to="/hospitals" className="link inline-flex min-h-12 items-center gap-2">
-                Hospitals &amp; clinics <IconArrowRight size={18} />
+              <Link to="/departments" className="link inline-flex min-h-12 items-center gap-2">
+                Departments <IconArrowRight size={18} />
               </Link>
             </div>
           </section>

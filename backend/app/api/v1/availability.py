@@ -29,7 +29,7 @@ async def get_doctor_availability(
     appointment_type_id: int | None = Query(default=None),
 ) -> AvailabilityResponse:
     doctor = await directory_repo.get_doctor(session, doctor_id)
-    if doctor is None or not doctor.is_active:
+    if doctor is None or not policies.doctor_is_published(doctor):
         raise NotFound("Doctor not found.")
     if appointment_type_id is not None:
         appointment_type = await session.get(AppointmentType, appointment_type_id)

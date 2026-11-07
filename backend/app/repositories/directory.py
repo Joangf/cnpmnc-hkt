@@ -1,11 +1,11 @@
 from collections.abc import Sequence
 
-from sqlalchemy import and_, case, or_, select
+from sqlalchemy import ColumnElement, and_, case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.models import AppointmentType, Department, Doctor, Hospital, Specialty
-from app.models.enums import FacilityType
+from app.models.enums import DepartmentVisibility, FacilityType
 from app.repositories.base import paginate
 
 
@@ -17,6 +17,20 @@ def _doctor_options() -> tuple:
     return (
         joinedload(Doctor.hospital),
         joinedload(Doctor.department).joinedload(Department.specialty),
+    )
+
+
+def _published_doctor() -> ColumnElement[bool]:
+    """SQL form of `policies.doctor_is_published`."""
+    return and_(
+        Doctor.is_active.is_(True),
+        Doctor.hospital.has(Hospital.is_active.is_(True)),
+        Doctor.department.has(
+            and_(
+                Department.is_active.is_(True),
+                Department.specialty.has(Specialty.is_active.is_(True)),
+            )
+        ),
     )
 
 
@@ -55,7 +69,12 @@ async def list_hospitals(
     if specialty_id:
         stmt = stmt.where(
             Hospital.departments.any(
-                and_(Department.specialty_id == specialty_id, Department.is_active.is_(True))
+                and_(
+                    Department.specialty_id == specialty_id,
+                    Department.is_active.is_(True),
+                    Department.visibility == DepartmentVisibility.PUBLIC,
+                    Department.specialty.has(Specialty.is_active.is_(True)),
+                )
             )
         )
     return await paginate(session, stmt, page, page_size)
@@ -67,6 +86,71 @@ async def get_hospital(session: AsyncSession, hospital_id: int) -> Hospital | No
         .where(Hospital.id == hospital_id)
         .options(*_hospital_options())
         .execution_options(populate_existing=True)
+    )
+    return await session.scalar(stmt)
+
+
+def _public_department_options() -> tuple:
+    return (
+        joinedload(Department.hospital),
+        joinedload(Department.specialty),
+        selectinload(Department.doctors).joinedload(Doctor.hospital),
+        selectinload(Department.doctors)
+        .joinedload(Doctor.department)
+        .joinedload(Department.specialty),
+    )
+
+
+async def list_public_departments(
+    session: AsyncSession,
+    *,
+    q: str | None = None,
+    hospital_id: int | None = None,
+    specialty_id: int | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> tuple[list[Department], int]:
+    """Published departments/clinics only: active, PUBLIC and under an active facility."""
+    stmt = (
+        select(Department)
+        .where(
+            Department.is_active.is_(True),
+            Department.visibility == DepartmentVisibility.PUBLIC,
+            Department.hospital.has(Hospital.is_active.is_(True)),
+            Department.specialty.has(Specialty.is_active.is_(True)),
+        )
+        .options(*_public_department_options())
+        .order_by(Department.name, Department.id)
+    )
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                Department.name.ilike(like),
+                Department.description.ilike(like),
+                Department.location.ilike(like),
+                Department.hospital.has(Hospital.name.ilike(like)),
+                Department.specialty.has(Specialty.name.ilike(like)),
+            )
+        )
+    if hospital_id:
+        stmt = stmt.where(Department.hospital_id == hospital_id)
+    if specialty_id:
+        stmt = stmt.where(Department.specialty_id == specialty_id)
+    return await paginate(session, stmt, page, page_size)
+
+
+async def get_public_department(session: AsyncSession, department_id: int) -> Department | None:
+    stmt = (
+        select(Department)
+        .where(
+            Department.id == department_id,
+            Department.is_active.is_(True),
+            Department.visibility == DepartmentVisibility.PUBLIC,
+            Department.hospital.has(Hospital.is_active.is_(True)),
+            Department.specialty.has(Specialty.is_active.is_(True)),
+        )
+        .options(*_public_department_options())
     )
     return await session.scalar(stmt)
 
@@ -107,6 +191,7 @@ async def departments_for_specialties(
         .where(
             Department.specialty_id.in_(specialty_ids),
             Department.is_active.is_(True),
+            Department.visibility == DepartmentVisibility.PUBLIC,
             Hospital.is_active.is_(True),
         )
         .options(joinedload(Department.hospital), joinedload(Department.specialty))
@@ -128,7 +213,7 @@ async def list_doctors(
 ) -> tuple[list[Doctor], int]:
     stmt = select(Doctor).options(*_doctor_options()).order_by(Doctor.full_name)
     if not include_inactive:
-        stmt = stmt.where(Doctor.is_active.is_(True))
+        stmt = stmt.where(_published_doctor())
     if q:
         stmt = stmt.where(Doctor.full_name.ilike(f"%{q}%"))
     if hospital_id:

@@ -21,6 +21,18 @@ class FacilityType(StrEnum):
     CLINIC = "CLINIC"
 
 
+class DepartmentVisibility(StrEnum):
+    """Whether a department/clinic is published in the public directory.
+
+    DISABLED is represented by Department.is_active = False; the two are checked
+    together so unpublished, hidden and inactive departments never leak publicly.
+    """
+
+    PUBLIC = "PUBLIC"
+    UNPUBLISHED = "UNPUBLISHED"
+    HIDDEN = "HIDDEN"
+
+
 class AppointmentStatus(StrEnum):
     PENDING = "PENDING"
     CONFIRMED = "CONFIRMED"

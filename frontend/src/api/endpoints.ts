@@ -26,9 +26,23 @@ export const api = {
 
   directory: {
     specialties: () => request<T.Specialty[]>('GET', '/specialties'),
-    hospitals: (query: { q?: string; city?: string; specialty_id?: number; page?: number; page_size?: number }) =>
-      request<T.Page<T.HospitalSummary>>('GET', '/hospitals', { query }),
+    hospitals: (query: {
+      q?: string
+      city?: string
+      specialty_id?: number
+      facility_type?: T.FacilityType
+      page?: number
+      page_size?: number
+    }) => request<T.Page<T.HospitalSummary>>('GET', '/hospitals', { query }),
     hospital: (id: number) => request<T.HospitalDetail>('GET', `/hospitals/${id}`),
+    departments: (query: {
+      q?: string
+      hospital_id?: number
+      specialty_id?: number
+      page?: number
+      page_size?: number
+    }) => request<T.Page<T.DepartmentSummary>>('GET', '/departments', { query }),
+    department: (id: number) => request<T.DepartmentPublicDetail>('GET', `/departments/${id}`),
     doctors: (query: {
       q?: string
       hospital_id?: number

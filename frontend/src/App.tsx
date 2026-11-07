@@ -7,6 +7,8 @@ import AdminReviewsPage from './pages/admin/AdminReviewsPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AppointmentDetailPage from './pages/AppointmentDetailPage'
 import AppointmentsPage from './pages/AppointmentsPage'
+import DepartmentDetailPage from './pages/DepartmentDetailPage'
+import DepartmentsPage from './pages/DepartmentsPage'
 import DoctorDetailPage from './pages/DoctorDetailPage'
 import DoctorsPage from './pages/DoctorsPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -29,6 +31,8 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="hospitals" element={<HospitalsPage />} />
         <Route path="hospitals/:hospitalId" element={<HospitalDetailPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="departments/:departmentId" element={<DepartmentDetailPage />} />
         <Route path="doctors" element={<DoctorsPage />} />
         <Route path="doctors/:doctorId" element={<DoctorDetailPage />} />
         <Route path="symptoms" element={<SymptomCheckerPage />} />

@@ -19,6 +19,7 @@ class DepartmentOut(BaseModel):
     hospital_id: int
     name: str
     description: str | None
+    location: str | None
     specialty: SpecialtyOut
     is_active: bool
 
@@ -31,12 +32,13 @@ class HospitalSummary(BaseModel):
     city: str
     phone: str | None
     email: str | None
+    avatar_url: str | None
+    description: str | None
     is_active: bool
     specialties: list[SpecialtyOut]
 
 
 class HospitalDetail(HospitalSummary):
-    description: str | None
     website: str | None
     departments: list[DepartmentOut]
 
@@ -59,6 +61,22 @@ class DoctorDetail(DoctorSummary):
     qualifications: str | None
     introduction: str | None
     erp_doctor_id: str | None
+
+
+class DepartmentSummary(BaseModel):
+    """Public department/clinic listing. Deliberately excludes admin-only fields."""
+
+    id: int
+    name: str
+    description: str | None
+    location: str | None
+    hospital: RefOut
+    specialty: SpecialtyOut
+    doctor_count: int
+
+
+class DepartmentPublicDetail(DepartmentSummary):
+    doctors: list[DoctorSummary]
 
 
 class AppointmentTypeOut(BaseModel):

@@ -79,7 +79,7 @@ export function Layout() {
 
   const mainLinks: NavItem[] = [
     { to: '/doctors', label: 'Doctors' },
-    { to: '/hospitals', label: 'Hospitals & clinics' },
+    { to: '/departments', label: 'Departments' },
     { to: '/symptoms', label: 'Symptom checker' },
   ]
   const accountLinks: NavItem[] = isPatient
@@ -155,7 +155,7 @@ export function Layout() {
               <span className="flex h-10 w-10 items-center justify-center rounded-md bg-berry text-on-accent shadow-button">
                 <LogoMark />
               </span>
-              <span className="text-xl font-bold">CareBook</span>
+              <span className="text-xl font-bold">HKT Hospital</span>
             </Link>
             <nav aria-label="Main" className="hidden flex-1 items-center gap-8 xl:flex">
               {mainLinks.map((l) => (
@@ -218,9 +218,9 @@ export function Layout() {
 
       <footer className="border-t border-line bg-surface">
         <div className="mx-auto flex max-w-page flex-col gap-2 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-6">
-          <p className="font-bold">CareBook</p>
+          <p className="font-bold">HKT Hospital</p>
           <p className="caption">
-            CareBook is a booking platform and does not provide medical advice. In an emergency call{' '}
+            HKT Hospital is a booking platform and does not provide medical advice. In an emergency call{' '}
             <a className="link text-alert hover:text-alert-dark" href={`tel:${EMERGENCY_NUMBER}`}>
               {EMERGENCY_NUMBER}
             </a>

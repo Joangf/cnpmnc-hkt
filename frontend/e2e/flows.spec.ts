@@ -26,7 +26,7 @@ async function pickFirstAvailableSlot(page: Page) {
   throw new Error('No available slot in the next two weeks')
 }
 
-test('guest can browse facilities, doctors and the symptom checker', async ({ page }) => {
+test('guest can browse departments, doctors and the symptom checker', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: /Find the right care/ })).toBeVisible()
 
@@ -36,9 +36,9 @@ test('guest can browse facilities, doctors and the symptom checker', async ({ pa
   await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Patient reviews' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Hospitals & clinics' }).first().click()
-  await expect(page.getByRole('heading', { name: 'Hospitals & clinics' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Riverside General Hospital' })).toBeVisible()
+  await page.getByRole('link', { name: 'Departments', exact: true }).first().click()
+  await expect(page.getByRole('heading', { name: 'Departments & clinics' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Dermatology Department/ }).first()).toBeVisible()
 
   await page.getByRole('link', { name: 'Symptom checker' }).first().click()
   await expect(page.getByText(/does not diagnose conditions/)).toBeVisible()

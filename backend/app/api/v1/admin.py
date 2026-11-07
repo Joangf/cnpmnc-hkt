@@ -5,13 +5,14 @@ from typing import Any
 
 from fastapi import APIRouter, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import presenters
 from app.api.deps import AdminUser, ErpDep, PageDep, SessionDep
-from app.core.errors import InvalidState, NotFound, ValidationFailed
-from app.models import AppointmentType, AuditLog, Department, Doctor, Hospital, Specialty
+from app.core.errors import Conflict, InvalidState, NotFound, ValidationFailed
+from app.models import AppointmentType, AuditLog, Base, Department, Doctor, Hospital, Specialty
 from app.models.enums import AccountStatus, AppointmentStatus, ReviewStatus, UserRole
 from app.repositories import appointments as appointment_repo
 from app.repositories import directory as directory_repo
@@ -19,11 +20,13 @@ from app.repositories import reviews as review_repo
 from app.repositories import users as user_repo
 from app.repositories.base import paginate
 from app.schemas.admin import (
+    AdminDoctorDetail,
     AdminUserOut,
     AppointmentTypeAdminOut,
     AppointmentTypeCreate,
     AppointmentTypeUpdate,
     AuditLogOut,
+    DepartmentAdminOut,
     DepartmentCreate,
     DepartmentUpdate,
     DoctorCreate,
@@ -38,9 +41,9 @@ from app.schemas.admin import (
 )
 from app.schemas.appointments import AdminAppointmentOut
 from app.schemas.common import Page, error_responses
-from app.schemas.directory import DepartmentOut, DoctorDetail, HospitalDetail, SpecialtyOut
+from app.schemas.directory import HospitalDetail, SpecialtyOut
 from app.schemas.reviews import AdminReviewOut, ReviewModerate
-from app.services import audit, availability, erp_sync, reports
+from app.services import audit, availability, erp_sync, policies, reports
 from app.services import reviews as review_service
 
 router = APIRouter(prefix="/admin", tags=["admin"], responses=error_responses(401, 403))
@@ -57,6 +60,74 @@ def _apply_changes(entity: Any, payload: BaseModel) -> list[str]:
             setattr(entity, field, value)
             changed.append(field)
     return changed
+
+
+async def _require_ref(session: AsyncSession, model: type[Base], ref_id: int, label: str) -> Any:
+    """Resolve an id given in the request body; an unknown id is invalid input (422), not a 404."""
+    entity = await session.get(model, ref_id)
+    if entity is None:
+        raise ValidationFailed(f"{label} #{ref_id} does not exist.", code="InvalidReference")
+    return entity
+
+
+_WRITE_REJECTED = (
+    "The change was rejected because it conflicts with existing data "
+    "(for example a duplicate name or identifier). Refresh and try again."
+)
+
+
+async def _commit(
+    session: AsyncSession,
+    *,
+    flush_only: bool = False,
+    message: str = _WRITE_REJECTED,
+    code: str = "WriteRejected",
+) -> None:
+    """Flush or commit, turning a constraint violation (e.g. a concurrent duplicate that slipped
+    past the pre-checks) into a 409 the admin can act on instead of a 500."""
+    try:
+        await (session.flush() if flush_only else session.commit())
+    except IntegrityError as exc:
+        await session.rollback()
+        raise Conflict(message, code=code) from exc
+
+
+async def _commit_scheduling(session: AsyncSession, **kwargs: Any) -> None:
+    """Keep configuration and its audit record atomic, including database outages."""
+    try:
+        await _commit(session, **kwargs)
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise Conflict(
+            "Scheduling settings could not be saved. "
+            "Previous settings remain effective; try again.",
+            code="SchedulingWriteFailed",
+        ) from exc
+
+
+async def _ensure_unique_specialty_name(
+    session: AsyncSession, name: str, exclude_id: int | None = None
+) -> None:
+    stmt = select(Specialty.id).where(func.lower(Specialty.name) == name.lower())
+    if exclude_id is not None:
+        stmt = stmt.where(Specialty.id != exclude_id)
+    if await session.scalar(stmt):
+        raise Conflict(f"A specialty named '{name}' already exists.", code="DuplicateName")
+
+
+async def _ensure_unique_erp_doctor_id(
+    session: AsyncSession, erp_doctor_id: str | None, exclude_id: int | None = None
+) -> None:
+    if erp_doctor_id is None:
+        return
+    stmt = select(Doctor.id).where(Doctor.erp_doctor_id == erp_doctor_id)
+    if exclude_id is not None:
+        stmt = stmt.where(Doctor.id != exclude_id)
+    if (other := await session.scalar(stmt)) is not None:
+        raise Conflict(
+            f"ERP doctor ID '{erp_doctor_id}' is already linked to doctor #{other}.",
+            code="DuplicateIdentifier",
+        )
 
 
 def _local_start(day: date | None) -> datetime | None:
@@ -139,13 +210,17 @@ async def admin_list_specialties(admin: AdminUser, session: SessionDep) -> list[
 async def create_specialty(
     payload: SpecialtyCreate, admin: AdminUser, session: SessionDep
 ) -> SpecialtyOut:
-    if await session.scalar(select(Specialty.id).where(Specialty.name == payload.name)):
-        raise InvalidState("A specialty with this name already exists.", code="DuplicateName")
+    await _ensure_unique_specialty_name(session, payload.name)
     specialty = Specialty(**payload.model_dump())
     session.add(specialty)
-    await session.flush()
+    await _commit(
+        session,
+        flush_only=True,
+        message="A specialty with this name already exists.",
+        code="DuplicateName",
+    )
     audit.record(session, "specialty.created", "specialty", specialty.id, actor_id=admin.id)
-    await session.commit()
+    await _commit(session)
     return SpecialtyOut.model_validate(specialty)
 
 
@@ -153,7 +228,7 @@ async def create_specialty(
     "/specialties/{specialty_id}",
     response_model=SpecialtyOut,
     operation_id="adminUpdateSpecialty",
-    responses=error_responses(404, 422),
+    responses=error_responses(404, 409, 422),
 )
 async def update_specialty(
     specialty_id: int, payload: SpecialtyUpdate, admin: AdminUser, session: SessionDep
@@ -161,6 +236,8 @@ async def update_specialty(
     specialty = await session.get(Specialty, specialty_id)
     if specialty is None:
         raise NotFound("Specialty not found.")
+    if payload.name is not None:
+        await _ensure_unique_specialty_name(session, payload.name, exclude_id=specialty.id)
     if changed := _apply_changes(specialty, payload):
         audit.record(
             session,
@@ -170,7 +247,7 @@ async def update_specialty(
             actor_id=admin.id,
             details={"fields": changed},
         )
-        await session.commit()
+        await _commit(session)
     return SpecialtyOut.model_validate(specialty)
 
 
@@ -233,57 +310,54 @@ async def update_hospital(
 # --- Departments ------------------------------------------------------------------------------
 
 
-@router.get("/departments", response_model=list[DepartmentOut], operation_id="adminListDepartments")
+@router.get(
+    "/departments", response_model=list[DepartmentAdminOut], operation_id="adminListDepartments"
+)
 async def admin_list_departments(
     admin: AdminUser, session: SessionDep, hospital_id: int | None = None
-) -> list[DepartmentOut]:
+) -> list[DepartmentAdminOut]:
     items = await directory_repo.list_departments(
         session, hospital_id=hospital_id, include_inactive=True
     )
-    return [presenters.department_out(d) for d in items]
+    return [presenters.department_admin_out(d) for d in items]
 
 
 @router.post(
     "/departments",
     status_code=status.HTTP_201_CREATED,
-    response_model=DepartmentOut,
+    response_model=DepartmentAdminOut,
     operation_id="adminCreateDepartment",
-    responses=error_responses(404, 422),
+    responses=error_responses(409, 422),
 )
 async def create_department(
     payload: DepartmentCreate, admin: AdminUser, session: SessionDep
-) -> DepartmentOut:
-    if await session.get(Hospital, payload.hospital_id) is None:
-        raise NotFound("Hospital not found.")
-    if await session.get(Specialty, payload.specialty_id) is None:
-        raise NotFound("Specialty not found.")
+) -> DepartmentAdminOut:
+    await _require_ref(session, Hospital, payload.hospital_id, "Hospital")
+    await _require_ref(session, Specialty, payload.specialty_id, "Specialty")
     department = Department(**payload.model_dump())
     session.add(department)
     await session.flush()
     audit.record(session, "department.created", "department", department.id, actor_id=admin.id)
-    await session.commit()
+    await _commit(session)
     loaded = await directory_repo.get_department(session, department.id)
     assert loaded is not None
-    return presenters.department_out(loaded)
+    return presenters.department_admin_out(loaded)
 
 
 @router.patch(
     "/departments/{department_id}",
-    response_model=DepartmentOut,
+    response_model=DepartmentAdminOut,
     operation_id="adminUpdateDepartment",
-    responses=error_responses(404, 422),
+    responses=error_responses(404, 409, 422),
 )
 async def update_department(
     department_id: int, payload: DepartmentUpdate, admin: AdminUser, session: SessionDep
-) -> DepartmentOut:
+) -> DepartmentAdminOut:
     department = await directory_repo.get_department(session, department_id)
     if department is None:
         raise NotFound("Department not found.")
-    if (
-        payload.specialty_id is not None
-        and await session.get(Specialty, payload.specialty_id) is None
-    ):
-        raise NotFound("Specialty not found.")
+    if payload.specialty_id is not None:
+        await _require_ref(session, Specialty, payload.specialty_id, "Specialty")
     if changed := _apply_changes(department, payload):
         audit.record(
             session,
@@ -293,65 +367,69 @@ async def update_department(
             actor_id=admin.id,
             details={"fields": changed},
         )
-        await session.commit()
+        await _commit(session)
     loaded = await directory_repo.get_department(session, department_id)
     assert loaded is not None
-    return presenters.department_out(loaded)
+    return presenters.department_admin_out(loaded)
 
 
 # --- Doctors ----------------------------------------------------------------------------------
 
 
-@router.get("/doctors", response_model=list[DoctorDetail], operation_id="adminListDoctors")
+@router.get("/doctors", response_model=list[AdminDoctorDetail], operation_id="adminListDoctors")
 async def admin_list_doctors(
     admin: AdminUser, session: SessionDep, hospital_id: int | None = None
-) -> list[DoctorDetail]:
+) -> list[AdminDoctorDetail]:
     items, _ = await directory_repo.list_doctors(
         session, hospital_id=hospital_id, include_inactive=True, page=1, page_size=1000
     )
-    return [presenters.doctor_detail(d) for d in items]
+    return [presenters.admin_doctor_detail(d) for d in items]
 
 
 @router.post(
     "/doctors",
     status_code=status.HTTP_201_CREATED,
-    response_model=DoctorDetail,
+    response_model=AdminDoctorDetail,
     operation_id="adminCreateDoctor",
-    responses=error_responses(404, 422),
+    responses=error_responses(409, 422),
 )
 async def create_doctor(
     payload: DoctorCreate, admin: AdminUser, session: SessionDep
-) -> DoctorDetail:
-    department = await session.get(Department, payload.department_id)
-    if department is None:
-        raise NotFound("Department not found.")
+) -> AdminDoctorDetail:
+    department = await _require_ref(session, Department, payload.department_id, "Department")
+    await _ensure_unique_erp_doctor_id(session, payload.erp_doctor_id)
     doctor = Doctor(**payload.model_dump(), hospital_id=department.hospital_id)
     session.add(doctor)
-    await session.flush()
+    await _commit_scheduling(
+        session,
+        flush_only=True,
+        message="This ERP doctor ID is already linked to another doctor.",
+        code="DuplicateIdentifier",
+    )
     audit.record(session, "doctor.created", "doctor", doctor.id, actor_id=admin.id)
-    await session.commit()
+    await _commit_scheduling(session)
     loaded = await directory_repo.get_doctor(session, doctor.id)
     assert loaded is not None
-    return presenters.doctor_detail(loaded)
+    return presenters.admin_doctor_detail(loaded)
 
 
 @router.patch(
     "/doctors/{doctor_id}",
-    response_model=DoctorDetail,
+    response_model=AdminDoctorDetail,
     operation_id="adminUpdateDoctor",
-    responses=error_responses(404, 422),
+    responses=error_responses(404, 409, 422),
 )
 async def update_doctor(
     doctor_id: int, payload: DoctorUpdate, admin: AdminUser, session: SessionDep
-) -> DoctorDetail:
+) -> AdminDoctorDetail:
+    await session.execute(select(Doctor.id).where(Doctor.id == doctor_id).with_for_update())
     doctor = await directory_repo.get_doctor(session, doctor_id)
     if doctor is None:
         raise NotFound("Doctor not found.")
     if payload.department_id is not None:
-        department = await session.get(Department, payload.department_id)
-        if department is None:
-            raise NotFound("Department not found.")
+        department = await _require_ref(session, Department, payload.department_id, "Department")
         doctor.hospital_id = department.hospital_id
+    await _ensure_unique_erp_doctor_id(session, payload.erp_doctor_id, exclude_id=doctor.id)
     if changed := _apply_changes(doctor, payload):
         audit.record(
             session,
@@ -361,10 +439,10 @@ async def update_doctor(
             actor_id=admin.id,
             details={"fields": changed},
         )
-        await session.commit()
+        await _commit_scheduling(session)
     loaded = await directory_repo.get_doctor(session, doctor_id)
     assert loaded is not None
-    return presenters.doctor_detail(loaded)
+    return presenters.admin_doctor_detail(loaded)
 
 
 # --- Appointment types (BR-05) ----------------------------------------------------------------
@@ -385,12 +463,22 @@ async def admin_list_appointment_types(
 
 
 async def _validate_type_scope(
-    session: AsyncSession, specialty_id: int | None, doctor_id: int | None
+    session: AsyncSession, specialty_id: int | None, doctor_id: int | None,
+    *, require_active: bool = True,
 ) -> None:
-    if specialty_id is not None and await session.get(Specialty, specialty_id) is None:
-        raise NotFound("Specialty not found.")
-    if doctor_id is not None and await session.get(Doctor, doctor_id) is None:
-        raise NotFound("Doctor not found.")
+    if specialty_id is not None:
+        specialty = await _require_ref(session, Specialty, specialty_id, "Specialty")
+        if require_active and not specialty.is_active:
+            raise ValidationFailed("The selected specialty is inactive.", code="InvalidReference")
+    if doctor_id is not None:
+        doctor = await directory_repo.get_doctor(session, doctor_id)
+        if doctor is None or (require_active and not policies.doctor_is_published(doctor)):
+            raise ValidationFailed("Select an active, existing doctor.", code="InvalidReference")
+        if specialty_id is not None and doctor.department.specialty_id != specialty_id:
+            raise ValidationFailed(
+                "The selected doctor does not belong to the selected specialty.",
+                code="ContradictoryScope",
+            )
 
 
 @router.post(
@@ -398,7 +486,7 @@ async def _validate_type_scope(
     status_code=status.HTTP_201_CREATED,
     response_model=AppointmentTypeAdminOut,
     operation_id="adminCreateAppointmentType",
-    responses=error_responses(404, 422),
+    responses=error_responses(404, 409, 422),
 )
 async def create_appointment_type(
     payload: AppointmentTypeCreate, admin: AdminUser, session: SessionDep
@@ -406,7 +494,7 @@ async def create_appointment_type(
     await _validate_type_scope(session, payload.specialty_id, payload.doctor_id)
     appointment_type = AppointmentType(**payload.model_dump())
     session.add(appointment_type)
-    await session.flush()
+    await _commit_scheduling(session, flush_only=True)
     audit.record(
         session,
         "appointment_type.created",
@@ -414,7 +502,7 @@ async def create_appointment_type(
         appointment_type.id,
         actor_id=admin.id,
     )
-    await session.commit()
+    await _commit_scheduling(session)
     return presenters.appointment_type_admin(appointment_type)
 
 
@@ -422,15 +510,24 @@ async def create_appointment_type(
     "/appointment-types/{type_id}",
     response_model=AppointmentTypeAdminOut,
     operation_id="adminUpdateAppointmentType",
-    responses=error_responses(404, 422),
+    responses=error_responses(404, 409, 422),
 )
 async def update_appointment_type(
     type_id: int, payload: AppointmentTypeUpdate, admin: AdminUser, session: SessionDep
 ) -> AppointmentTypeAdminOut:
-    appointment_type = await session.get(AppointmentType, type_id)
+    appointment_type = await session.scalar(
+        select(AppointmentType).where(AppointmentType.id == type_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )
     if appointment_type is None:
         raise NotFound("Appointment type not found.")
-    await _validate_type_scope(session, payload.specialty_id, payload.doctor_id)
+    changes = payload.model_dump(exclude_unset=True)
+    await _validate_type_scope(
+        session,
+        changes.get("specialty_id", appointment_type.specialty_id),
+        changes.get("doctor_id", appointment_type.doctor_id),
+        require_active=changes.get("is_active", appointment_type.is_active) is not False,
+    )
     if changed := _apply_changes(appointment_type, payload):
         audit.record(
             session,
@@ -440,7 +537,7 @@ async def update_appointment_type(
             actor_id=admin.id,
             details={"fields": changed},
         )
-        await session.commit()
+        await _commit_scheduling(session)
     return presenters.appointment_type_admin(appointment_type)
 
 

@@ -16,8 +16,11 @@ export const responseContract: {
   Specialty: Fits<S['SpecialtyOut'], T.Specialty>
   HospitalPage: Fits<S['Page_HospitalSummary_'], T.Page<T.HospitalSummary>>
   HospitalDetail: Fits<S['HospitalDetail'], T.HospitalDetail>
+  DepartmentPage: Fits<S['Page_DepartmentSummary_'], T.Page<T.DepartmentSummary>>
+  DepartmentDetail: Fits<S['DepartmentPublicDetail'], T.DepartmentPublicDetail>
   DoctorPage: Fits<S['Page_DoctorSummary_'], T.Page<T.DoctorSummary>>
   DoctorDetail: Fits<S['DoctorDetail'], T.DoctorDetail>
+  AdminDoctorDetail: Fits<S['AdminDoctorDetail'], T.AdminDoctorDetail>
   AppointmentType: Fits<S['AppointmentTypeOut'], T.AppointmentType>
   Availability: Fits<S['AvailabilityResponse'], T.Availability>
   AppointmentPage: Fits<S['Page_AppointmentSummary_'], T.Page<T.AppointmentSummary>>
@@ -44,8 +47,11 @@ export const responseContract: {
   Specialty: true,
   HospitalPage: true,
   HospitalDetail: true,
+  DepartmentPage: true,
+  DepartmentDetail: true,
   DoctorPage: true,
   DoctorDetail: true,
+  AdminDoctorDetail: true,
   AppointmentType: true,
   Availability: true,
   AppointmentPage: true,
