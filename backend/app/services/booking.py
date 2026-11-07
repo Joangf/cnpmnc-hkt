@@ -1,10 +1,16 @@
 """Booking workflow (FRD 4.4, 5.1).
 
-Order of operations:
-1. Revalidate availability inside the request (BR-03).
-2. Insert the appointment as PENDING; the `no_overlap` exclusion constraint rejects
-   concurrent overlapping inserts atomically (FR-BOOK-05, BR-04).
-3. Commit, then submit to the ERP. Only an ERP acceptance flips it to CONFIRMED (BR-02).
+Order of operations, all in one transaction until step 4 (FR-BOOK-05, BR-04):
+1. Lock the appointment type (shared) and the doctor row (exclusive). Concurrent bookings for
+   one doctor, admin setting changes and ERP schedule replacement therefore run one at a time,
+   which makes the capacity check and the insert atomic (SCRUM-21/24).
+2. Revalidate availability from the database (BR-03): the slot must fit the doctor's schedule
+   window including duration and buffer, avoid every slot-holding booking, and the window must
+   still be under its effective capacity.
+3. Insert the appointment as PENDING. The `no_overlap` exclusion constraint is a second,
+   database-level guard against overlapping bookings. Any failure rolls the whole insert back.
+4. Commit (releasing the locks), then submit to the ERP. Only an ERP acceptance flips it to
+   CONFIRMED (BR-02).
 """
 
 from datetime import UTC, datetime
@@ -229,6 +235,7 @@ async def _create(
         session, doctor.id, appointment_type, day, effective=effective
     )
     if not any(slot.start == start for slot in slots):
+        await session.rollback()  # release the row locks now
         BOOKINGS.labels(result="unavailable").inc()
         raise SlotTaken(
             "The selected time is not available. Please choose another time.",
