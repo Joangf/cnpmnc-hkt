@@ -28,7 +28,8 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
 
   const types = useQuery({ queryKey: ['appointment-types', doctor.id], queryFn: () => api.directory.appointmentTypes(doctor.id) })
-  const selectedType = types.data?.[0]
+  const [typeId, setTypeId] = useState<number | null>(null)
+  const selectedType = types.data?.find((t) => t.id === typeId) ?? types.data?.[0]
 
   const availability = useQuery({
     queryKey: ['availability', doctor.id, selectedType?.id, day],
@@ -92,6 +93,25 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
 
       <div className="space-y-6 p-5 sm:p-6">
         {types.isLoading && <Spinner />}
+        <ErrorAlert error={types.error} />
+        {types.data && types.data.length > 1 && (
+          <Field label="Visit type">
+            <select
+              className="input"
+              value={selectedType?.id ?? ''}
+              onChange={(e) => {
+                setTypeId(Number(e.target.value))
+                setSlot(null)
+              }}
+            >
+              {types.data.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} · {formatMoney(t.fee, t.currency)} · {t.duration_minutes} min
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         {selectedType && (
           <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3">
             <div>
