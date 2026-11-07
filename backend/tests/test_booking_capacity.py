@@ -112,7 +112,7 @@ class World:
                     # Doctor-level capacity (SCRUM-21). High by default so each test's window
                     # `max_appointments` is the binding limit unless the test says otherwise.
                     max_appointments_per_window=doctor_capacity,
-                    scheduling_mode=SchedulingMode.ERP,  # default is MANUAL (e2fc238)
+                    scheduling_mode=SchedulingMode.ERP,  # Exercise legacy ERP window rules.
                 )
                 for i in range(2 if other_doctor else 1)
             ]

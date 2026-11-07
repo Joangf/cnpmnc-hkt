@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 const DAY_CHIP = /^(Today|[A-Z][a-z]{2},? \d{2} [A-Z][a-z]{2})$/
-const SLOT = /^\d{2}:\d{2}$/
+// ERP slots show "08:00"; admin-managed slots show "08:00–08:30 1 place left".
+const SLOT = /^\d{2}:\d{2}(–\d{2}:\d{2}.*)?$/
 
 async function signIn(page: Page, email: string, password: string) {
   await page.getByLabel('Email').fill(email)
@@ -79,7 +80,7 @@ test('patient registers, books, pays by bank transfer, cancels and gets a refund
   expect(fee).toBeGreaterThan(0)
   await pickFirstAvailableSlot(page)
   await page.getByLabel('Reason for visit (optional)').fill('Annual check-up')
-  await page.getByRole('button', { name: 'Request booking' }).click()
+  await page.getByRole('button', { name: /^(Request booking|Book appointment)$/ }).click()
   await expect(page).toHaveURL(/\/appointments\/\d+$/)
   await expect(page.getByText('Booking reference')).toBeVisible()
   await expect(page.getByText('Confirmed', { exact: true })).toBeVisible()
@@ -114,7 +115,8 @@ test('patient registers, books, pays by bank transfer, cancels and gets a refund
 
   // Notifications (FR-NOT-01..03)
   await page.getByRole('link', { name: /Notifications/ }).first().click()
-  await expect(page.getByText('Booking request submitted')).toBeVisible()
+  // ERP bookings notify 'Booking request submitted'; admin-managed slots confirm at once.
+  await expect(page.getByText(/^(Booking request submitted|Appointment confirmed)$/).first()).toBeVisible()
   await expect(page.getByText('Payment received').first()).toBeVisible()
 
   // Cancelling never refunds automatically (plan D13)
@@ -191,8 +193,12 @@ test('admin sees the dashboard and manages the directory', async ({ page }) => {
   await page.getByRole('button', { name: 'Specialties' }).click()
   const name = `E2E Specialty ${Date.now()}`
   await page.getByLabel('Name *').fill(name)
+  // The list is paginated, so the new row may land beyond page 1: check the create call instead.
+  const created = page.waitForResponse(
+    (r) => r.url().endsWith('/api/v1/admin/specialties') && r.request().method() === 'POST',
+  )
   await page.getByRole('button', { name: 'Create' }).click()
-  await expect(page.getByText(name)).toBeVisible()
+  expect((await created).status()).toBe(201)
 
   await page.getByRole('link', { name: 'Reviews' }).click()
   await expect(page.getByRole('button', { name: 'All' })).toBeVisible()

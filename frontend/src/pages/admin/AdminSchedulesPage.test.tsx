@@ -45,6 +45,8 @@ it('creates a dated shared slot with its own capacity and clinic-local times', a
   })
   await show()
   expect(screen.getByLabelText('Slot capacity')).toHaveValue(1)
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '08:00' } })
+  fireEvent.change(screen.getByLabelText('End time'), { target: { value: '08:30' } })
   fireEvent.change(screen.getByLabelText('Slot capacity'), { target: { value: '5' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create slot' }))
   await waitFor(() => expect(create).toHaveBeenCalledWith(2, {
@@ -53,6 +55,9 @@ it('creates a dated shared slot with its own capacity and clinic-local times', a
   }))
   expect(await screen.findByRole('status')).toHaveTextContent('Slot saved.')
   expect(await screen.findByText('0 booked / 5 places · 5 remaining · 0 min buffer')).toBeInTheDocument()
+  expect(screen.getByLabelText('Start time')).toHaveValue('')
+  expect(screen.getByLabelText('End time')).toHaveValue('')
+  expect(screen.getByLabelText('Slot capacity')).toHaveValue(1)
 })
 
 it('keeps inputs on failed save and announces the error', async () => {
@@ -88,17 +93,59 @@ it('locks booked times and submits versioned capacity/closure edits', async () =
   expect(await screen.findByText(/Existing bookings exceed the new capacity/)).toBeInTheDocument()
 })
 
-it('reports a blocked scheduling-mode switch without changing persisted mode', async () => {
-  vi.mocked(api.admin.list).mockResolvedValue([{
-    id: 2, full_name: 'Dr Ada', specialty: { id: 1, name: 'Cardiology' }, scheduling_mode: 'ERP',
-  }])
-  const update = vi.spyOn(api.admin, 'update').mockRejectedValue(new ApiError(409, 'SchedulingModeInUse', 'Resolve upcoming appointments before changing scheduling mode.'))
+it('returns to a blank create form after editing and reloads the latest values when editing again', async () => {
+  slots = [existing()]
+  const create = vi.spyOn(api.admin, 'createSlot')
+  const update = vi.spyOn(api.admin, 'updateSlot').mockImplementation(async (_doctor, _slot, body) => {
+    slots = [{ ...slots[0], ...body, version: slots[0].version + 1 }]
+    return slots[0]
+  })
+  render(<QueryClientProvider client={queryClient}><MemoryRouter><AdminSchedulesPage /></MemoryRouter></QueryClientProvider>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit slot 08:00' }))
+  fireEvent.change(screen.getByLabelText('Slot capacity'), { target: { value: '7' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+  await screen.findByText('Slot saved.')
+  expect(screen.getByRole('heading', { name: 'Create slot' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Start time')).toHaveValue('')
+  expect(screen.getByLabelText('End time')).toHaveValue('')
+  expect((screen.getByLabelText('Start time') as HTMLInputElement).checkValidity()).toBe(false)
+  expect(screen.getByLabelText('Buffer after slot (min)')).toHaveValue(0)
+  expect(screen.getByLabelText('Slot capacity')).toHaveValue(1)
+  expect(screen.getByLabelText('Slot date')).toHaveValue(day)
+  fireEvent.click(screen.getByRole('button', { name: 'Edit slot 08:00' }))
+  expect(screen.getByLabelText('Slot capacity')).toHaveValue(7)
+  fireEvent.change(screen.getByLabelText('Buffer after slot (min)'), { target: { value: '15' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+  await waitFor(() => expect(update).toHaveBeenLastCalledWith(2, 11, {
+    start_time: clinicDateTime(day, '08:00'), end_time: clinicDateTime(day, '08:30'),
+    buffer_minutes: 15, capacity: 7, is_open: true, version: 3,
+  }))
+  expect(create).not.toHaveBeenCalled()
+})
+
+it('preserves the selected slot and attempted values after a failed edit', async () => {
+  slots = [existing()]
+  const create = vi.spyOn(api.admin, 'createSlot')
+  vi.spyOn(api.admin, 'updateSlot').mockRejectedValue(new ApiError(409, 'SlotConflict', 'Buffer overlaps another slot.'))
+  render(<QueryClientProvider client={queryClient}><MemoryRouter><AdminSchedulesPage /></MemoryRouter></QueryClientProvider>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit slot 08:00' }))
+  fireEvent.change(screen.getByLabelText('Buffer after slot (min)'), { target: { value: '15' } })
+  fireEvent.change(screen.getByLabelText('Slot capacity'), { target: { value: '7' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Buffer overlaps another slot.')
+  expect(screen.getByLabelText('Buffer after slot (min)')).toHaveValue(15)
+  expect(screen.getByLabelText('Slot capacity')).toHaveValue(7)
+  expect(screen.getByRole('button', { name: 'Save slot' })).toBeEnabled()
+  expect(screen.getByText('0 booked / 5 places · 5 remaining · 10 min buffer')).toBeInTheDocument()
+  expect(create).not.toHaveBeenCalled()
+})
+
+it('offers only admin-managed slots without a scheduling-mode selector', async () => {
   await show()
-  fireEvent.change(screen.getByLabelText('Scheduling mode'), { target: { value: 'MANUAL' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save mode' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('Resolve upcoming appointments')
-  expect(update).toHaveBeenCalledWith('doctors', 2, { scheduling_mode: 'MANUAL' })
-  expect(screen.getByText(/ERP schedules are currently offered/)).toBeInTheDocument()
+  expect(screen.queryByLabelText('Scheduling mode')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Save mode' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/ERP/)).not.toBeInTheDocument()
+  expect(screen.getByText(/Patients can book the open slots you create here in Find Doctor/)).toBeInTheDocument()
 })
 
 it('converts clinic wall times independently of the browser timezone', () => {

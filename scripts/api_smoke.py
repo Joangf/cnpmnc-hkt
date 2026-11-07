@@ -54,7 +54,11 @@ def fake_transfer(code: str, amount: object, key: str = SEPAY_KEY, tid: int | No
     return httpx.post(f"{API}/payments/sepay-webhook", json=body, headers=headers)
 
 
-def find_slot(c: httpx.Client, doctor_id: int, offset_start: int = 2) -> tuple[int, str, str]:
+def find_slot(
+    c: httpx.Client, doctor_id: int, offset_start: int = 2
+) -> tuple[int, str, str, dict]:
+    """(type id, start, day, extra booking fields). Admin-managed slots (all doctors since
+    0009_manual_only_scheduling) must be booked with their slot_id and current version."""
     types = c.get(f"/doctors/{doctor_id}/appointment-types").json()
     # A paid type, so the payment flow can run (falls back to the first type).
     type_id = next((t["id"] for t in types if float(t["fee"]) > 0), types[0]["id"])
@@ -63,7 +67,13 @@ def find_slot(c: httpx.Client, doctor_id: int, offset_start: int = 2) -> tuple[i
         r = c.get(f"/doctors/{doctor_id}/availability", params={"date": day, "appointment_type_id": type_id})
         slots = r.json()["slots"]
         if slots:
-            return type_id, slots[len(slots) // 2]["start_time"], day
+            slot = slots[len(slots) // 2]
+            extra = (
+                {"slot_id": slot["slot_id"], "slot_version": slot["version"]}
+                if slot.get("slot_id")
+                else {}
+            )
+            return type_id, slot["start_time"], day, extra
     raise RuntimeError("no slot")
 
 
@@ -181,18 +191,19 @@ check("profile null name -> 422", reg.patch("/profile", json={"full_name": None}
 patient = client()
 login(patient, "patient@example.com", "Patient12345!")
 doctor_id = doctors[0]["id"]
-type_id, start, day = find_slot(patient, doctor_id)
+type_id, start, day, slot_fields = find_slot(patient, doctor_id)
 key = uuid.uuid4().hex
 body = {
     "doctor_id": doctor_id,
     "appointment_type_id": type_id,
     "start_time": start,
     "reason_for_visit": "Smoke test",
+    **slot_fields,
 }
 r = patient.post("/appointments", json=body, headers={"Idempotency-Key": key})
 check("create appointment -> 201", r.status_code == 201, r.text[:300])
 appt = r.json()
-check("appointment confirmed by ERP", appt["status"] == "CONFIRMED", appt.get("status"))
+check("appointment confirmed", appt["status"] == "CONFIRMED", appt.get("status"))
 check("booking reference format", re.fullmatch(r"HK[A-Z2-9]{8}", appt["booking_reference"]) is not None)
 check("statuses separate", appt["payment_status"] == "UNPAID" and appt["check_in_status"] == "NOT_CHECKED_IN")
 check("payment deadline set on confirmation", appt["payment_due_at"] is not None, appt.get("payment_due_at"))
@@ -281,10 +292,15 @@ check("doctor rating updated", doc["rating_count"] >= 1 and float(doc["rating_av
 check("public review listed", guest.get(f"/doctors/{doctor_id}/reviews").json()["total"] >= 1)
 
 # --- Cancel a paid appointment (no automatic refund, D13) -------------------------------------
-type_id2, start2, _ = find_slot(patient, doctors[1]["id"], offset_start=3)
+type_id2, start2, _, slot_fields2 = find_slot(patient, doctors[1]["id"], offset_start=3)
 appt2 = patient.post(
     "/appointments",
-    json={"doctor_id": doctors[1]["id"], "appointment_type_id": type_id2, "start_time": start2},
+    json={
+        "doctor_id": doctors[1]["id"],
+        "appointment_type_id": type_id2,
+        "start_time": start2,
+        **slot_fields2,
+    },
 ).json()
 pay2 = patient.post(f"/appointments/{appt2['id']}/payments").json()
 fake_transfer(pay2["payment_code"], pay2["amount"])
@@ -300,10 +316,15 @@ check("cancelled slot offered again", start2 in [s["start_time"] for s in avail2
 check("cancel again -> 409", patient.post(f"/appointments/{appt2['id']}/cancel", json={}).status_code == 409)
 
 # --- Cancel with a pending payment -----------------------------------------------------------
-type_id3, start3, _ = find_slot(patient, doctors[2]["id"], offset_start=4)
+type_id3, start3, _, slot_fields3 = find_slot(patient, doctors[2]["id"], offset_start=4)
 appt3 = patient.post(
     "/appointments",
-    json={"doctor_id": doctors[2]["id"], "appointment_type_id": type_id3, "start_time": start3},
+    json={
+        "doctor_id": doctors[2]["id"],
+        "appointment_type_id": type_id3,
+        "start_time": start3,
+        **slot_fields3,
+    },
 ).json()
 p3 = patient.post(f"/appointments/{appt3['id']}/payments").json()
 check("pending payment created", p3.get("status") == "PENDING", p3)

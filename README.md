@@ -23,9 +23,9 @@ Seeded accounts: `admin@example.com` / `Admin12345!` and `patient@example.com` /
 ## Try the main flow
 
 1. Sign in as the demo patient, open **Doctors**, pick a doctor, then choose a type, a date and a time.
-2. Request the booking. The mock ERP confirms it, and the page shows the booking reference with separate appointment, payment and check-in statuses.
-3. Book a type with a fee (e.g. **Payment Test (2,000 VND)**) and click **Pay by bank transfer**. The payment page shows a VietQR code and the transfer content (payment code, `CB` + 8 characters). Without a real transfer, simulate the bank notification with `python scripts/sepay_fake_transfer.py <payment_code> <amount>`; the page turns to **Paid** within a few seconds. An unpaid confirmed booking is released `PAYMENT_HOLD_MINUTES` (15) after confirmation.
-4. In http://localhost:8100/docs, call `POST /simulate/bookings/{ref}/check-in` and then `.../status` with `{"status":"COMPLETED"}`. The appointment page updates, and a review form appears.
+2. Reserve an open admin-managed slot. CareBook confirms it immediately and shows the booking reference (with a check-in QR code) and separate appointment, payment and check-in statuses.
+3. Click **Pay by bank transfer** (the fee is the consultation fee set in Admin -> Directory -> Appointment types). The payment page shows a VietQR code and the transfer content (payment code, `CB` + 8 characters). Without a real transfer, simulate the bank notification with `python scripts/sepay_fake_transfer.py <payment_code> <amount>`; the page turns to **Paid** within a few seconds. An unpaid confirmed booking is released `PAYMENT_HOLD_MINUTES` (15) after confirmation.
+4. Open the demo patient's seeded completed appointment to try the review flow. Manual check-in/completion controls are outside this version.
 
 ## Layout
 
@@ -51,10 +51,10 @@ docker-compose.yml  Full stack; docker-compose.override.yml adds dev hot reload 
 
 ## Key design points
 
-- **No double booking.** Availability is revalidated on submit. A Postgres `EXCLUDE USING gist` constraint on `(doctor_id, tstzrange(start, end+buffer))` rejects overlaps atomically, and the API returns `409`. The constraint is created in `alembic/versions/0001_initial.py`.
-- **"Confirmed" means the ERP accepted it** (BR-02). A booking is inserted as `PENDING` and only changes to `CONFIRMED` after the ERP accepts it. If the ERP times out, the booking stays `PENDING` and a reconciler resolves it later.
+- **Capacity protection.** Availability is revalidated under doctor/slot locks. PostgreSQL prevents overlapping slot intervals and protects each reservation position; shared slots permit reservations up to their configured capacity.
+- **Immediate confirmation.** New reservations use admin-managed slots and are confirmed locally in the booking transaction. Historic ERP appointments retain their existing lifecycle and references.
 - **Separate statuses** (BR-07). Appointment status, payment status and check-in status are tracked separately. Check-in status is written only by the ERP (BR-11).
-- **Configurable scheduling** (BR-05). Duration, buffer and fee live on `AppointmentType`, which can be global, per specialty or per doctor. Slot generation is a pure function (`services/scheduling.py`).
+- **Configurable scheduling.** Admins create dated slots with their own start/end, buffer and capacity. Appointment types supply service and fee metadata.
 - **Observability.** Each request gets an `X-Request-ID`. Logs are JSON with PII redacted, and you can filter the Grafana log panel by request ID. The business counters are `bookings_total`, `payments_total` and `erp_call_duration_seconds`.
 
 ## Common tasks
@@ -75,22 +75,15 @@ Frontend dev with hot reload: `cd frontend && npm install && npm run dev` (http:
 
 ## Scheduling constraints (SCRUM-21)
 
-Admins manage duration and buffer in **Directory → Appointment types**, including global,
-specialty, and doctor scopes. Duration is 5–480 whole minutes; buffer is 0–120 whole minutes.
-When both doctor and specialty are selected, they must match. The seeded standard consultation
-is 20 minutes with a 10-minute buffer. Missing or invalid appointment types and missing schedules
-never create bookable offers.
+All new availability comes from admin-managed slots. In **Administration → Schedules**, select a
+doctor and date, then configure start/end times, a buffer, and a positive integer capacity.
+Duration is 5–480 whole minutes and buffer is 0–120 whole minutes. The default slot capacity is
+**1**, and the default slot buffer is **0**. There is no ERP scheduling selector or work-window
+capacity control in the admin interface. Missing slots never imply unlimited capacity.
 
-**Directory → Doctors → Capacity per work window** sets the total number of pending or confirmed
-bookings permitted in each ERP work window, shared across all appointment types. The migration
-backfills existing doctors to **1**, and new doctors also default to **1** until an admin raises it.
-Capacity is a positive integer. A positive ERP limit further restricts the local limit (the smaller
-limit wins); an absent ERP limit uses the doctor's finite limit, while zero or invalid ERP limits
-close the window. This does not allow overlapping consultations for the same doctor.
-
-Capacity counts appointment starts in `[window start, window end)`. Cancelled and rejected
-appointments release capacity. Duration plus buffer must fit completely inside the work window,
-and existing reserved intervals and blocked periods are respected.
+Appointment types retain service/fee metadata and scope validation. The seeded standard
+consultation remains 20 minutes with a 10-minute buffer; manual slots supply the actual reserved
+duration and buffer. Missing or invalid applicable appointment types produce no bookable offers.
 
 Changes apply to subsequent offers and new bookings. Existing appointment times, buffers and
 statuses are preserved. Lowering capacity below existing bookings stops further offers without
@@ -109,11 +102,10 @@ times, a buffer, and capacity. For example, 08:00–08:30 with capacity 5 permit
 patients to reserve that exact interval. Times use the configured clinic timezone; slots and their
 buffers must fit within one clinic day and cannot overlap, including closed slots.
 
-Every doctor defaults to **ERP** scheduling. Admins can prepare manual slots while ERP mode is
-active, then switch the doctor to **Manual** once there are no upcoming or ongoing pending/confirmed
-appointments. In Manual mode, only manually created open slots are offered. Their capacities
-replace the ERP work-window limit. Appointment types continue to supply service/fee metadata;
-manual slot times and buffers define the reservation interval.
+Every doctor uses admin-managed slots automatically. Only open manual slots are offered to
+patients, with each slot's remaining capacity. Appointment types continue to supply service/fee
+metadata; manual slot times and buffers define the reservation interval. ERP schedules do not
+supply new availability.
 
 Manual reservations are confirmed immediately in CareBook. They do not call the ERP, and ERP
 sync, reconciliation and webhooks cannot alter them. Existing cancellation/payment/refund rules
@@ -128,3 +120,9 @@ when booking; stale slot versions return a conflict and the patient is prompted 
 Migration `0007_manual_doctor_slots` preserves existing appointments at reservation position 1
 and adds per-slot positions for shared bookings. Its downgrade refuses overlapping active shared
 reservations rather than deleting appointments. Apply migrations before starting the new backend.
+
+Migration `0009_manual_only_scheduling` switches existing doctors to manual scheduling, changes
+the database default to Manual, and records each conversion in the audit log in one transaction.
+It preserves all existing appointment snapshots, statuses, ERP references, and prepared slots.
+Doctor create/update APIs reject ERP scheduling. Legacy ERP appointment handling remains for
+previously accepted reservations; new manual reservations never call it.

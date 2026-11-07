@@ -138,19 +138,10 @@ describe('admin directory pagination', () => {
 })
 
 describe('SCRUM-21 scheduling controls', () => {
-  it('defaults doctor capacity to one and enforces positive whole integers', async () => {
+  it('omits ERP scheduling controls from the doctor form', async () => {
     await show('Doctors')
-    const capacity = screen.getByLabelText(/Capacity per work window/) as HTMLInputElement
-    expect(capacity).toHaveValue(1)
-    expect(capacity).toHaveAttribute('min', '1')
-    expect(capacity).toHaveAttribute('step', '1')
-    for (const value of ['0', '-1', '1.5', '']) {
-      fireEvent.change(capacity, { target: { value } })
-      expect(capacity.checkValidity()).toBe(false)
-    }
-    fireEvent.change(capacity, { target: { value: '4' } })
-    expect(capacity.checkValidity()).toBe(true)
-    expect(screen.getByText(/A stricter hospital schedule limit still applies/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Capacity per work window/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('ERP doctor ID')).not.toBeInTheDocument()
   })
 
   it('offers a doctor selector and bounded duration and buffer fields', async () => {
@@ -175,11 +166,11 @@ describe('SCRUM-21 scheduling controls', () => {
     )
     await show('Doctors')
     fireEvent.click(screen.getByRole('button', { name: 'Edit Dr Ada' }))
-    fireEvent.change(screen.getByLabelText(/Capacity per work window/), { target: { value: '7' } })
+    fireEvent.change(screen.getByLabelText(/Full name/), { target: { value: 'Updated Ada' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Previous settings remain effective.')
-    expect(screen.getByLabelText(/Capacity per work window/)).toHaveValue(7)
-    expect(screen.getByText(/Capacity 3 per work window/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Full name/)).toHaveValue('Updated Ada')
+    expect(screen.getByRole('button', { name: 'Edit Dr Ada' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
   })
 
@@ -190,13 +181,13 @@ describe('SCRUM-21 scheduling controls', () => {
     queryClient.setQueryData(['appointment-types', 2], [])
     await show('Doctors')
     fireEvent.click(screen.getByRole('button', { name: 'Edit Dr Ada' }))
-    fireEvent.change(screen.getByLabelText(/Capacity per work window/), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText(/Full name/), { target: { value: 'Updated Ada' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled())
-    expect(screen.getByText(/Capacity 3 per work window/)).toBeInTheDocument()
-    records.doctors = [{ ...doctor, max_appointments_per_window: 5 }]
+    expect(screen.getByRole('button', { name: 'Edit Dr Ada' })).toBeInTheDocument()
+    records.doctors = [{ ...doctor, full_name: 'Updated Ada' }]
     finish(records.doctors[0])
-    expect(await screen.findByText(/Capacity 5 per work window/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Edit Updated Ada' })).toBeInTheDocument()
     expect(await screen.findByRole('status')).toHaveTextContent('Scheduling settings saved.')
     expect(queryClient.getQueryState(['availability', 2, 5, '2030-01-01'])?.isInvalidated).toBe(true)
     expect(queryClient.getQueryState(['appointment-types', 2])?.isInvalidated).toBe(true)

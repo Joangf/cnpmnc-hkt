@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { api } from '../../api/endpoints'
-import type { AdminDoctorDetail, AdminSlot, SchedulingMode, SlotCreate } from '../../api/types'
+import type { AdminDoctorDetail, AdminSlot, SlotCreate } from '../../api/types'
 import { Card, ErrorAlert, Field, Notice, Spinner } from '../../components/ui'
 import { CLINIC_TZ, clinicDateTime, formatTime, upcomingDays } from '../../lib/format'
 import { AdminNav } from './AdminNav'
@@ -33,7 +33,6 @@ function SlotForm({ day, editing, busy, onSave, onCancel }: {
       if (duration < 5 || duration > 480) throw new Error('End time must be 5–480 minutes after start time.')
       setError(null)
       await onSave(body)
-      if (!editing) form.reset()
     } catch (err) {
       setError(err)
       requestAnimationFrame(() => errorRef.current?.focus())
@@ -47,11 +46,11 @@ function SlotForm({ day, editing, busy, onSave, onCancel }: {
       <fieldset disabled={busy} className="grid gap-5 sm:grid-cols-2">
         <Field label="Start time">
           <input className="input" type="time" name="start" required readOnly={locked}
-            defaultValue={editing ? formatTime(editing.start_time) : '08:00'} />
+            defaultValue={editing ? formatTime(editing.start_time) : ''} />
         </Field>
         <Field label="End time">
           <input className="input" type="time" name="end" required readOnly={locked}
-            defaultValue={editing ? formatTime(editing.end_time) : '08:30'} />
+            defaultValue={editing ? formatTime(editing.end_time) : ''} />
         </Field>
         <Field label="Buffer after slot (min)" hint="Reserved after the shared slot, 0–120 whole minutes.">
           <input className="input" type="number" name="buffer" min={0} max={120} step={1}
@@ -79,7 +78,7 @@ export default function AdminSchedulesPage() {
   const [selectedDoctor, setSelectedDoctor] = useState('')
   const [day, setDay] = useState(() => upcomingDays(2)[1].value)
   const [editing, setEditing] = useState<AdminSlot | null>(null)
-  const [modeDraft, setModeDraft] = useState<SchedulingMode>('ERP')
+  const [formRevision, setFormRevision] = useState(0)
   const [feedback, setFeedback] = useState('')
   const doctors = useQuery({ queryKey: ['admin', 'doctors'], queryFn: () => api.admin.list<AdminDoctorDetail>('doctors') })
   const doctorId = Number(selectedDoctor || doctors.data?.[0]?.id || 0)
@@ -88,9 +87,6 @@ export default function AdminSchedulesPage() {
     queryKey: ['admin', 'slots', doctorId, day],
     queryFn: () => api.admin.slots(doctorId, day), enabled: !!doctorId && !!day,
   })
-  useEffect(() => {
-    setModeDraft(doctor?.scheduling_mode ?? 'ERP')
-  }, [doctorId, doctor?.scheduling_mode])
   useEffect(() => {
     setEditing(null)
     setFeedback('')
@@ -104,17 +100,19 @@ export default function AdminSchedulesPage() {
       queryClient.invalidateQueries({ queryKey: ['availability'] }),
     ])
   }
-  const changeMode = useMutation({
-    mutationFn: () => api.admin.update<AdminDoctorDetail>('doctors', doctorId, { scheduling_mode: modeDraft }),
-    onSuccess: async () => { await invalidate(); setFeedback('Scheduling mode saved.') },
-  })
   const save = useMutation({
+    onMutate: () => setFeedback(''),
     mutationFn: (body: SlotCreate) => editing
       ? api.admin.updateSlot(doctorId, editing.id, { ...body, version: editing.version })
       : api.admin.createSlot(doctorId, body),
-    onSuccess: async () => { await invalidate(); setEditing(null); setFeedback('Slot saved.') },
+    onSuccess: async () => {
+      await invalidate()
+      setEditing(null)
+      setFormRevision((previous) => previous + 1)
+      setFeedback('Slot saved.')
+    },
   })
-  const busy = changeMode.isPending || save.isPending
+  const busy = save.isPending
 
   return (
     <div>
@@ -127,7 +125,7 @@ export default function AdminSchedulesPage() {
       <div className="mb-6 grid gap-5 sm:grid-cols-2">
         <Field label="Doctor">
           <select className="input" value={doctorId || ''} disabled={busy} onChange={(event) => {
-            setSelectedDoctor(event.target.value); changeMode.reset(); save.reset()
+            setSelectedDoctor(event.target.value); save.reset()
           }}>
             {!doctorId && <option value="">Select a doctor</option>}
             {doctors.data?.map((item) => <option value={item.id} key={item.id}>{item.full_name} · {item.specialty.name}</option>)}
@@ -140,23 +138,9 @@ export default function AdminSchedulesPage() {
         </Field>
       </div>
       {doctor && <>
-        <Card className="mb-6 space-y-4">
-          <h2 className="section-title">Scheduling source</h2>
-          <div className="flex flex-wrap items-end gap-4">
-            <Field label="Scheduling mode">
-              <select className="input" value={modeDraft} disabled={busy} onChange={(event) => setModeDraft(event.target.value as SchedulingMode)}>
-                <option value="ERP">ERP — hospital schedules</option>
-                <option value="MANUAL">Manual — admin-managed slots</option>
-              </select>
-            </Field>
-            <button className="btn-secondary" disabled={busy || modeDraft === doctor.scheduling_mode} onClick={() => changeMode.mutate()}>Save mode</button>
-          </div>
-          <p className="caption">Mode changes require no upcoming or ongoing active appointments. You can prepare manual slots while ERP mode is selected.</p>
-          <ErrorAlert error={changeMode.error} />
-          {doctor.scheduling_mode === 'ERP'
-            ? <Notice>ERP schedules are currently offered to patients. Manual slots below will be available after switching this doctor to Manual.</Notice>
-            : <Notice>CareBook confirms reservations immediately. Each slot has its own capacity; the ERP work-window limit does not apply.</Notice>}
-        </Card>
+        <div className="mb-6">
+          <Notice>Patients can book the open slots you create here in Find Doctor. Each slot has its own capacity, and CareBook confirms reservations immediately.</Notice>
+        </div>
         {feedback && <p role="status" className="mb-5 font-semibold text-success">{feedback}</p>}
         <div className="grid items-start gap-6 lg:grid-cols-2">
           <Card className="min-w-0 space-y-4">
@@ -180,7 +164,7 @@ export default function AdminSchedulesPage() {
           </Card>
           <Card className="min-w-0 space-y-4">
             <h2 className="section-title">{editing ? 'Edit slot' : 'Create slot'}</h2>
-            <SlotForm key={`${doctorId}-${day}-${editing?.id ?? 'new'}`} day={day} editing={editing}
+            <SlotForm key={`${doctorId}-${day}-${editing?.id ?? 'new'}-${editing?.version ?? 0}-${formRevision}`} day={day} editing={editing}
               busy={busy} onSave={(body) => save.mutateAsync(body)} onCancel={() => setEditing(null)} />
             <p className="caption">Slots, including their buffers, cannot overlap. Closed slots keep their interval; edit or reopen an existing slot instead of creating a replacement.</p>
           </Card>
