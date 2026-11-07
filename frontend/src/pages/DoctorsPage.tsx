@@ -37,7 +37,7 @@ export default function DoctorsPage() {
 
   return (
     <div>
-      <h1 className="page-title mb-6">Find a doctor</h1>
+      <h1 className="page-title mb-6">Doctors</h1>
       <form
         className="card flex flex-wrap items-end gap-4"
         onSubmit={(e) => {

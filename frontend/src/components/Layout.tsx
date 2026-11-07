@@ -78,7 +78,7 @@ export function Layout() {
   }
 
   const mainLinks: NavItem[] = [
-    { to: '/doctors', label: 'Find a doctor' },
+    { to: '/doctors', label: 'Doctors' },
     { to: '/hospitals', label: 'Hospitals & clinics' },
     { to: '/symptoms', label: 'Symptom checker' },
   ]

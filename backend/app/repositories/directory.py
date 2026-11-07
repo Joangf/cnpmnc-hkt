@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -173,7 +173,20 @@ async def list_appointment_types_for_doctor(
                 ),
             ),
         )
-        .order_by(AppointmentType.duration_minutes, AppointmentType.name)
+        .order_by(
+            case(
+                (AppointmentType.name.ilike("%standard%"), 0),
+                (AppointmentType.name.ilike("%tiêu chuẩn%"), 0),
+                (AppointmentType.name.ilike("%thường%"), 0),
+                (AppointmentType.name.ilike("%follow-up%"), 3),
+                (AppointmentType.name.ilike("%tái khám%"), 3),
+                (AppointmentType.name.ilike("%extended%"), 2),
+                (AppointmentType.name.ilike("%chuyên sâu%"), 2),
+                else_=1,
+            ),
+            AppointmentType.duration_minutes,
+            AppointmentType.name,
+        )
     )
     return list((await session.scalars(stmt)).all())
 

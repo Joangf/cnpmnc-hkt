@@ -205,9 +205,15 @@ async def _create(
     doctor = await directory_repo.get_doctor(session, payload.doctor_id)
     if doctor is None or not doctor.is_active:
         raise NotFound("Doctor not found.")
-    appointment_type = await session.get(AppointmentType, payload.appointment_type_id)
-    if appointment_type is None or not policies.type_applies_to_doctor(appointment_type, doctor):
-        raise ValidationFailed("This appointment type is not offered by the selected doctor.")
+    if payload.appointment_type_id is not None:
+        appointment_type = await session.get(AppointmentType, payload.appointment_type_id)
+        if appointment_type is None or not policies.type_applies_to_doctor(appointment_type, doctor):
+            raise ValidationFailed("This appointment type is not offered by the selected doctor.")
+    else:
+        types = await directory_repo.list_appointment_types_for_doctor(session, doctor)
+        if not types:
+            raise ValidationFailed("No active appointment types available.")
+        appointment_type = types[0]
 
     start = payload.start_time.astimezone(UTC)
     day = availability.local_day(start)

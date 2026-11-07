@@ -55,7 +55,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link to="/doctors" className="btn-primary">
-              Find a doctor
+              Doctors
             </Link>
             <Link to="/symptoms" className="btn-secondary">
               Not sure which specialty?

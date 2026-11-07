@@ -10,7 +10,7 @@ from app.schemas.validators import ShortText
 
 class AppointmentCreate(BaseModel):
     doctor_id: int = Field(gt=0)
-    appointment_type_id: int = Field(gt=0)
+    appointment_type_id: int | None = Field(default=None, gt=0)
     start_time: AwareDatetime
     reason_for_visit: ShortText | None = None
 

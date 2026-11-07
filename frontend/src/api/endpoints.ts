@@ -39,7 +39,7 @@ export const api = {
     }) => request<T.Page<T.DoctorSummary>>('GET', '/doctors', { query }),
     doctor: (id: number) => request<T.DoctorDetail>('GET', `/doctors/${id}`),
     appointmentTypes: (doctorId: number) => request<T.AppointmentType[]>('GET', `/doctors/${doctorId}/appointment-types`),
-    availability: (doctorId: number, date: string, appointmentTypeId: number) =>
+    availability: (doctorId: number, date: string, appointmentTypeId?: number) =>
       request<T.Availability>('GET', `/doctors/${doctorId}/availability`, {
         query: { date, appointment_type_id: appointmentTypeId },
       }),

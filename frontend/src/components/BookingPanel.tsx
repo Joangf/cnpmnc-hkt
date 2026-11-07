@@ -12,7 +12,7 @@ import { ErrorAlert, Field, Notice, Spinner } from './ui'
 // Booking flow (design board 03): 1 Find care · 2 Choose doctor · 3 Pick a time · 4 Your details · 5 Confirm.
 const STEPS = ['Find care', 'Choose doctor', 'Pick a time', 'Your details', 'Confirm']
 
-/** FR-BOOK-01..04: choose type, date and slot; the server revalidates on submit. */
+/** FR-BOOK-01..04: choose date and slot; the server revalidates on submit. */
 export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -22,18 +22,17 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   const dateLabelId = useId()
 
   const days = useMemo(() => upcomingDays(14), [])
-  const [typeId, setTypeId] = useState<number | null>(null)
   const [day, setDay] = useState(days[1]?.value ?? days[0].value)
   const [slot, setSlot] = useState<Slot | null>(null)
   const [reason, setReason] = useState('')
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
 
   const types = useQuery({ queryKey: ['appointment-types', doctor.id], queryFn: () => api.directory.appointmentTypes(doctor.id) })
-  const selectedType = types.data?.find((t) => t.id === typeId) ?? types.data?.[0]
+  const selectedType = types.data?.[0]
 
   const availability = useQuery({
     queryKey: ['availability', doctor.id, selectedType?.id, day],
-    queryFn: () => api.directory.availability(doctor.id, day, selectedType!.id),
+    queryFn: () => api.directory.availability(doctor.id, day, selectedType?.id),
     enabled: !!selectedType,
   })
 
@@ -93,24 +92,16 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
 
       <div className="space-y-6 p-5 sm:p-6">
         {types.isLoading && <Spinner />}
-        {types.data && types.data.length === 0 && <Notice>This doctor has no bookable appointment types.</Notice>}
-        {types.data && types.data.length > 0 && (
-          <Field label="Appointment type">
-            <select
-              className="input"
-              value={selectedType?.id}
-              onChange={(e) => {
-                setTypeId(Number(e.target.value))
-                setSlot(null)
-              }}
-            >
-              {types.data.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} · {t.duration_minutes} min · {formatMoney(t.fee, t.currency)}
-                </option>
-              ))}
-            </select>
-          </Field>
+        {selectedType && (
+          <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3">
+            <div>
+              <p className="text-caption font-semibold text-muted">Consultation fee</p>
+              <p className="text-base font-semibold text-ink">{formatMoney(fee, selectedType.currency)}</p>
+            </div>
+            <span className="tag bg-blush font-semibold text-berry">
+              {selectedType.duration_minutes} min
+            </span>
+          </div>
         )}
 
         <div>
@@ -145,8 +136,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
             <p className="caption">No available times on this day. Try another date.</p>
           )}
           {groups.map((g) => (
-            // Keyed by day and type so the times fade in again when either changes.
-            <div key={`${day}-${selectedType?.id}-${g.label}`} role="group" aria-label={g.label} className="animate-fade">
+            <div key={`${day}-${g.label}`} role="group" aria-label={g.label} className="animate-fade">
               <p className="text-caption font-semibold">{g.label}</p>
               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {g.slots.map((s) => {
@@ -182,12 +172,8 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
                 <dt className="text-muted">When</dt>
                 <dd className="text-right">{formatDateTime(slot.start_time)}</dd>
               </div>
-              <div className="flex justify-between gap-4 px-4 py-3">
-                <dt className="text-muted">Type</dt>
-                <dd className="text-right">{selectedType.name}</dd>
-              </div>
               <div className="flex justify-between gap-4 bg-surface px-4 py-3">
-                <dt className="font-semibold">Total fee</dt>
+                <dt className="font-semibold">Consultation fee</dt>
                 <dd className="text-right font-semibold">{formatMoney(fee, selectedType.currency)}</dd>
               </div>
             </dl>

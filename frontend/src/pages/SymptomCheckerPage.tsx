@@ -189,7 +189,7 @@ export default function SymptomCheckerPage() {
             <p className="caption mt-1">Skip the checker and look directly.</p>
             <div className="mt-4 flex flex-col gap-1">
               <Link to="/doctors" className="link inline-flex min-h-12 items-center gap-2">
-                Find a doctor <IconArrowRight size={18} />
+                Doctors <IconArrowRight size={18} />
               </Link>
               <Link to="/hospitals" className="link inline-flex min-h-12 items-center gap-2">
                 Hospitals &amp; clinics <IconArrowRight size={18} />

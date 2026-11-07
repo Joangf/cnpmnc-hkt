@@ -96,56 +96,7 @@ GIVEN_NAMES = [
 
 # (name, description, duration, buffer, fee_override, specialty name or None)
 APPOINTMENT_TYPES = [
-    ("Standard consultation", "General consultation.", 20, 10, Decimal("200000"), None),
-    ("Extended consultation", "For complex or multiple concerns.", 30, 10, Decimal("350000"), None),
-    (
-        "Follow-up visit",
-        "Review of a previous consultation or test results.",
-        15,
-        5,
-        Decimal("150000"),
-        None,
-    ),
-    (
-        "Skin procedure consultation",
-        "Assessment before a minor skin procedure.",
-        40,
-        10,
-        Decimal("300000"),
-        "Dermatology",
-    ),
-    (
-        "Comprehensive eye examination",
-        "Vision and eye health check.",
-        30,
-        10,
-        Decimal("300000"),
-        "Ophthalmology",
-    ),
-    (
-        "Cardiac evaluation & ECG",
-        "Cardiovascular assessment with ECG.",
-        30,
-        10,
-        Decimal("350000"),
-        "Cardiology",
-    ),
-    (
-        "Pediatric developmental screening",
-        "Child wellness and developmental checkup.",
-        30,
-        10,
-        Decimal("250000"),
-        "Pediatrics",
-    ),
-    (
-        "ENT endoscopy consultation",
-        "Ear, nose, and throat examination with video endoscopy.",
-        25,
-        10,
-        Decimal("300000"),
-        "Otorhinolaryngology (ENT)",
-    ),
+    ("General Consultation", "Standard consultation fee.", 20, 10, Decimal("200000"), None),
 ]
 
 # (name, keywords, [(specialty, weight)], red_flag_message)  -- PENDING CLINICAL REVIEW

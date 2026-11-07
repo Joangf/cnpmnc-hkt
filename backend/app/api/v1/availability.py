@@ -26,14 +26,21 @@ async def get_doctor_availability(
     session: SessionDep,
     redis: RedisDep,
     day: Annotated[dt.date, Query(alias="date", description="Clinic-local date (YYYY-MM-DD)")],
-    appointment_type_id: int,
+    appointment_type_id: int | None = Query(default=None),
 ) -> AvailabilityResponse:
     doctor = await directory_repo.get_doctor(session, doctor_id)
     if doctor is None or not doctor.is_active:
         raise NotFound("Doctor not found.")
-    appointment_type = await session.get(AppointmentType, appointment_type_id)
-    if appointment_type is None or not policies.type_applies_to_doctor(appointment_type, doctor):
-        raise ValidationFailed("This appointment type is not offered by the selected doctor.")
+    if appointment_type_id is not None:
+        appointment_type = await session.get(AppointmentType, appointment_type_id)
+        if appointment_type is None or not policies.type_applies_to_doctor(appointment_type, doctor):
+            raise ValidationFailed("This appointment type is not offered by the selected doctor.")
+    else:
+        types = await directory_repo.list_appointment_types_for_doctor(session, doctor)
+        if not types:
+            raise ValidationFailed("No active appointment types available.")
+        appointment_type = types[0]
+
     availability.check_booking_window(day)
 
     slots = await availability.get_slots_cached(session, redis, doctor.id, appointment_type, day)

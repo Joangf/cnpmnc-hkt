@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { api, type AdminEntity } from '../../api/endpoints'
 import type { AppointmentTypeAdmin, Department, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
 import { Card, ErrorAlert, FilterChip, Spinner } from '../../components/ui'
@@ -16,21 +16,54 @@ interface FieldDef {
   options?: { value: string | number; label: string }[]
 }
 
-type Row = { id: number; is_active: boolean; title: string; subtitle: string }
+type Row = {
+  id: number
+  is_active: boolean
+  title: string
+  subtitle: string
+  raw: Record<string, unknown>
+}
 
-function EntityForm({ fields, onSubmit, busy }: { fields: FieldDef[]; onSubmit: (body: Record<string, unknown>) => void; busy: boolean }) {
+function EntityForm({
+  fields,
+  initialValues,
+  onSubmit,
+  onCancel,
+  busy,
+  submitLabel = 'Create',
+}: {
+  fields: FieldDef[]
+  initialValues?: Record<string, unknown> | null
+  onSubmit: (body: Record<string, unknown>) => void
+  onCancel?: () => void
+  busy: boolean
+  submitLabel?: string
+}) {
+  const [formState, setFormState] = useState<Record<string, unknown>>(initialValues ?? {})
+
+  useEffect(() => {
+    setFormState(initialValues ?? {})
+  }, [initialValues])
+
   const handle = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const data = new FormData(e.currentTarget)
     const body: Record<string, unknown> = {}
     for (const f of fields) {
-      const raw = String(data.get(f.name) ?? '').trim()
-      if (raw === '') continue
-      body[f.name] = f.type === 'number' || (f.type === 'select' && /^\d+$/.test(raw)) ? Number(raw) : raw
+      const val = formState[f.name]
+      if (val === undefined || val === null || val === '') {
+        if (!initialValues) continue
+        body[f.name] = null
+        continue
+      }
+      body[f.name] = f.type === 'number' || (f.type === 'select' && /^\d+$/.test(String(val))) ? Number(val) : val
     }
     onSubmit(body)
-    e.currentTarget.reset()
+    if (!initialValues) {
+      setFormState({})
+      e.currentTarget.reset()
+    }
   }
+
   return (
     <form className="grid gap-5 sm:grid-cols-2" onSubmit={handle}>
       {fields.map((f) => (
@@ -40,9 +73,22 @@ function EntityForm({ fields, onSubmit, busy }: { fields: FieldDef[]; onSubmit: 
             {f.required && ' *'}
           </span>
           {f.type === 'textarea' ? (
-            <textarea name={f.name} className="input" rows={2} required={f.required} />
+            <textarea
+              name={f.name}
+              className="input"
+              rows={2}
+              required={f.required}
+              value={String(formState[f.name] ?? '')}
+              onChange={(e) => setFormState({ ...formState, [f.name]: e.target.value })}
+            />
           ) : f.type === 'select' ? (
-            <select name={f.name} className="input" required={f.required} defaultValue="">
+            <select
+              name={f.name}
+              className="input"
+              required={f.required}
+              value={String(formState[f.name] ?? '')}
+              onChange={(e) => setFormState({ ...formState, [f.name]: e.target.value })}
+            >
               <option value="">—</option>
               {f.options?.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -51,14 +97,27 @@ function EntityForm({ fields, onSubmit, busy }: { fields: FieldDef[]; onSubmit: 
               ))}
             </select>
           ) : (
-            <input name={f.name} className="input" type={f.type ?? 'text'} required={f.required} min={f.type === 'number' ? 0 : undefined} />
+            <input
+              name={f.name}
+              className="input"
+              type={f.type ?? 'text'}
+              required={f.required}
+              min={f.type === 'number' ? 0 : undefined}
+              value={String(formState[f.name] ?? '')}
+              onChange={(e) => setFormState({ ...formState, [f.name]: e.target.value })}
+            />
           )}
         </label>
       ))}
-      <div className="sm:col-span-2">
+      <div className="flex flex-wrap gap-3 sm:col-span-2">
         <button className="btn-primary" disabled={busy}>
-          Create
+          {busy ? 'Saving…' : submitLabel}
         </button>
+        {onCancel && (
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
       </div>
     </form>
   )
@@ -66,7 +125,8 @@ function EntityForm({ fields, onSubmit, busy }: { fields: FieldDef[]; onSubmit: 
 
 export default function AdminDirectoryPage() {
   const queryClient = useQueryClient()
-  const [entity, setEntity] = useState<AdminEntity>('hospitals')
+  const [entity, setEntity] = useState<AdminEntity>('appointment-types')
+  const [editing, setEditing] = useState<Row | null>(null)
 
   const specialties = useQuery({ queryKey: ['admin', 'specialties'], queryFn: () => api.admin.list<Specialty>('specialties') })
   const hospitals = useQuery({ queryKey: ['admin', 'hospitals'], queryFn: () => api.admin.list<HospitalDetail>('hospitals') })
@@ -81,6 +141,13 @@ export default function AdminDirectoryPage() {
     queryClient.invalidateQueries({ queryKey: ['specialties'] })
   }
   const create = useMutation({ mutationFn: (body: Record<string, unknown>) => api.admin.create(entity, body), onSuccess: invalidate })
+  const update = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) => api.admin.update(entity, id, body),
+    onSuccess: () => {
+      invalidate()
+      setEditing(null)
+    },
+  })
   const toggle = useMutation({
     mutationFn: (row: Row) => api.admin.update(entity, row.id, { is_active: !row.is_active }),
     onSuccess: invalidate,
@@ -92,7 +159,21 @@ export default function AdminDirectoryPage() {
   const config: Record<AdminEntity, { label: string; rows: Row[] | undefined; fields: FieldDef[] }> = {
     hospitals: {
       label: 'Hospitals & clinics',
-      rows: hospitals.data?.map((h) => ({ id: h.id, is_active: h.is_active, title: h.name, subtitle: `${h.address}, ${h.city}` })),
+      rows: hospitals.data?.map((h) => ({
+        id: h.id,
+        is_active: h.is_active,
+        title: h.name,
+        subtitle: `${h.address}, ${h.city}`,
+        raw: {
+          name: h.name,
+          facility_type: h.facility_type,
+          address: h.address,
+          city: h.city,
+          phone: h.phone ?? '',
+          email: h.email ?? '',
+          description: h.description ?? '',
+        },
+      })),
       fields: [
         { name: 'name', label: 'Name', required: true },
         { name: 'facility_type', label: 'Type', type: 'select', options: [{ value: 'HOSPITAL', label: 'Hospital' }, { value: 'CLINIC', label: 'Clinic' }] },
@@ -105,7 +186,13 @@ export default function AdminDirectoryPage() {
     },
     specialties: {
       label: 'Specialties',
-      rows: specialties.data?.map((s) => ({ id: s.id, is_active: s.is_active, title: s.name, subtitle: s.description ?? '' })),
+      rows: specialties.data?.map((s) => ({
+        id: s.id,
+        is_active: s.is_active,
+        title: s.name,
+        subtitle: s.description ?? '',
+        raw: { name: s.name, description: s.description ?? '' },
+      })),
       fields: [
         { name: 'name', label: 'Name', required: true },
         { name: 'description', label: 'Description', type: 'textarea' },
@@ -118,6 +205,7 @@ export default function AdminDirectoryPage() {
         is_active: d.is_active,
         title: d.name,
         subtitle: `${hospitalName.get(d.hospital_id) ?? `Hospital #${d.hospital_id}`} · ${d.specialty.name}`,
+        raw: { name: d.name, hospital_id: d.hospital_id, specialty_id: d.specialty.id, description: d.description ?? '' },
       })),
       fields: [
         { name: 'hospital_id', label: 'Hospital', type: 'select', required: true, options: hospitals.data?.map((h) => ({ value: h.id, label: h.name })) },
@@ -133,6 +221,15 @@ export default function AdminDirectoryPage() {
         is_active: d.is_active,
         title: d.full_name,
         subtitle: `${d.hospital.name} · ${d.department.name} · ERP ${d.erp_doctor_id ?? 'not linked'}`,
+        raw: {
+          full_name: d.full_name,
+          department_id: d.department.id,
+          title: d.title ?? '',
+          experience_years: d.experience_years,
+          erp_doctor_id: d.erp_doctor_id ?? '',
+          qualifications: d.qualifications ?? '',
+          introduction: d.introduction ?? '',
+        },
       })),
       fields: [
         {
@@ -151,21 +248,24 @@ export default function AdminDirectoryPage() {
       ],
     },
     'appointment-types': {
-      label: 'Appointment types',
+      label: 'Consultation fee',
       rows: types.data?.map((t) => ({
         id: t.id,
         is_active: t.is_active,
         title: t.name,
-        subtitle: `${t.duration_minutes} min + ${t.buffer_minutes} min buffer · ${
-          t.doctor_id ? `doctor #${t.doctor_id}` : t.specialty_id ? `specialty #${t.specialty_id}` : 'all doctors'
-        }${t.fee_override ? ` · ${formatMoney(t.fee_override)}` : ''}`,
+        subtitle: `${t.fee_override ? formatMoney(t.fee_override) : 'No fee'} · ${t.duration_minutes} min duration`,
+        raw: {
+          name: t.name,
+          fee_override: t.fee_override ?? '',
+          duration_minutes: t.duration_minutes,
+          buffer_minutes: t.buffer_minutes,
+          description: t.description ?? '',
+        },
       })),
       fields: [
         { name: 'name', label: 'Name', required: true },
-        { name: 'duration_minutes', label: 'Duration (min)', type: 'number', required: true },
-        { name: 'buffer_minutes', label: 'Buffer (min)', type: 'number' },
         { name: 'fee_override', label: 'Consultation fee (VND)', type: 'number', required: true },
-        { name: 'specialty_id', label: 'Limit to specialty', type: 'select', options: specialtyOptions },
+        { name: 'duration_minutes', label: 'Slot duration (min)', type: 'number', required: true },
         { name: 'description', label: 'Description', type: 'textarea' },
       ],
     },
@@ -178,7 +278,14 @@ export default function AdminDirectoryPage() {
       <AdminNav />
       <div className="mb-6 flex flex-wrap gap-3">
         {(Object.keys(config) as AdminEntity[]).map((key) => (
-          <FilterChip key={key} pressed={key === entity} onClick={() => setEntity(key)}>
+          <FilterChip
+            key={key}
+            pressed={key === entity}
+            onClick={() => {
+              setEntity(key)
+              setEditing(null)
+            }}
+          >
             {config[key].label}
           </FilterChip>
         ))}
@@ -199,18 +306,38 @@ export default function AdminDirectoryPage() {
                   </div>
                   <div className="caption">{row.subtitle}</div>
                 </div>
-                <button className="btn-secondary btn-sm shrink-0" onClick={() => toggle.mutate(row)}>
-                  {row.is_active ? 'Deactivate' : 'Activate'}
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button className="btn-secondary btn-sm" type="button" onClick={() => setEditing(row)}>
+                    Edit
+                  </button>
+                  <button className="btn-secondary btn-sm" type="button" onClick={() => toggle.mutate(row)}>
+                    {row.is_active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         </Card>
         <Card className="min-w-0 lg:col-span-2">
-          <h2 className="section-title mb-4">Add new</h2>
-          <EntityForm key={entity} fields={current.fields} onSubmit={(body) => create.mutate(body)} busy={create.isPending} />
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="section-title">{editing ? `Edit: ${editing.title}` : 'Add new'}</h2>
+            {editing && (
+              <button className="btn-secondary btn-sm" type="button" onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+            )}
+          </div>
+          <EntityForm
+            key={`${entity}-${editing?.id ?? 'new'}`}
+            fields={current.fields}
+            initialValues={editing?.raw}
+            onSubmit={(body) => (editing ? update.mutate({ id: editing.id, body }) : create.mutate(body))}
+            onCancel={editing ? () => setEditing(null) : undefined}
+            busy={create.isPending || update.isPending}
+            submitLabel={editing ? 'Save changes' : 'Create'}
+          />
           <div className="mt-3">
-            <ErrorAlert error={create.error} />
+            <ErrorAlert error={create.error ?? update.error} />
           </div>
         </Card>
       </div>
