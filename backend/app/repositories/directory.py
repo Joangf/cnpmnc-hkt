@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import ColumnElement, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -17,6 +17,20 @@ def _doctor_options() -> tuple:
     return (
         joinedload(Doctor.hospital),
         joinedload(Doctor.department).joinedload(Department.specialty),
+    )
+
+
+def _published_doctor() -> ColumnElement[bool]:
+    """SQL form of `policies.doctor_is_published`."""
+    return and_(
+        Doctor.is_active.is_(True),
+        Doctor.hospital.has(Hospital.is_active.is_(True)),
+        Doctor.department.has(
+            and_(
+                Department.is_active.is_(True),
+                Department.specialty.has(Specialty.is_active.is_(True)),
+            )
+        ),
     )
 
 
@@ -55,7 +69,11 @@ async def list_hospitals(
     if specialty_id:
         stmt = stmt.where(
             Hospital.departments.any(
-                and_(Department.specialty_id == specialty_id, Department.is_active.is_(True))
+                and_(
+                    Department.specialty_id == specialty_id,
+                    Department.is_active.is_(True),
+                    Department.specialty.has(Specialty.is_active.is_(True)),
+                )
             )
         )
     return await paginate(session, stmt, page, page_size)
@@ -128,7 +146,7 @@ async def list_doctors(
 ) -> tuple[list[Doctor], int]:
     stmt = select(Doctor).options(*_doctor_options()).order_by(Doctor.full_name)
     if not include_inactive:
-        stmt = stmt.where(Doctor.is_active.is_(True))
+        stmt = stmt.where(_published_doctor())
     if q:
         stmt = stmt.where(Doctor.full_name.ilike(f"%{q}%"))
     if hospital_id:

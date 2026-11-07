@@ -3803,6 +3803,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation failed (ValidationFailed) */
             422: {
                 headers: {
@@ -4054,8 +4063,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Resource not found (NotFound) */
-            404: {
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4118,6 +4127,15 @@ export interface operations {
             };
             /** @description Resource not found (NotFound) */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4225,8 +4243,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Resource not found (NotFound) */
-            404: {
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4289,6 +4307,15 @@ export interface operations {
             };
             /** @description Resource not found (NotFound) */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
