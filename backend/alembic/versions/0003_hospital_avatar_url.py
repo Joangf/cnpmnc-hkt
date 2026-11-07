@@ -7,8 +7,6 @@ Create Date: 2026-11-07
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
-
 from alembic import op
 
 revision: str = "0003_hospital_avatar_url"
@@ -18,8 +16,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("hospitals", sa.Column("avatar_url", sa.String(500), nullable=True))
+    op.execute("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)")
 
 
 def downgrade() -> None:
-    op.drop_column("hospitals", "avatar_url")
+    op.execute("ALTER TABLE hospitals DROP COLUMN IF EXISTS avatar_url")
