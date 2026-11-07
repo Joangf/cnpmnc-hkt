@@ -1,7 +1,7 @@
 """add avatar_url to hospitals
 
-Revision ID: 0002_hospital_avatar_url
-Revises: 0001_initial
+Revision ID: 0003_hospital_avatar_url
+Revises: 0002_optional_dob_phone
 Create Date: 2026-11-07
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "0002_hospital_avatar_url"
-down_revision: str | None = "0001_initial"
+revision: str = "0003_hospital_avatar_url"
+down_revision: str | None = "0002_optional_dob_phone"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
