@@ -5,6 +5,7 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminDirectoryPage from './pages/admin/AdminDirectoryPage'
 import AdminRefundsPage from './pages/admin/AdminRefundsPage'
 import AdminReviewsPage from './pages/admin/AdminReviewsPage'
+import AdminSchedulesPage from './pages/admin/AdminSchedulesPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AppointmentDetailPage from './pages/AppointmentDetailPage'
 import AppointmentsPage from './pages/AppointmentsPage'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="admin" element={<RequireAuth role="ADMIN" />}>
           <Route index element={<AdminDashboardPage />} />
           <Route path="directory" element={<AdminDirectoryPage />} />
+          <Route path="schedules" element={<AdminSchedulesPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="refunds" element={<AdminRefundsPage />} />

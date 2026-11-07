@@ -43,7 +43,7 @@ from app.schemas.appointments import AdminAppointmentOut
 from app.schemas.common import Page, error_responses
 from app.schemas.directory import HospitalDetail, SpecialtyOut
 from app.schemas.reviews import AdminReviewOut, ReviewModerate
-from app.services import audit, availability, erp_sync, policies, reports
+from app.services import audit, availability, erp_sync, manual_slots, policies, reports
 from app.services import reviews as review_service
 
 router = APIRouter(prefix="/admin", tags=["admin"], responses=error_responses(401, 403))
@@ -426,6 +426,8 @@ async def update_doctor(
     doctor = await directory_repo.get_doctor(session, doctor_id)
     if doctor is None:
         raise NotFound("Doctor not found.")
+    if payload.scheduling_mode is not None and payload.scheduling_mode != doctor.scheduling_mode:
+        await manual_slots.ensure_mode_change_allowed(session, doctor)
     if payload.department_id is not None:
         department = await _require_ref(session, Department, payload.department_id, "Department")
         doctor.hospital_id = department.hospital_id

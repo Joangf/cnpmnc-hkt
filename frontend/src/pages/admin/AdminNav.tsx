@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 const items = [
   { to: '/admin', label: 'Overview', end: true },
   { to: '/admin/directory', label: 'Directory' },
+  { to: '/admin/schedules', label: 'Schedules' },
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/reviews', label: 'Reviews' },
   { to: '/admin/refunds', label: 'Refunds' },

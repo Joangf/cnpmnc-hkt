@@ -71,11 +71,12 @@ test('patient registers, books, pays by bank transfer, cancels and gets a refund
   await page.getByRole('button', { name: 'Verify and continue' }).click()
   await expect(page.getByRole('heading', { name: 'Doctors', exact: true })).toBeVisible()
 
-  // Booking a paid visit type (FR-BOOK-01..07, seed D16)
+  // Booking (FR-BOOK-01..07). The fee comes from the single admin-configured consultation type.
   await page.locator('a[href^="/doctors/"]').first().click()
-  const visitType = page.getByLabel('Visit type')
-  const paidOption = visitType.locator('option', { hasText: 'Payment Test' })
-  await visitType.selectOption((await paidOption.getAttribute('value'))!)
+  const doctorId = page.url().match(/\/doctors\/(\d+)/)![1]
+  const types = await (await page.request.get(`/api/v1/doctors/${doctorId}/appointment-types`)).json()
+  const fee = Number(types[0].fee)
+  expect(fee).toBeGreaterThan(0)
   await pickFirstAvailableSlot(page)
   await page.getByLabel('Reason for visit (optional)').fill('Annual check-up')
   await page.getByRole('button', { name: 'Request booking' }).click()
@@ -102,7 +103,7 @@ test('patient registers, books, pays by bank transfer, cancels and gets a refund
       accountNumber: 'SEPNK33418',
       content: `${paymentCode} E2E`,
       transferType: 'in',
-      transferAmount: 2000,
+      transferAmount: fee,
       referenceCode: 'E2E',
     },
   })

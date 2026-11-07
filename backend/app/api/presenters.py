@@ -205,6 +205,7 @@ def admin_doctor_detail(doctor: Doctor) -> AdminDoctorDetail:
     return AdminDoctorDetail(
         **doctor_detail(doctor).model_dump(),
         max_appointments_per_window=doctor.max_appointments_per_window,
+        scheduling_mode=doctor.scheduling_mode,
     )
 
 

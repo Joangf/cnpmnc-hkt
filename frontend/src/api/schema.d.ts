@@ -976,6 +976,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/doctors/{doctor_id}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Slots */
+        get: operations["adminListDoctorSlots"];
+        put?: never;
+        /** Create Slot */
+        post: operations["adminCreateDoctorSlot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/doctors/{doctor_id}/slots/{slot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Slot */
+        patch: operations["adminUpdateDoctorSlot"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1053,6 +1088,7 @@ export interface components {
             erp_doctor_id: string | null;
             /** Max Appointments Per Window */
             max_appointments_per_window: number;
+            scheduling_mode: components["schemas"]["SchedulingMode"];
         };
         /** AdminRefundOut */
         AdminRefundOut: {
@@ -1148,6 +1184,44 @@ export interface components {
             /** Moderation Note */
             moderation_note: string | null;
         };
+        /** AdminSlotList */
+        AdminSlotList: {
+            /** Doctor Id */
+            doctor_id: number;
+            /** Timezone */
+            timezone: string;
+            /** Slots */
+            slots: components["schemas"]["AdminSlotOut"][];
+        };
+        /** AdminSlotOut */
+        AdminSlotOut: {
+            /** Id */
+            id: number;
+            /** Doctor Id */
+            doctor_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /** Buffer Minutes */
+            buffer_minutes: number;
+            /** Capacity */
+            capacity: number;
+            /** Is Open */
+            is_open: boolean;
+            /** Version */
+            version: number;
+            /** Booked Count */
+            booked_count: number;
+            /** Remaining Places */
+            remaining_places: number;
+        };
         /** AdminUserOut */
         AdminUserOut: {
             /** Id */
@@ -1179,6 +1253,10 @@ export interface components {
             start_time: string;
             /** Reason For Visit */
             reason_for_visit?: string | null;
+            /** Slot Id */
+            slot_id?: number | null;
+            /** Slot Version */
+            slot_version?: number | null;
         };
         /** AppointmentDetail */
         AppointmentDetail: {
@@ -1541,6 +1619,8 @@ export interface components {
              * @default 1
              */
             max_appointments_per_window: number;
+            /** @default ERP */
+            scheduling_mode: components["schemas"]["SchedulingMode"];
         };
         /** DoctorDetail */
         DoctorDetail: {
@@ -1614,6 +1694,7 @@ export interface components {
             is_active?: boolean | null;
             /** Max Appointments Per Window */
             max_appointments_per_window?: number | null;
+            scheduling_mode?: components["schemas"]["SchedulingMode"] | null;
         };
         /** ErrorBody */
         ErrorBody: {
@@ -2231,6 +2312,11 @@ export interface components {
             /** Success */
             success: boolean;
         };
+        /**
+         * SchedulingMode
+         * @enum {string}
+         */
+        SchedulingMode: "ERP" | "MANUAL";
         /** SepayWebhookAck */
         SepayWebhookAck: {
             /**
@@ -2277,6 +2363,34 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** SlotCreate */
+        SlotCreate: {
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * Buffer Minutes
+             * @default 0
+             */
+            buffer_minutes: number;
+            /**
+             * Capacity
+             * @default 1
+             */
+            capacity: number;
+            /**
+             * Is Open
+             * @default true
+             */
+            is_open: boolean;
+        };
         /** SlotOut */
         SlotOut: {
             /**
@@ -2289,6 +2403,29 @@ export interface components {
              * Format: date-time
              */
             end_time: string;
+            /** Slot Id */
+            slot_id?: number | null;
+            /** Version */
+            version?: number | null;
+            /** Capacity */
+            capacity?: number | null;
+            /** Remaining Places */
+            remaining_places?: number | null;
+        };
+        /** SlotUpdate */
+        SlotUpdate: {
+            /** Version */
+            version: number;
+            /** Start Time */
+            start_time?: string | null;
+            /** End Time */
+            end_time?: string | null;
+            /** Buffer Minutes */
+            buffer_minutes?: number | null;
+            /** Capacity */
+            capacity?: number | null;
+            /** Is Open */
+            is_open?: boolean | null;
         };
         /** SpecialtyCreate */
         SpecialtyCreate: {
@@ -5573,6 +5710,218 @@ export interface operations {
             };
             /** @description Integration unavailable (ErpUnavailable, EmailDeliveryFailed) */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminListDoctorSlots: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path: {
+                doctor_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSlotList"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminCreateDoctorSlot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctor_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSlotOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminUpdateDoctorSlot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctor_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSlotOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

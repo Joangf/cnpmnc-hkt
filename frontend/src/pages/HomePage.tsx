@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/endpoints'
-import { IconArrowRight, IconBone, IconFemale, IconHeart, IconPerson, IconSearch, IconStethoscope, type IconComponent } from '../components/icons'
-import { ANY_TIME, availabilityToParams, AvailabilityPanel, DepartmentCombobox } from '../components/SearchFilters'
+import { IconArrowRight, IconBone, IconFemale, IconHeart, IconPerson, IconStethoscope, type IconComponent } from '../components/icons'
 import { EMERGENCY_NUMBER, stagger } from '../components/ui'
 
 // Specialty tiles get a line icon when the name suggests one; the rest use a stethoscope.
@@ -34,13 +33,8 @@ function HeroArt() {
 }
 
 export default function HomePage() {
-  const navigate = useNavigate()
   const specialties = useQuery({ queryKey: ['specialties'], queryFn: api.directory.specialties })
   const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api.directory.hospitals({ page_size: 1 }) })
-  const [q, setQ] = useState('')
-  const [specialtyId, setSpecialtyId] = useState('')
-  const [departmentId, setDepartmentId] = useState<number>()
-  const [range, setRange] = useState(ANY_TIME)
   const [imgError, setImgError] = useState(false)
 
   // Bệnh viện duy nhất của hệ thống (lấy record đầu tiên)
@@ -51,16 +45,6 @@ export default function HomePage() {
   }, [hospital?.avatar_url])
 
   const showImage = Boolean(hospital?.avatar_url && !imgError)
-
-  const search = (e: FormEvent) => {
-    e.preventDefault()
-    const params = new URLSearchParams()
-    if (q.trim()) params.set('q', q.trim())
-    if (specialtyId) params.set('specialty_id', specialtyId)
-    if (departmentId) params.set('department_id', String(departmentId))
-    for (const [k, v] of Object.entries(availabilityToParams(range))) params.set(k, v)
-    navigate(`/doctors${params.size ? `?${params}` : ''}`)
-  }
 
   return (
     <div className="mx-auto w-full max-w-page px-4 sm:px-6">
@@ -111,42 +95,6 @@ export default function HomePage() {
           )}
         </div>
       </section>
-
-      <form onSubmit={search} className="card mt-8" aria-label="Search doctors">
-        <div className="flex min-w-0 flex-col gap-5">
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label htmlFor="doctor-name" className="label">Doctor name</label>
-              <input
-                id="doctor-name"
-                className="input bg-surface"
-                type="search"
-                placeholder="e.g. Nguyen"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-            <label className="flex-[1_1_200px]">
-              <span className="label">Specialty</span>
-              <select className="input bg-surface" value={specialtyId} onChange={(e) => setSpecialtyId(e.target.value)}>
-                <option value="">Any specialty</option>
-                {specialties.data?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex items-end gap-3">
-              <DepartmentCombobox value={departmentId} onChange={setDepartmentId} />
-              <button type="submit" aria-label="Search doctors" title="Search" className="btn-primary h-[52px] w-[60px] shrink-0 px-0">
-                <IconSearch size={24} />
-              </button>
-            </div>
-          </div>
-          <AvailabilityPanel value={range} onChange={setRange} />
-        </div>
-      </form>
 
       <h2 className="mb-6 mt-14 text-[1.75rem] font-bold sm:mt-[72px] sm:text-h1">Popular specialties</h2>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">

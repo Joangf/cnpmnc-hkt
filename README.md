@@ -101,3 +101,30 @@ Failed saves roll back settings and their audit record together and report an er
 Apply `alembic upgrade head` before starting the updated backend. Scheduling integration tests
 use `TEST_DATABASE_URL`; point it only at a disposable database, since the existing overlap test
 resets its schema.
+
+## Manual shared slots
+
+Open **Administration → Schedules**, select a doctor and date, and create a slot with start/end
+times, a buffer, and capacity. For example, 08:00–08:30 with capacity 5 permits five different
+patients to reserve that exact interval. Times use the configured clinic timezone; slots and their
+buffers must fit within one clinic day and cannot overlap, including closed slots.
+
+Every doctor defaults to **ERP** scheduling. Admins can prepare manual slots while ERP mode is
+active, then switch the doctor to **Manual** once there are no upcoming or ongoing pending/confirmed
+appointments. In Manual mode, only manually created open slots are offered. Their capacities
+replace the ERP work-window limit. Appointment types continue to supply service/fee metadata;
+manual slot times and buffers define the reservation interval.
+
+Manual reservations are confirmed immediately in CareBook. They do not call the ERP, and ERP
+sync, reconciliation and webhooks cannot alter them. Existing cancellation/payment/refund rules
+still apply. Manual check-in/completion controls and recurring/bulk schedules are not included.
+
+The admin list shows booked and remaining places. Booked slots retain their start/end/buffer;
+capacity and open/closed state can change. Lowering capacity below occupancy preserves existing
+appointments and stops new offers. One patient can hold only one active reservation per slot.
+Cancelling releases a place. Availability is a short-lived offer, rechecked under database locks
+when booking; stale slot versions return a conflict and the patient is prompted to select again.
+
+Migration `0007_manual_doctor_slots` preserves existing appointments at reservation position 1
+and adds per-slot positions for shared bookings. Its downgrade refuses overlapping active shared
+reservations rather than deleting appointments. Apply migrations before starting the new backend.

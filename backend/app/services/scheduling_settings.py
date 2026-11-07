@@ -4,8 +4,26 @@ import json
 from dataclasses import dataclass
 from datetime import timedelta
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.errors import ValidationFailed
 from app.models import AppointmentType, Doctor
+from app.repositories import directory as directory_repo
+
+
+async def select_type(
+    session: AsyncSession, doctor: Doctor, type_id: int | None
+) -> AppointmentType:
+    from app.services.policies import type_applies_to_doctor
+
+    if type_id is None:
+        types = await directory_repo.list_appointment_types_for_doctor(session, doctor)
+        appointment_type = types[0] if types else None
+    else:
+        appointment_type = await session.get(AppointmentType, type_id)
+    if appointment_type is None or not type_applies_to_doctor(appointment_type, doctor):
+        raise ValidationFailed("This appointment type is not offered by the selected doctor.")
+    return appointment_type
 
 
 @dataclass(frozen=True, slots=True)

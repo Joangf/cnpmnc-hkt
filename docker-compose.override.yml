@@ -27,7 +27,3 @@ services:
   mock-erp:
     ports:
       - "8100:8100"
-
-  web:
-    volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro

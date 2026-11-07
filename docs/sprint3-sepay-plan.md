@@ -25,7 +25,7 @@ Mọi phần "cho đẹp" đều bị cắt.
 | D13 | Huỷ lịch **không** tự hoàn tiền. Bỏ `refund_if_paid` và `REFUND_ON_CANCELLATION`. Huỷ lịch và hoàn tiền là 2 thao tác riêng (đúng AC 31-7). |
 | D14 | Admin hoàn tiền thủ công: trang Refunds hiện QR `https://img.vietqr.io/image/<bin>-<acc>-compact2.png?amount=..&addInfo=<refund_reference>&accountName=..` tới tài khoản bệnh nhân. Admin chuyển khoản bằng app OCB rồi bấm "Đã chuyển" (có thể nhập mã giao dịch) hoặc "Từ chối" kèm lý do. Không xác nhận qua webhook tiền ra, vì OCB cần gói SMS. |
 | D15 | Ngân hàng của bệnh nhân: frontend lấy danh sách từ `https://api.vietqr.io/v2/banks`, lưu `bin` và `shortName`. Lấy danh sách lỗi thì cho nhập tay. |
-| D16 | Seed thêm loại khám `"Payment Test (2,000 VND)"`, phí 2000, áp dụng cho mọi bác sĩ. |
+| D16 | ~~Seed loại khám 2.000đ~~ — bỏ khi merge master 14a74e6 (một loại khám, một mức phí do admin chỉnh). Thử tiền thật: admin → Directory → Appointment types → đặt phí 2000. |
 | D17 | Demo: `ngrok http 8080` rồi đặt webhook SePay là `https://<ngrok>/api/v1/payments/sepay-webhook`, xác thực API Key. |
 
 ## 2. Kết quả audit
