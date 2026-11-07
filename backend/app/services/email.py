@@ -13,6 +13,10 @@ logger = structlog.get_logger(__name__)
 _RESEND_URL = "https://api.resend.com/emails"
 
 
+class RecipientRestricted(EmailDeliveryFailed):
+    """Resend refused the recipient (sandbox sender: only the account owner can be emailed)."""
+
+
 def is_configured() -> bool:
     return bool(settings.resend_api_key)
 
@@ -38,6 +42,8 @@ async def send_email(to: str, subject: str, html: str, text: str) -> None:
     if res.status_code >= 400:
         # Resend's error body never contains the message content, so it is safe to log.
         logger.error("email.rejected", status=res.status_code, body=res.text[:300])
+        if res.status_code in (403, 422):  # sandbox: recipient not allowed
+            raise RecipientRestricted()
         raise EmailDeliveryFailed()
 
 
