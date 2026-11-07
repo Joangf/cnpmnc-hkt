@@ -19,7 +19,8 @@ export default function PaymentPage() {
       q.state.data?.status === 'PENDING' ? 3000 : q.state.data?.status === 'EXPIRED' && q.state.dataUpdateCount < 60 ? 10000 : false,
   })
 
-  // A payment status change also changes the appointment (payment_status, can_pay, can_request_refund).
+  // A payment status change also changes the appointment (payment_status, can_pay, can_request_refund)
+  // and adds notifications (bell badge).
   const queryClient = useQueryClient()
   const appointmentId = payment.data?.appointment_id
   const status = payment.data?.status
@@ -27,6 +28,7 @@ export default function PaymentPage() {
     if (!appointmentId) return
     queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] })
     queryClient.invalidateQueries({ queryKey: ['appointments'] })
+    queryClient.invalidateQueries({ queryKey: ['notifications'] })
   }, [queryClient, appointmentId, status])
 
   if (payment.isLoading) return <Spinner />
