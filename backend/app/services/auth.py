@@ -55,6 +55,15 @@ async def _issue_registration_otp(redis: Redis, user: User) -> str | None:
     try:
         name = user.profile.full_name if user.profile else "there"
         await email.send_registration_otp(user.email, name, otp)
+    except email.RecipientRestricted:
+        if settings.is_dev:
+            # Sandbox sender can only reach the Resend account owner; hand the code to the caller.
+            logger.warning(
+                "registration.otp_not_emailed", user_id=user.id, reason="recipient restricted"
+            )
+            return otp
+        await redis.delete(f"regotp:{user.id}", f"regotp:cooldown:{user.id}")
+        raise
     except EmailDeliveryFailed:
         await redis.delete(f"regotp:{user.id}", f"regotp:cooldown:{user.id}")
         raise

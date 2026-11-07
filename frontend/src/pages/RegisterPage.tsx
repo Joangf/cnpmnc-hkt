@@ -96,7 +96,7 @@ export default function RegisterPage() {
               />
             </Field>
             {pending.dev_otp && (
-              <Notice tone="warning">Development mode: no email service is configured, so the code was filled in for you.</Notice>
+              <Notice tone="warning">Development mode: the email could not be delivered to this address, so the code was filled in for you.</Notice>
             )}
             {resent && !error && <Notice tone="success">A new code is on its way.</Notice>}
             <ErrorAlert error={error} />
