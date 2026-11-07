@@ -31,12 +31,13 @@ class HospitalSummary(BaseModel):
     city: str
     phone: str | None
     email: str | None
+    avatar_url: str | None
+    description: str | None
     is_active: bool
     specialties: list[SpecialtyOut]
 
 
 class HospitalDetail(HospitalSummary):
-    description: str | None
     website: str | None
     departments: list[DepartmentOut]
 

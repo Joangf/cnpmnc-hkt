@@ -101,12 +101,13 @@ export interface HospitalSummary {
   city: string
   phone: string | null
   email: string | null
+  avatar_url: string | null
+  description: string | null
   is_active: boolean
   specialties: Specialty[]
 }
 
 export interface HospitalDetail extends HospitalSummary {
-  description: string | null
   website: string | null
   departments: Department[]
 }

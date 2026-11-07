@@ -3,7 +3,8 @@ import { useState, type FormEvent } from 'react'
 import { api, type AdminEntity } from '../../api/endpoints'
 import type { AppointmentTypeAdmin, Department, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
 import { Card, ErrorAlert, FilterChip, Spinner } from '../../components/ui'
-import { formatMoney } from '../../lib/format'
+import { formatMoney, humanize, telHref } from '../../lib/format'
+import { HospitalAvatar } from '../HospitalsPage'
 import { AdminNav } from './AdminNav'
 
 // FR-ADM-02: manage directory data. Deletion is a soft deactivate to preserve history.
@@ -17,6 +18,7 @@ interface FieldDef {
   required?: boolean
   /** Not editable once created (the API's update schema does not accept it). */
   createOnly?: boolean
+  placeholder?: string
   options?: { value: string | number; label: string }[]
   /** Current value from a listed record, when it is not simply `record[name]`. */
   get?: (record: AnyRecord) => unknown
@@ -38,15 +40,24 @@ function EntityForm({
   editing,
   onSubmit,
   onCancel,
+  submitLabel,
   busy,
 }: {
   fields: FieldDef[]
   editing?: AnyRecord
   onSubmit: (body: AnyRecord) => Promise<unknown>
   onCancel?: () => void
+  submitLabel?: string
   busy: boolean
 }) {
   const visible = editing ? fields.filter((f) => !f.createOnly) : fields
+  const [avatarPreview, setAvatarPreview] = useState<string>(
+    editing && editing.avatar_url ? String(editing.avatar_url) : ''
+  )
+  const [namePreview, setNamePreview] = useState<string>(
+    editing && editing.name ? String(editing.name) : 'Hospital'
+  )
+
   const handle = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
@@ -64,23 +75,35 @@ function EntityForm({
     if (editing && Object.keys(body).length === 0) return onCancel?.()
     try {
       await onSubmit(body)
-      if (!editing) form.reset()
+      if (!editing) {
+        form.reset()
+        setAvatarPreview('')
+      }
     } catch {
       // Shown by the caller's <ErrorAlert>; keep the input so the admin can correct it.
     }
   }
+
   return (
     <form className="grid gap-5 sm:grid-cols-2" onSubmit={handle}>
       {visible.map((f) => {
         const initial = editing ? currentValue(f, editing) : ''
+        const isFullWidth = f.type === 'textarea' || f.name === 'avatar_url'
         return (
-          <label key={f.name} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
+          <label key={f.name} className={isFullWidth ? 'sm:col-span-2' : ''}>
             <span className="label">
               {f.label}
               {f.required && ' *'}
             </span>
             {f.type === 'textarea' ? (
-              <textarea name={f.name} className="input" rows={2} required={f.required} defaultValue={initial} />
+              <textarea
+                name={f.name}
+                className="input"
+                rows={3}
+                required={f.required}
+                defaultValue={initial}
+                placeholder={f.placeholder}
+              />
             ) : f.type === 'select' ? (
               <select name={f.name} className="input" required={f.required} defaultValue={initial}>
                 <option value="">—</option>
@@ -96,20 +119,36 @@ function EntityForm({
                 className="input"
                 type={f.type ?? 'text'}
                 required={f.required}
-                min={f.type === 'number' ? 0 : undefined}
-                step={f.type === 'number' ? 'any' : undefined}
                 defaultValue={initial}
+                placeholder={f.placeholder}
+                min={f.type === 'number' ? 0 : undefined}
+                onChange={
+                  f.name === 'avatar_url'
+                    ? (e) => setAvatarPreview(e.target.value.trim())
+                    : f.name === 'name'
+                      ? (e) => setNamePreview(e.target.value.trim() || 'Hospital')
+                      : undefined
+                }
               />
+            )}
+            {f.name === 'avatar_url' && avatarPreview && (
+              <div className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-surface p-3">
+                <HospitalAvatar
+                  hospital={{ id: 0, name: namePreview, avatar_url: avatarPreview }}
+                  className="h-14 w-14"
+                />
+                <span className="caption">Avatar preview</span>
+              </div>
             )}
           </label>
         )
       })}
-      <div className="flex gap-3 sm:col-span-2">
+      <div className="flex flex-wrap gap-3 sm:col-span-2">
         <button className="btn-primary" disabled={busy}>
-          {editing ? 'Save changes' : 'Create'}
+          {submitLabel ?? (editing ? 'Save changes' : 'Create')}
         </button>
-        {editing && (
-          <button type="button" className="btn-secondary" onClick={onCancel}>
+        {onCancel && (
+          <button type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
         )}
@@ -132,23 +171,19 @@ export default function AdminDirectoryPage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['admin'] })
     queryClient.invalidateQueries({ queryKey: ['hospitals'] })
+    queryClient.invalidateQueries({ queryKey: ['hospital'] })
     queryClient.invalidateQueries({ queryKey: ['doctors'] })
     queryClient.invalidateQueries({ queryKey: ['specialties'] })
   }
+
   const create = useMutation({ mutationFn: (body: AnyRecord) => api.admin.create(entity, body), onSuccess: invalidate })
   const update = useMutation({
     mutationFn: ({ id, body }: { id: number; body: AnyRecord }) => api.admin.update(entity, id, body),
     onSuccess: () => {
-      invalidate()
       setEditing(null)
+      invalidate()
     },
   })
-  const selectEntity = (key: AdminEntity) => {
-    setEntity(key)
-    setEditing(null)
-    create.reset()
-    update.reset()
-  }
   const toggle = useMutation({
     mutationFn: (row: Row) => api.admin.update(entity, row.id, { is_active: !row.is_active }),
     onSuccess: invalidate,
@@ -157,24 +192,43 @@ export default function AdminDirectoryPage() {
   const hospitalName = new Map(hospitals.data?.map((h) => [h.id, h.name] as const))
   const specialtyOptions = specialties.data?.map((s) => ({ value: s.id, label: s.name })) ?? []
 
+  const selectEntity = (next: AdminEntity) => {
+    setEditing(null)
+    create.reset()
+    update.reset()
+    setEntity(next)
+  }
+
+  // Quản lý 1 bệnh viện duy nhất: lấy record đầu tiên
+  const primaryHospital = hospitals.data?.[0]
+
+  const hospitalFields: FieldDef[] = [
+    { name: 'name', label: 'Name', required: true },
+    { name: 'facility_type', label: 'Type', type: 'select', options: [{ value: 'HOSPITAL', label: 'Hospital' }, { value: 'CLINIC', label: 'Clinic' }] },
+    { name: 'address', label: 'Address', required: true },
+    { name: 'city', label: 'City', required: true },
+    { name: 'phone', label: 'Phone' },
+    { name: 'email', label: 'Email' },
+    { name: 'website', label: 'Website', placeholder: 'https://...' },
+    { name: 'avatar_url', label: 'Avatar URL', placeholder: 'https://images.unsplash.com/...' },
+    { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Introduce the hospital, facilities, and services...' },
+  ]
+
   const config: Record<AdminEntity, { label: string; rows: Row[] | undefined; fields: FieldDef[] }> = {
     hospitals: {
-      label: 'Hospitals & clinics',
-      rows: hospitals.data?.map((h) => ({ id: h.id, is_active: h.is_active, title: h.name, subtitle: `${h.address}, ${h.city}`, record: { ...h } })),
-      fields: [
-        { name: 'name', label: 'Name', required: true },
-        { name: 'facility_type', label: 'Type', type: 'select', options: [{ value: 'HOSPITAL', label: 'Hospital' }, { value: 'CLINIC', label: 'Clinic' }] },
-        { name: 'address', label: 'Address', required: true },
-        { name: 'city', label: 'City', required: true },
-        { name: 'phone', label: 'Phone' },
-        { name: 'email', label: 'Email' },
-        { name: 'website', label: 'Website' },
-        { name: 'description', label: 'Description', type: 'textarea' },
-      ],
+      label: 'Hospital info',
+      rows: undefined,
+      fields: hospitalFields,
     },
     specialties: {
       label: 'Specialties',
-      rows: specialties.data?.map((s) => ({ id: s.id, is_active: s.is_active, title: s.name, subtitle: s.description ?? '', record: { ...s } })),
+      rows: specialties.data?.map((s) => ({
+        id: s.id,
+        is_active: s.is_active,
+        title: s.name,
+        subtitle: s.description ?? '',
+        record: { ...s },
+      })),
       fields: [
         { name: 'name', label: 'Name', required: true },
         { name: 'description', label: 'Description', type: 'textarea' },
@@ -198,7 +252,14 @@ export default function AdminDirectoryPage() {
           createOnly: true,
           options: hospitals.data?.map((h) => ({ value: h.id, label: h.name })),
         },
-        { name: 'specialty_id', label: 'Specialty', type: 'select', required: true, options: specialtyOptions, get: (r) => (r.specialty as Specialty).id },
+        {
+          name: 'specialty_id',
+          label: 'Specialty',
+          type: 'select',
+          required: true,
+          options: specialtyOptions,
+          get: (r) => (r.specialty as Specialty).id,
+        },
         { name: 'name', label: 'Name', required: true },
         { name: 'description', label: 'Description', type: 'textarea' },
       ],
@@ -269,59 +330,135 @@ export default function AdminDirectoryPage() {
         ))}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-5">
-        <Card className="min-w-0 lg:col-span-3">
-          <h2 className="section-title mb-3">{current.label}</h2>
-          {!current.rows && <Spinner />}
-          <ErrorAlert error={toggle.error} />
-          <ul className="divide-y divide-line">
-            {current.rows?.map((row) => (
-              <li key={row.id} className="flex items-center justify-between gap-3 py-3">
-                <div className={`min-w-0 ${row.is_active ? '' : 'text-muted'}`}>
-                  <div className="flex flex-wrap items-center gap-2 font-semibold">
-                    {row.title}
-                    {!row.is_active && <span className="tag">Inactive</span>}
-                  </div>
-                  <div className="caption">{row.subtitle}</div>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    className="btn-secondary btn-sm"
-                    aria-label={`Edit ${row.title}`}
-                    onClick={() => {
-                      update.reset()
-                      setEditing(row)
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button className="btn-secondary btn-sm" onClick={() => toggle.mutate(row)}>
-                    {row.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        <Card className="min-w-0 lg:col-span-2">
-          <h2 className="section-title mb-4">{editing ? `Edit ${editing.title}` : 'Add new'}</h2>
-          {editing ? (
-            <EntityForm
-              key={`${entity}-${editing.id}`}
-              fields={current.fields}
-              editing={editing.record}
-              onSubmit={(body) => update.mutateAsync({ id: editing.id, body })}
-              onCancel={() => setEditing(null)}
-              busy={update.isPending}
-            />
+      {entity === 'hospitals' ? (
+        /* Giao diện chỉnh sửa duy nhất 1 bệnh viện */
+        <div>
+          {!primaryHospital ? (
+            <Spinner />
           ) : (
-            <EntityForm key={entity} fields={current.fields} onSubmit={(body) => create.mutateAsync(body)} busy={create.isPending} />
+            <div className="grid gap-8 lg:grid-cols-5">
+              {/* Preview thông tin bệnh viện hiện tại */}
+              <Card className="min-w-0 space-y-5 lg:col-span-2">
+                <h2 className="section-title">Current hospital</h2>
+                <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+                  <HospitalAvatar hospital={primaryHospital} className="h-24 w-24 rounded-2xl shadow-card" />
+                  <div className="min-w-0 space-y-1">
+                    <span className="tag bg-mist text-info">{humanize(primaryHospital.facility_type)}</span>
+                    <h3 className="text-xl font-bold leading-tight text-ink">{primaryHospital.name}</h3>
+                    <p className="caption">{primaryHospital.address}, {primaryHospital.city}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 border-t border-line pt-4 text-sm">
+                  {primaryHospital.phone && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted">Phone:</span>
+                      <a className="link" href={telHref(primaryHospital.phone)}>{primaryHospital.phone}</a>
+                    </div>
+                  )}
+                  {primaryHospital.email && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted">Email:</span>
+                      <a className="link" href={`mailto:${primaryHospital.email}`}>{primaryHospital.email}</a>
+                    </div>
+                  )}
+                  {primaryHospital.website && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted">Website:</span>
+                      <a className="link" href={primaryHospital.website} target="_blank" rel="noreferrer">
+                        {primaryHospital.website}
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {primaryHospital.description && (
+                  <div className="border-t border-line pt-4">
+                    <span className="label">Description</span>
+                    <p className="mt-1 text-sm text-muted whitespace-pre-line">{primaryHospital.description}</p>
+                  </div>
+                )}
+              </Card>
+
+              {/* Form chỉnh sửa trực tiếp bệnh viện này */}
+              <Card className="min-w-0 lg:col-span-3">
+                <h2 className="section-title mb-4">Edit hospital details</h2>
+                <EntityForm
+                  key={`edit-hospital-${primaryHospital.id}`}
+                  fields={hospitalFields}
+                  editing={primaryHospital as unknown as AnyRecord}
+                  submitLabel="Save changes"
+                  onSubmit={async (body) => {
+                    await update.mutateAsync({ id: primaryHospital.id, body })
+                  }}
+                  busy={update.isPending}
+                />
+                <div className="mt-3">
+                  <ErrorAlert error={update.error} />
+                  {update.isSuccess && (
+                    <p className="font-semibold text-success">✓ Hospital information updated successfully!</p>
+                  )}
+                </div>
+              </Card>
+            </div>
           )}
-          <div className="mt-3">
-            <ErrorAlert error={editing ? update.error : create.error} />
-          </div>
-        </Card>
-      </div>
+        </div>
+      ) : (
+        /* Giao diện các thực thể khác (Specialties, Departments, Doctors...) */
+        <div className="grid gap-8 lg:grid-cols-5">
+          <Card className="min-w-0 lg:col-span-3">
+            <h2 className="section-title mb-3">{current.label}</h2>
+            {!current.rows && <Spinner />}
+            <ErrorAlert error={toggle.error} />
+            <ul className="divide-y divide-line">
+              {current.rows?.map((row) => (
+                <li key={row.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className={`min-w-0 ${row.is_active ? '' : 'text-muted'}`}>
+                    <div className="flex flex-wrap items-center gap-2 font-semibold">
+                      {row.title}
+                      {!row.is_active && <span className="tag">Inactive</span>}
+                    </div>
+                    <div className="caption">{row.subtitle}</div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      className="btn-secondary btn-sm"
+                      aria-label={`Edit ${row.title}`}
+                      onClick={() => {
+                        update.reset()
+                        setEditing(row)
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button className="btn-secondary btn-sm" onClick={() => toggle.mutate(row)}>
+                      {row.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card className="min-w-0 lg:col-span-2">
+            <h2 className="section-title mb-4">{editing ? `Edit ${editing.title}` : 'Add new'}</h2>
+            {editing ? (
+              <EntityForm
+                key={`${entity}-${editing.id}`}
+                fields={current.fields}
+                editing={editing.record}
+                onSubmit={(body) => update.mutateAsync({ id: editing.id, body })}
+                onCancel={() => setEditing(null)}
+                busy={update.isPending}
+              />
+            ) : (
+              <EntityForm key={entity} fields={current.fields} onSubmit={(body) => create.mutateAsync(body)} busy={create.isPending} />
+            )}
+            <div className="mt-3">
+              <ErrorAlert error={editing ? update.error : create.error} />
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

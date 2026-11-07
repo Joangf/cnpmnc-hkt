@@ -33,6 +33,7 @@ class Hospital(TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(30))
     email: Mapped[str | None] = mapped_column(String(255))
     website: Mapped[str | None] = mapped_column(String(255))
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(default=True)
 

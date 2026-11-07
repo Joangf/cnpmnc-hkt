@@ -1367,6 +1367,8 @@ export interface components {
             email?: string | null;
             /** Website */
             website?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
             /** Description */
             description?: string | null;
         };
@@ -1385,12 +1387,14 @@ export interface components {
             phone: string | null;
             /** Email */
             email: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Description */
+            description: string | null;
             /** Is Active */
             is_active: boolean;
             /** Specialties */
             specialties: components["schemas"]["SpecialtyOut"][];
-            /** Description */
-            description: string | null;
             /** Website */
             website: string | null;
             /** Departments */
@@ -1411,6 +1415,10 @@ export interface components {
             phone: string | null;
             /** Email */
             email: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Description */
+            description: string | null;
             /** Is Active */
             is_active: boolean;
             /** Specialties */
@@ -1431,6 +1439,8 @@ export interface components {
             email?: string | null;
             /** Website */
             website?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
             /** Description */
             description?: string | null;
             /** Is Active */
