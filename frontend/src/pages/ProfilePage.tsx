@@ -15,7 +15,12 @@ export default function ProfilePage() {
   const save = useMutation({
     mutationFn: (values: FormValues) => {
       const parsed = profileSchema.parse(values)
-      return api.profile.update({ ...parsed, address: parsed.address || null })
+      return api.profile.update({
+        ...parsed,
+        date_of_birth: parsed.date_of_birth || null,
+        phone_number: parsed.phone_number || null,
+        address: parsed.address || null,
+      })
     },
     onSuccess: (data) => queryClient.setQueryData(['profile'], data),
   })
@@ -29,7 +34,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile.data) {
       const { full_name, date_of_birth, phone_number, address } = profile.data
-      reset({ full_name, date_of_birth, phone_number, address: address ?? '' })
+      reset({ full_name, date_of_birth: date_of_birth ?? '', phone_number: phone_number ?? '', address: address ?? '' })
     }
   }, [profile.data, reset])
 
@@ -53,10 +58,10 @@ export default function ProfilePage() {
             <input className="input" {...register('full_name')} />
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Date of birth" hint="Hospitals use it to find your medical record" error={errors.date_of_birth?.message}>
+            <Field label="Date of birth (optional)" hint="Hospitals use it to find your medical record" error={errors.date_of_birth?.message}>
               <input className="input" type="date" {...register('date_of_birth')} />
             </Field>
-            <Field label="Phone number" hint="So the hospital can reach you about a visit" error={errors.phone_number?.message}>
+            <Field label="Phone number (optional)" hint="So the hospital can reach you about a visit" error={errors.phone_number?.message}>
               <input className="input" type="tel" {...register('phone_number')} />
             </Field>
           </div>

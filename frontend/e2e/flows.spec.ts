@@ -64,6 +64,11 @@ test('patient registers, books, pays and cancels with a refund', async ({ page }
   await page.getByLabel('Password', { exact: true }).fill('Secret123')
   await page.getByLabel('Confirm password').fill('Secret123')
   await page.getByRole('button', { name: 'Create account' }).click()
+
+  // Email OTP step. In dev with RESEND_API_KEY empty the API returns the code and the form prefills it.
+  await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
+  await expect(page.getByLabel('Verification code')).toHaveValue(/^\d{6}$/)
+  await page.getByRole('button', { name: 'Verify and continue' }).click()
   await expect(page.getByRole('heading', { name: 'Find a doctor' })).toBeVisible()
 
   // Booking (FR-BOOK-01..07)
