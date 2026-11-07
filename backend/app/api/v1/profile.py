@@ -9,7 +9,7 @@ from app.services import audit
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
-_REQUIRED = ("full_name", "date_of_birth", "phone_number")
+_REQUIRED = ("full_name",)  # date_of_birth and phone_number may be cleared
 
 
 @router.get(

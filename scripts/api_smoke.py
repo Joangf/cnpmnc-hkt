@@ -121,7 +121,17 @@ r = reg.post(
         "phone_number": "+84 912 345 678",
     },
 )
-check("register -> 201 + refresh cookie", r.status_code == 201 and "refresh_token" in r.cookies, r.text[:300])
+pending = r.json() if r.status_code == 201 else {}
+check("register -> 201 pending verification (no session yet)", r.status_code == 201 and "refresh_token" not in r.cookies, r.text[:300])
+# The OTP is only returned in dev when RESEND_API_KEY is empty; with a key it is emailed instead.
+otp = pending.get("dev_otp")
+check("dev OTP returned (run the stack with RESEND_API_KEY empty)", bool(otp), r.text[:300])
+r = reg.post("/auth/login", json={"email": email, "password": "Secret123"})
+check("unverified login -> 403 AccountNotVerified", r.status_code == 403 and r.json()["error"]["code"] == "AccountNotVerified", r.text[:200])
+r = reg.post("/auth/register/verify", json={"email": email, "otp": "000000" if otp != "000000" else "111111"})
+check("wrong OTP -> 422 InvalidOtp", r.status_code == 422 and r.json()["error"]["code"] == "InvalidOtp", r.text[:200])
+r = reg.post("/auth/register/verify", json={"email": email, "otp": otp})
+check("verify OTP -> 200 + refresh cookie", r.status_code == 200 and "refresh_token" in r.cookies, r.text[:300])
 check(
     "duplicate email -> 409",
     reg.post(

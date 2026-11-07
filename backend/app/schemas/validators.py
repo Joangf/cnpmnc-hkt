@@ -4,7 +4,7 @@ import re
 from datetime import date
 from typing import Annotated
 
-from pydantic import AfterValidator, StringConstraints
+from pydantic import AfterValidator, BeforeValidator, StringConstraints
 
 _PHONE_RE = re.compile(r"^\+?[0-9]{9,15}$")
 
@@ -39,6 +39,20 @@ DateOfBirth = Annotated[date, AfterValidator(_date_of_birth)]
 Password = Annotated[
     str, StringConstraints(min_length=8, max_length=128), AfterValidator(_password)
 ]
+
+
+def _blank_to_none(value: object) -> object:
+    return None if isinstance(value, str) and not value.strip() else value
+
+
+# Optional form fields: an empty string means "not provided".
+OptionalDateOfBirth = Annotated[DateOfBirth | None, BeforeValidator(_blank_to_none)]
+OptionalPhoneNumber = Annotated[PhoneNumber | None, BeforeValidator(_blank_to_none)]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 LongText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=5000)]
+
+
+def bounded(max_length: int, min_length: int = 0) -> StringConstraints:
+    """Stripped-string bounds matching a column's length, so oversize input is a 422."""
+    return StringConstraints(strip_whitespace=True, min_length=min_length, max_length=max_length)

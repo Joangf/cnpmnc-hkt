@@ -12,6 +12,8 @@ x-backend-env: &backend-env
   PAYMENT_BASE_URL: http://mock-payment:8200
   PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment-webhook-secret}
   PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  EMAIL_FROM: ${EMAIL_FROM:-CareBook Hospital Booking <onboarding@resend.dev>}
   INTERNAL_BASE_URL: http://backend:8000
   PAYMENT_REQUIRES_CONFIRMATION: ${PAYMENT_REQUIRES_CONFIRMATION:-true}
   CANCELLATION_CUTOFF_HOURS: ${CANCELLATION_CUTOFF_HOURS:-24}

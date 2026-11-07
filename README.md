@@ -61,7 +61,7 @@ docker-compose.yml  Full stack; docker-compose.override.yml adds dev hot reload 
 
 ```bash
 make test                 # backend pytest (incl. constraint race test) + frontend vitest
-make smoke                # API smoke test: ~90 checks across every flow
+make smoke                # API smoke test: ~90 checks across every flow (needs RESEND_API_KEY empty)
 make e2e                  # Playwright browser tests (book -> pay -> cancel, admin, symptom checker)
 make lint                 # ruff, mypy, tsc (tsc also checks frontend types against the OpenAPI contract)
 make gen-client           # regenerate frontend/src/api/schema.d.ts from OpenAPI; commit it

@@ -39,12 +39,12 @@ class RefOut(BaseModel):
 _ERROR_DESCRIPTIONS: dict[int, str] = {
     400: "Bad request",
     401: "Not authenticated (Unauthorized, InvalidToken, InvalidCredentials)",
-    403: "Forbidden (Forbidden, AccountInactive)",
+    403: "Forbidden (Forbidden, AccountInactive, AccountNotVerified)",
     404: "Resource not found (NotFound)",
     409: "Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...)",
     422: "Validation failed (ValidationFailed)",
     429: "Too many requests (TooManyRequests)",
-    503: "External integration unavailable (ErpUnavailable, PaymentGatewayUnavailable)",
+    503: "Integration unavailable (ErpUnavailable, PaymentGatewayUnavailable, EmailDeliveryFailed)",
 }
 
 

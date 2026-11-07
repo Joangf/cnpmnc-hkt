@@ -11,6 +11,7 @@ class UserRole(StrEnum):
 
 
 class AccountStatus(StrEnum):
+    PENDING = "PENDING"  # registered, email not yet verified with the OTP
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
 

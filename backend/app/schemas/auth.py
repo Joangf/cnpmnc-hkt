@@ -3,15 +3,32 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models.enums import AccountStatus, UserRole
-from app.schemas.validators import DateOfBirth, FullName, Password, PhoneNumber
+from app.schemas.validators import FullName, OptionalDateOfBirth, OptionalPhoneNumber, Password
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: Password
     full_name: FullName
-    date_of_birth: DateOfBirth
-    phone_number: PhoneNumber
+    date_of_birth: OptionalDateOfBirth = None
+    phone_number: OptionalPhoneNumber = None
+
+
+class RegistrationPending(BaseModel):
+    email: str
+    message: str
+    expires_in: int
+    # Only populated when ENV=dev and no email provider is configured (RESEND_API_KEY unset).
+    dev_otp: str | None = None
+
+
+class VerifyRegistrationRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(pattern=r"^\d{6}$")
+
+
+class ResendOtpRequest(BaseModel):
+    email: EmailStr
 
 
 class LoginRequest(BaseModel):

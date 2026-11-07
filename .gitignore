@@ -17,5 +17,9 @@ openapi.json
 .DS_Store
 .idea/
 .vscode/
+.opencode/
 test-results/
 playwright-report/
+
+# QA-Scrum kit
+reports/
