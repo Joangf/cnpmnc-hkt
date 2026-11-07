@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
@@ -14,8 +14,20 @@ export default function PaymentPage() {
   const payment = useQuery({
     queryKey: ['payment', id],
     queryFn: () => api.payments.get(id),
-    refetchInterval: (q) => (q.state.data?.status === 'PENDING' ? 3000 : false),
+    // Money can still arrive for an expired code (it is then recorded as PAID), so keep an eye on it for ~10 min.
+    refetchInterval: (q) =>
+      q.state.data?.status === 'PENDING' ? 3000 : q.state.data?.status === 'EXPIRED' && q.state.dataUpdateCount < 60 ? 10000 : false,
   })
+
+  // A payment status change also changes the appointment (payment_status, can_pay, can_request_refund).
+  const queryClient = useQueryClient()
+  const appointmentId = payment.data?.appointment_id
+  const status = payment.data?.status
+  useEffect(() => {
+    if (!appointmentId) return
+    queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] })
+    queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  }, [queryClient, appointmentId, status])
 
   if (payment.isLoading) return <Spinner />
   // A failed refetch keeps the last known payment on screen; only a first-load failure is fatal.
@@ -111,6 +123,12 @@ function PendingTransfer({ payment: p }: { payment: Payment }) {
 }
 
 function Paid({ payment: p }: { payment: Payment }) {
+  const appointment = useQuery({
+    queryKey: ['appointment', p.appointment_id],
+    queryFn: () => api.appointments.get(p.appointment_id),
+  })
+  const a = appointment.data
+  const closed = a && (a.status === 'CANCELLED' || a.status === 'REJECTED')
   return (
     <section className="panel overflow-hidden border border-line">
       <div className="flex items-start gap-4 bg-success-soft p-6 text-success-strong sm:p-8">
@@ -123,8 +141,15 @@ function Paid({ payment: p }: { payment: Payment }) {
       <div className="space-y-5 p-6 sm:p-8">
         <p>
           We received {formatMoney(p.amount, p.currency)}
-          {p.paid_at ? ` on ${formatDateTime(p.paid_at)}` : ''}. Your appointment is paid.
+          {p.paid_at ? ` on ${formatDateTime(p.paid_at)}` : ''}.{closed ? '' : ' Your appointment is paid.'}
         </p>
+        {closed && (
+          <Notice tone="warning" title={a.status === 'CANCELLED' ? 'The appointment was already cancelled' : 'The appointment was declined'}>
+            {a.can_request_refund
+              ? 'You can request a full refund from the appointment page.'
+              : 'Please contact the hospital about this payment.'}
+          </Notice>
+        )}
         <Link className="btn-primary" to={`/appointments/${p.appointment_id}`}>
           View appointment
         </Link>
