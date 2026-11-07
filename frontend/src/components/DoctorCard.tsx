@@ -58,7 +58,9 @@ export function DoctorCard({ doctor, style }: { doctor: DoctorSummary; style?: C
       </div>
       <div className="flex flex-1 flex-wrap content-start gap-2">
         <span className="tag">Fee: {formatMoney(doctor.consultation_fee, doctor.currency)}</span>
-        <span className="tag">{doctor.department.name}</span>
+        <Link to={`/departments/${doctor.department.id}`} className="tag no-underline hover:underline" aria-label={`View department: ${doctor.department.name}`}>
+          {doctor.department.name}
+        </Link>
         <span className="tag">
           <Rating avg={doctor.rating_avg} count={doctor.rating_count} />
         </span>

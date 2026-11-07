@@ -1,5 +1,6 @@
 """Public discovery endpoints (FRD 4.3, 4.6). No authentication required."""
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Query
@@ -23,10 +24,18 @@ from app.schemas.directory import (
 )
 from app.schemas.reviews import ReviewPublic
 from app.services import policies
+from app.services.availability import clinic_tz
 
 router = APIRouter(tags=["directory"])
 
 SearchText = Annotated[str | None, Query(max_length=100)]
+
+
+def _as_clinic_time(value: datetime | None) -> datetime | None:
+    """Naive datetimes from the search form are clinic-local wall-clock times."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=clinic_tz())
+    return value
 
 
 @router.get("/specialties", response_model=list[SpecialtyOut], operation_id="listSpecialties")
@@ -124,6 +133,8 @@ async def list_doctors(
     hospital_id: int | None = None,
     department_id: int | None = None,
     specialty_id: int | None = None,
+    available_from: datetime | None = None,
+    available_to: datetime | None = None,
 ) -> Page[DoctorSummary]:
     items, total = await directory_repo.list_doctors(
         session,
@@ -131,6 +142,8 @@ async def list_doctors(
         hospital_id=hospital_id,
         department_id=department_id,
         specialty_id=specialty_id,
+        available_from=_as_clinic_time(available_from),
+        available_to=_as_clinic_time(available_to),
         page=paging.page,
         page_size=paging.page_size,
     )

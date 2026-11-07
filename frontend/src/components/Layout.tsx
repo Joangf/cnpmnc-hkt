@@ -79,7 +79,6 @@ export function Layout() {
 
   const mainLinks: NavItem[] = [
     { to: '/doctors', label: 'Find a doctor' },
-    { to: '/departments', label: 'Departments' },
     { to: '/symptoms', label: 'Symptom checker' },
   ]
   const accountLinks: NavItem[] = isPatient

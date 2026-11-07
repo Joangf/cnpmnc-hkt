@@ -36,7 +36,7 @@ test('guest can browse departments, doctors and the symptom checker', async ({ p
   await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Patient reviews' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Departments', exact: true }).first().click()
+  await page.goto('/departments') // no header tab any more; also reachable from the department link on doctor cards
   await expect(page.getByRole('heading', { name: 'Departments & clinics' })).toBeVisible()
   await expect(page.getByRole('heading', { name: /Dermatology Department/ }).first()).toBeVisible()
 

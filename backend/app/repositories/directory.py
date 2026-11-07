@@ -1,10 +1,11 @@
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import ColumnElement, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.models import AppointmentType, Department, Doctor, Hospital, Specialty
+from app.models import AppointmentType, Department, Doctor, DoctorSchedule, Hospital, Specialty
 from app.models.enums import DepartmentVisibility, FacilityType
 from app.repositories.base import paginate
 
@@ -207,6 +208,8 @@ async def list_doctors(
     hospital_id: int | None = None,
     department_id: int | None = None,
     specialty_id: int | None = None,
+    available_from: datetime | None = None,
+    available_to: datetime | None = None,
     include_inactive: bool = False,
     page: int = 1,
     page_size: int = 20,
@@ -226,6 +229,14 @@ async def list_doctors(
                 select(Department.id).where(Department.specialty_id == specialty_id)
             )
         )
+    if available_from or available_to:
+        # Doctor has an open schedule window overlapping [available_from, available_to].
+        window = [DoctorSchedule.doctor_id == Doctor.id, DoctorSchedule.is_available.is_(True)]
+        if available_from:
+            window.append(DoctorSchedule.end_time > available_from)
+        if available_to:
+            window.append(DoctorSchedule.start_time < available_to)
+        stmt = stmt.where(select(DoctorSchedule.id).where(*window).exists())
     return await paginate(session, stmt, page, page_size)
 
 
