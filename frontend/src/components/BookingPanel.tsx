@@ -9,9 +9,6 @@ import { formatDateTime, formatMoney, formatTime, upcomingDays } from '../lib/fo
 import { newIdempotencyKey } from '../lib/ids'
 import { ErrorAlert, Field, Notice, Spinner } from './ui'
 
-// Booking flow (design board 03): 1 Find care · 2 Choose doctor · 3 Pick a time · 4 Your details · 5 Confirm.
-const STEPS = ['Find care', 'Choose doctor', 'Pick a time', 'Your details', 'Confirm']
-
 /** FR-BOOK-01..04: choose date and slot; the server revalidates on submit. */
 export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   const { user } = useAuth()
@@ -81,22 +78,13 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   })
 
   const fee = selectedType?.fee ?? '0'
-  const step = slot ? 4 : 3
 
   return (
     <section className="panel border border-line bg-canvas" aria-labelledby={headingId}>
       <div className="border-b border-line px-5 py-5 sm:px-6">
-        <p className="eyebrow" aria-live="polite">
-          Step {step} of {STEPS.length} · {STEPS[step - 1]}
-        </p>
-        <h2 id={headingId} className="mt-1 text-h2 font-semibold">
+        <h2 id={headingId} className="text-h2 font-semibold">
           Book an appointment
         </h2>
-        <div className="mt-4 grid grid-cols-5 gap-1.5" aria-hidden="true">
-          {STEPS.map((s, i) => (
-            <span key={s} className={`h-1.5 rounded-full transition-colors duration-slow ${i < step ? 'bg-berry' : 'bg-blush'}`} />
-          ))}
-        </div>
       </div>
 
       <div className="space-y-6 p-5 sm:p-6">
