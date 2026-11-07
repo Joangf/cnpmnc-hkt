@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { QRCodeSVG } from 'qrcode.react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
@@ -75,8 +76,19 @@ export default function AppointmentDetailPage() {
           {/* FR-CIN-01: reference to present at the hospital */}
           <div className="flex flex-col items-center justify-center gap-2 bg-blush p-6 text-center sm:p-8 md:w-72">
             <p className="eyebrow">Booking reference</p>
+            {a.status === 'CONFIRMED' && (
+              // Check-in QR (encodes the booking reference) for reception to scan.
+              <QRCodeSVG
+                value={a.booking_reference}
+                size={128}
+                marginSize={2}
+                className="rounded-lg bg-white"
+                role="img"
+                aria-label={`Check-in QR code for ${a.booking_reference}`}
+              />
+            )}
             <p className="break-all font-mono text-[1.75rem] font-bold tracking-[0.15em] text-berry">{a.booking_reference}</p>
-            <p className="caption">Show this code at reception. Staff record your check-in when you arrive.</p>
+            <p className="caption">Show this code or QR at reception. Staff record your check-in when you arrive.</p>
           </div>
         </div>
         <dl className="grid divide-y divide-line border-t border-line sm:auto-cols-fr sm:grid-flow-col sm:divide-x sm:divide-y-0">
