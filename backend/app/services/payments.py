@@ -150,7 +150,7 @@ async def apply_transfer(session: AsyncSession, t: BankTransfer) -> str:
     if payment is None:
         await session.rollback()
         return "unmatched"
-    if payment.provider_reference == t.id or await payment_repo.transfer_seen(
+    if await payment_repo.settled_by(session, t.id) or await payment_repo.transfer_seen(
         session, payment.id, t.id
     ):
         await session.rollback()

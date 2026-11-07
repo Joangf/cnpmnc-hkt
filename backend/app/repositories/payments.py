@@ -58,6 +58,12 @@ async def get_by_codes_for_update(session: AsyncSession, codes: list[str]) -> Pa
     return payment
 
 
+async def settled_by(session: AsyncSession, transfer_id: str) -> bool:
+    """True if some payment was already settled by this SePay transaction id."""
+    stmt = select(exists().where(Payment.provider_reference == transfer_id))
+    return bool(await session.scalar(stmt))
+
+
 async def transfer_seen(session: AsyncSession, payment_id: int, transfer_id: str) -> bool:
     """True if this bank transaction was already handled for this payment (polling repeats
     the same transactions; their audit rows carry `transfer_id`)."""
