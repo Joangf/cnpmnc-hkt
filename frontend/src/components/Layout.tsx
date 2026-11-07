@@ -173,11 +173,6 @@ export function Layout() {
             </nav>
             <div className="ml-auto hidden items-center gap-3 xl:flex">
               <ThemeToggle variant="chip" />
-              {!isAdmin && (
-                <Link to="/doctors" className="btn-primary min-h-12 px-[22px] text-base">
-                  Book appointment
-                </Link>
-              )}
             </div>
             <button
               className="btn-secondary btn-sm ml-auto xl:hidden"
@@ -205,13 +200,6 @@ export function Layout() {
               </button>
             )}
             <ThemeToggle variant="menu" />
-            {!isAdmin && (
-              <div className="p-4 sm:px-6">
-                <Link to="/doctors" className="btn-primary w-full">
-                  Book appointment
-                </Link>
-              </div>
-            )}
           </nav>
         )}
       </header>

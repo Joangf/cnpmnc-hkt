@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import {
   IconAlert,
@@ -12,12 +12,10 @@ import {
   IconHeart,
   IconLocation,
   IconPerson,
-  IconSearch,
   IconShield,
   IconStethoscope,
   type IconComponent,
 } from '../components/icons'
-import { ANY_TIME, availabilityToParams, AvailabilityPanel, DepartmentCombobox } from '../components/SearchFilters'
 import { EMERGENCY_NUMBER, stagger } from '../components/ui'
 
 // Specialty tiles get a line icon when the name suggests one; the rest use a stethoscope.
@@ -36,7 +34,6 @@ const DEFAULT_HOSPITAL_HERO =
 const BRAND_HOSPITAL = 'HKT Hospital'
 
 export default function HomePage() {
-  const navigate = useNavigate()
   const specialties = useQuery({
     queryKey: ['specialties'],
     queryFn: api.directory.specialties,
@@ -45,10 +42,6 @@ export default function HomePage() {
     queryKey: ['hospitals', 'all'],
     queryFn: () => api.directory.hospitals({ page_size: 100 }),
   })
-  const [q, setQ] = useState('')
-  const [specialtyId, setSpecialtyId] = useState('')
-  const [departmentId, setDepartmentId] = useState<number>()
-  const [range, setRange] = useState(ANY_TIME)
   const [imgError, setImgError] = useState(false)
 
   // Prefer the branded hospital; fall back to the first record in the directory.
@@ -60,16 +53,6 @@ export default function HomePage() {
   }, [hospital?.avatar_url])
 
   const heroImage = (!imgError && hospital?.avatar_url) ? hospital.avatar_url : DEFAULT_HOSPITAL_HERO
-
-  const search = (e: FormEvent) => {
-    e.preventDefault()
-    const params = new URLSearchParams()
-    if (q.trim()) params.set('q', q.trim())
-    if (specialtyId) params.set('specialty_id', specialtyId)
-    if (departmentId) params.set('department_id', String(departmentId))
-    for (const [k, v] of Object.entries(availabilityToParams(range))) params.set(k, v)
-    navigate(`/doctors${params.size ? `?${params}` : ''}`)
-  }
 
   return (
     <div className="mx-auto w-full max-w-page px-4 sm:px-6 pb-16">
@@ -144,59 +127,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Quick Search Card */}
-      <form
-        onSubmit={search}
-        className="rounded-2xl border border-line bg-canvas p-6 shadow-card hover:shadow-card-hover transition-all duration-base mt-8 mb-14"
-        aria-label="Search doctors"
-      >
-        <div className="flex min-w-0 flex-col gap-5">
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label htmlFor="doctor-name" className="block text-sm font-semibold text-ink mb-1.5">
-                Doctor name
-              </label>
-              <div className="relative">
-                <input
-                  id="doctor-name"
-                  className="input mt-0 pl-10"
-                  type="search"
-                  placeholder="e.g. Nguyen, Le, Ha..."
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                />
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted flex items-center pointer-events-none">
-                  <IconSearch size={18} />
-                </span>
-              </div>
-            </div>
-            <label className="flex-[1_1_200px]">
-              <span className="block text-sm font-semibold text-ink mb-1.5">Specialty</span>
-              <select className="input mt-0" value={specialtyId} onChange={(e) => setSpecialtyId(e.target.value)}>
-                <option value="">All specialties</option>
-                {specialties.data?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex items-end gap-3">
-              <DepartmentCombobox value={departmentId} onChange={setDepartmentId} />
-              <button
-                type="submit"
-                aria-label="Search doctors"
-                title="Search"
-                className="btn-primary min-w-[120px] font-semibold py-3 shadow-button hover:shadow-button-hover"
-              >
-                Search
-              </button>
-            </div>
-          </div>
-          <AvailabilityPanel value={range} onChange={setRange} />
-        </div>
-      </form>
 
       {/* Why Choose HKT Hospital Section */}
       <section className="my-14 sm:my-20">

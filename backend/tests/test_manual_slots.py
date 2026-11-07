@@ -96,6 +96,28 @@ async def current_offers(client, ids):
     return response.json()["slots"]
 
 
+async def test_edit_unbooked_slot_buffer_and_capacity_refreshes_public_offers(manual):
+    ids, client, _, slot = manual
+    # Prime the patient availability cache before editing the existing slot.
+    assert (await current_offers(client, ids))[0]["capacity"] == 5
+    response = await client.patch(
+        f"/api/v1/admin/doctors/{ids.doctor}/slots/{slot['id']}",
+        json={"version": slot["version"], "start_time": slot["start_time"],
+              "end_time": slot["end_time"], "buffer_minutes": 15,
+              "capacity": 7, "is_open": True}, headers=ids.headers(),
+    )
+    assert response.status_code == 200, response.text
+    updated = response.json()
+    assert updated["id"] == slot["id"]
+    assert updated["buffer_minutes"] == 15
+    assert updated["capacity"] == 7
+    offers = await current_offers(client, ids)
+    assert len(offers) == 1
+    assert offers[0]["slot_id"] == slot["id"]
+    assert offers[0]["version"] == updated["version"]
+    assert offers[0]["capacity"] == offers[0]["remaining_places"] == 7
+
+
 @pytest.mark.parametrize("field,value", [
     ("capacity", 0), ("capacity", True), ("capacity", 1.5), ("capacity", None),
     ("buffer_minutes", -1), ("buffer_minutes", 121), ("buffer_minutes", False),
@@ -188,6 +210,23 @@ async def test_duplicate_patient_and_cancel_rebook(manual, sessions):
     assert (await current_offers(client, ids))[0]["remaining_places"] == 5
     second = await book(sessions, ids, slot)
     assert second != first
+
+
+async def test_admin_doctor_creation_defaults_to_manual_and_cannot_enable_erp(manual, sessions):
+    ids, client, _, _ = manual
+    async with sessions() as session:
+        doctor = await session.get(Doctor, ids.doctor)
+        department_id = doctor.department_id
+    body = {"department_id": department_id, "full_name": "New manual doctor"}
+    response = await client.post("/api/v1/admin/doctors", json=body, headers=ids.headers())
+    assert response.status_code == 201, response.text
+    assert response.json()["scheduling_mode"] == "MANUAL"
+    response = await client.post("/api/v1/admin/doctors", json={**body, "scheduling_mode": "ERP"},
+                                 headers=ids.headers())
+    assert response.status_code == 422
+    response = await client.patch(f"/api/v1/admin/doctors/{ids.doctor}",
+                                  json={"scheduling_mode": "ERP"}, headers=ids.headers())
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize("delta,duration,buffer", [(-5, 30, 0), (20, 30, 0), (30, 30, 0)])
@@ -286,7 +325,7 @@ async def test_mode_switch_and_patient_cannot_forge_slots(manual, sessions):
     await book(sessions, ids, slot)
     response = await client.patch(f"/api/v1/admin/doctors/{ids.doctor}",
                                   json={"scheduling_mode": "ERP"}, headers=ids.headers())
-    assert response.status_code == 409
+    assert response.status_code == 422
 
 
 async def test_existing_erp_booking_blocks_switch_to_manual(context, sessions):

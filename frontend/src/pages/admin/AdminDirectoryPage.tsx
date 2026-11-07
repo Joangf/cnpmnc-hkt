@@ -304,7 +304,7 @@ export default function AdminDirectoryPage() {
         id: d.id,
         is_active: d.is_active,
         title: d.full_name,
-        subtitle: `${d.hospital.name} · ${d.department.name} · ${d.specialty.name} · ERP ${d.erp_doctor_id ?? 'not linked'} · Capacity ${d.max_appointments_per_window} per work window`,
+        subtitle: `${d.hospital.name} · ${d.department.name} · ${d.specialty.name}`,
         record: { ...d },
       })),
       fields: [
@@ -322,12 +322,6 @@ export default function AdminDirectoryPage() {
         { name: 'full_name', label: 'Full name', required: true },
         { name: 'title', label: 'Title' },
         { name: 'experience_years', label: 'Years of experience', type: 'number' },
-        { name: 'erp_doctor_id', label: 'ERP doctor ID' },
-        {
-          name: 'max_appointments_per_window', label: 'Capacity per work window',
-          type: 'number', required: true, min: 1, max: 2147483647, step: 1, defaultValue: '1',
-          help: 'ERP mode only: total bookings across all appointment types in each doctor work window. Default: 1. A stricter hospital schedule limit still applies. Manual slots have their own capacity in Schedules.',
-        },
         { name: 'avatar_url', label: 'Photo URL' },
         { name: 'qualifications', label: 'Qualifications', type: 'textarea' },
         { name: 'introduction', label: 'Introduction', type: 'textarea' },

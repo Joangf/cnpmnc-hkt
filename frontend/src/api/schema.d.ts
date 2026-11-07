@@ -1465,8 +1465,13 @@ export interface components {
              * @default 1
              */
             max_appointments_per_window: number;
-            /** @default ERP */
-            scheduling_mode: components["schemas"]["SchedulingMode"];
+            /**
+             * Scheduling Mode
+             * @default MANUAL
+             * @constant
+             * @enum {string}
+             */
+            scheduling_mode: "MANUAL";
         };
         /** DoctorDetail */
         DoctorDetail: {
@@ -1540,7 +1545,8 @@ export interface components {
             is_active?: boolean | null;
             /** Max Appointments Per Window */
             max_appointments_per_window?: number | null;
-            scheduling_mode?: components["schemas"]["SchedulingMode"] | null;
+            /** Scheduling Mode */
+            scheduling_mode?: "MANUAL" | null;
         };
         /** ErrorBody */
         ErrorBody: {

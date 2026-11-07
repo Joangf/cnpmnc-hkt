@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -118,7 +118,7 @@ class DoctorCreate(BaseModel):
     avatar_url: Url | None = None
     erp_doctor_id: ErpDoctorId | None = None
     max_appointments_per_window: Capacity = 1
-    scheduling_mode: SchedulingMode = SchedulingMode.ERP
+    scheduling_mode: Literal[SchedulingMode.MANUAL] = SchedulingMode.MANUAL
 
 
 class DoctorUpdate(BaseModel):
@@ -132,7 +132,7 @@ class DoctorUpdate(BaseModel):
     erp_doctor_id: ErpDoctorId | None = None
     is_active: bool | None = None
     max_appointments_per_window: Capacity | None = None
-    scheduling_mode: SchedulingMode | None = None
+    scheduling_mode: Literal[SchedulingMode.MANUAL] | None = None
 
     @field_validator("max_appointments_per_window", "scheduling_mode", mode="before")
     @classmethod

@@ -40,7 +40,7 @@ from app.models import (
     Specialty,
     User,
 )
-from app.models.enums import AccountStatus, AppointmentStatus, UserRole
+from app.models.enums import AccountStatus, AppointmentStatus, SchedulingMode, UserRole
 from app.schemas.admin import AppointmentTypeUpdate, DoctorUpdate
 from app.schemas.appointments import AppointmentCreate
 from app.services import availability, booking, erp_sync
@@ -153,7 +153,7 @@ async def seed(session: AsyncSession) -> Seed:
     await session.flush()
     doctor = Doctor(
         full_name="Test doctor", hospital_id=hospital.id, department_id=department.id,
-        max_appointments_per_window=3,
+        max_appointments_per_window=3, scheduling_mode=SchedulingMode.ERP,
     )
     standard = AppointmentType(name="Standard", duration_minutes=20, buffer_minutes=10)
     extended = AppointmentType(name="Extended", duration_minutes=30, buffer_minutes=10)
