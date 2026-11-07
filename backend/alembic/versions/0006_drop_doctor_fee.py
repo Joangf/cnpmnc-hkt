@@ -7,7 +7,6 @@ Create Date: 2026-11-07
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0006_drop_doctor_fee"

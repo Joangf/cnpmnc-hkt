@@ -7,7 +7,7 @@ from app.models.directory import Department, Doctor, Hospital, Specialty
 from app.models.notification import Notification
 from app.models.payment import Payment
 from app.models.review import Review
-from app.models.scheduling import AppointmentType, DoctorSchedule
+from app.models.scheduling import AppointmentType, DoctorSchedule, DoctorSlot
 from app.models.symptom import RecommendationLog, Symptom, SymptomSpecialtyRule
 from app.models.user import PatientProfile, User
 
@@ -20,6 +20,7 @@ __all__ = [
     "Department",
     "Doctor",
     "DoctorSchedule",
+    "DoctorSlot",
     "Hospital",
     "Notification",
     "PatientProfile",

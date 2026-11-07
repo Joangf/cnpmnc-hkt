@@ -95,6 +95,11 @@ class ScheduleSource(StrEnum):
     LOCAL = "LOCAL"
 
 
+class SchedulingMode(StrEnum):
+    ERP = "ERP"
+    MANUAL = "MANUAL"
+
+
 def enum_column(enum_cls: type[StrEnum]) -> SAEnum:
     return SAEnum(
         enum_cls,

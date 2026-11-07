@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text
+from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, utcnow
@@ -56,3 +56,31 @@ class DoctorSchedule(Base):
         enum_column(ScheduleSource), default=ScheduleSource.ERP
     )
     synced_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class DoctorSlot(TimestampMixin, Base):
+    """Admin-managed shared appointment interval, independent of ERP schedule caches."""
+
+    __tablename__ = "doctor_slots"
+    __table_args__ = (
+        UniqueConstraint("id", "doctor_id", name="uq_doctor_slots_id_doctor"),
+        CheckConstraint("end_time > start_time", name="ck_doctor_slots_time_range"),
+        CheckConstraint("capacity > 0", name="ck_doctor_slots_capacity"),
+        CheckConstraint("buffer_minutes BETWEEN 0 AND 120", name="ck_doctor_slots_buffer"),
+        CheckConstraint("version > 0", name="ck_doctor_slots_version"),
+        CheckConstraint(
+            "end_with_buffer = end_time + buffer_minutes * INTERVAL '1 minute'",
+            name="ck_doctor_slots_reserved_end",
+        ),
+        Index("ix_doctor_slots_doctor_start", "doctor_id", "start_time"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    doctor_id: Mapped[int] = mapped_column(ForeignKey("doctors.id"))
+    start_time: Mapped[datetime]
+    end_time: Mapped[datetime]
+    end_with_buffer: Mapped[datetime]
+    buffer_minutes: Mapped[int] = mapped_column(default=0, server_default="0")
+    capacity: Mapped[int] = mapped_column(default=1, server_default="1")
+    is_open: Mapped[bool] = mapped_column(default=True, server_default="true")
+    version: Mapped[int] = mapped_column(default=1, server_default="1")

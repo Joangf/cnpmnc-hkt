@@ -18,6 +18,7 @@ from app.models.enums import (
     CheckInStatus,
     NotificationType,
     ScheduleSource,
+    SchedulingMode,
     StatusSource,
 )
 from app.repositories import appointments as appointment_repo
@@ -42,7 +43,8 @@ async def sync_all_schedules(session: AsyncSession, erp: ErpAdapter) -> tuple[in
 
     doctors = (
         await session.scalars(
-            select(Doctor).where(Doctor.is_active.is_(True), Doctor.erp_doctor_id.is_not(None))
+            select(Doctor).where(Doctor.is_active.is_(True), Doctor.erp_doctor_id.is_not(None),
+                                 Doctor.scheduling_mode == SchedulingMode.ERP)
         )
     ).all()
     failures = 0
@@ -59,6 +61,11 @@ async def sync_all_schedules(session: AsyncSession, erp: ErpAdapter) -> tuple[in
         await session.execute(
             select(Doctor.id).where(Doctor.id == doctor.id).with_for_update()
         )
+        # The mode may have changed while the ERP request was in flight.
+        await session.refresh(doctor)
+        if doctor.scheduling_mode != SchedulingMode.ERP:
+            await session.commit()
+            continue
         await session.execute(
             delete(DoctorSchedule).where(
                 DoctorSchedule.doctor_id == doctor.id,
@@ -90,6 +97,8 @@ async def handle_event(session: AsyncSession, redis: Redis, event: ErpEvent) -> 
     appointment = await appointment_repo.get_by_reference(session, event.booking_reference)
     if appointment is None:
         raise NotFound("Unknown booking reference.")
+    if appointment.slot_id is not None:
+        return "ignored"
     if event.erp_booking_id and appointment.erp_booking_id != event.erp_booking_id:
         appointment.erp_booking_id = event.erp_booking_id
 
@@ -154,6 +163,13 @@ async def _reschedule(session: AsyncSession, appointment: Appointment, event: Er
     if event.start_time is None or event.end_time is None or event.end_time <= event.start_time:
         return False
     if appointment.status not in ACTIVE_APPOINTMENT_STATUSES:
+        return False
+    # Old ERP references can outlive a switch to manual mode. Do not let a delayed
+    # reschedule create a new future ERP interval inside an admin-managed schedule.
+    mode = await session.scalar(select(Doctor.scheduling_mode).where(
+        Doctor.id == appointment.doctor_id
+    ).with_for_update())
+    if mode != SchedulingMode.ERP:
         return False
     buffer = appointment.end_with_buffer - appointment.end_time
     old_start = appointment.start_time

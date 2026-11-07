@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import { ApiError } from '../api/http'
@@ -35,6 +35,12 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
     queryFn: () => api.directory.availability(doctor.id, day, selectedType?.id),
     enabled: !!selectedType,
   })
+  const manual = availability.data?.source === 'manual-slots'
+  useEffect(() => {
+    if (slot && availability.data && !availability.data.slots.some((offer) =>
+      offer.start_time === slot.start_time && offer.slot_id === slot.slot_id && offer.version === slot.version
+    )) setSlot(null)
+  }, [availability.data, slot])
 
   const groups = useMemo(() => {
     const morning: Slot[] = []
@@ -53,6 +59,8 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
           doctor_id: doctor.id,
           appointment_type_id: selectedType!.id,
           start_time: slot!.start_time,
+          slot_id: slot?.slot_id ?? undefined,
+          slot_version: slot?.version ?? undefined,
           reason_for_visit: reason.trim() || undefined,
         },
         idempotencyKey,
@@ -60,6 +68,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
     onSuccess: (appointment) => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['availability', doctor.id] })
       navigate(`/appointments/${appointment.id}`)
     },
     onError: (err) => {
@@ -99,7 +108,9 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
               <p className="text-base font-semibold text-ink">{formatMoney(fee, selectedType.currency)}</p>
             </div>
             <span className="tag bg-blush font-semibold text-berry">
-              {selectedType.duration_minutes} min
+              {manual
+                ? slot ? `${(Date.parse(slot.end_time) - Date.parse(slot.start_time)) / 60000} min` : 'Shared slots'
+                : `${selectedType.duration_minutes} min`}
             </span>
           </div>
         )}
@@ -132,23 +143,23 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
           <p className="label">Available times</p>
           {availability.isLoading && <Spinner />}
           <ErrorAlert error={availability.error} />
+          <ErrorAlert error={book.error} />
           {availability.data && availability.data.slots.length === 0 && (
             <p className="caption">No available times on this day. Try another date.</p>
           )}
           {groups.map((g) => (
             <div key={`${day}-${g.label}`} role="group" aria-label={g.label} className="animate-fade">
               <p className="text-caption font-semibold">{g.label}</p>
-              <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              <div className={`mt-2 grid gap-2 ${manual ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-3 sm:grid-cols-4'}`}>
                 {g.slots.map((s) => {
                   const selected = slot?.start_time === s.start_time
                   return (
-                    <button key={s.start_time} type="button" className="slot" aria-pressed={selected} onClick={() => setSlot(s)}>
-                      {selected && (
-                        <span aria-hidden="true" className="check-pop">
-                          ✓
-                        </span>
-                      )}
-                      {formatTime(s.start_time)}
+                    <button key={s.start_time} type="button" className={`slot ${manual ? 'min-w-0 flex-col px-3 py-3' : ''}`} aria-pressed={selected} onClick={() => setSlot(s)}>
+                      <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap">
+                        {selected && <span aria-hidden="true" className="check-pop">✓</span>}
+                        <span>{formatTime(s.start_time)}{s.slot_id != null && `–${formatTime(s.end_time)}`}</span>
+                      </span>
+                      {s.remaining_places != null && <span className="mt-1 block text-caption">{s.remaining_places} {s.remaining_places === 1 ? 'place' : 'places'} left</span>}
                     </button>
                   )
                 })}
@@ -170,20 +181,21 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
             <dl className="divide-y divide-line overflow-hidden rounded-lg border border-line">
               <div className="flex justify-between gap-4 px-4 py-3">
                 <dt className="text-muted">When</dt>
-                <dd className="text-right">{formatDateTime(slot.start_time)}</dd>
+                <dd className="text-right">{formatDateTime(slot.start_time)}{manual && `–${formatTime(slot.end_time)}`}</dd>
               </div>
               <div className="flex justify-between gap-4 bg-surface px-4 py-3">
                 <dt className="font-semibold">Consultation fee</dt>
                 <dd className="text-right font-semibold">{formatMoney(fee, selectedType.currency)}</dd>
               </div>
             </dl>
-            <p className="caption">Your request goes to the hospital first. We confirm it as soon as they accept.</p>
-            <ErrorAlert error={book.error} />
+            <p className="caption">{manual
+              ? 'CareBook confirms this reservation immediately when a place is available.'
+              : 'Your request goes to the hospital first. We confirm it as soon as they accept.'}</p>
             {/* Primary action sticks to the bottom on small screens. */}
             <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-canvas px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6 lg:static lg:m-0 lg:border-0 lg:p-0">
               {user?.role === 'PATIENT' ? (
                 <button className="btn-primary w-full" disabled={book.isPending} onClick={() => book.mutate()}>
-                  {book.isPending ? 'Submitting…' : 'Request booking'}
+                  {book.isPending ? 'Submitting…' : manual ? 'Book appointment' : 'Request booking'}
                 </button>
               ) : user ? (
                 <Notice>Only patient accounts can book appointments.</Notice>

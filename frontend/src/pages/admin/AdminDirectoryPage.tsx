@@ -320,7 +320,7 @@ export default function AdminDirectoryPage() {
         {
           name: 'max_appointments_per_window', label: 'Capacity per work window',
           type: 'number', required: true, min: 1, max: 2147483647, step: 1, defaultValue: '1',
-          help: 'Total bookings across all appointment types in each doctor work window. Default: 1. A stricter hospital schedule limit still applies. Existing bookings are preserved when this is lowered.',
+          help: 'ERP mode only: total bookings across all appointment types in each doctor work window. Default: 1. A stricter hospital schedule limit still applies. Manual slots have their own capacity in Schedules.',
         },
         { name: 'avatar_url', label: 'Photo URL' },
         { name: 'qualifications', label: 'Qualifications', type: 'textarea' },

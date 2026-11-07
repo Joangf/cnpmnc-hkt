@@ -21,6 +21,8 @@ export const responseContract: {
   DoctorPage: Fits<S['Page_DoctorSummary_'], T.Page<T.DoctorSummary>>
   DoctorDetail: Fits<S['DoctorDetail'], T.DoctorDetail>
   AdminDoctorDetail: Fits<S['AdminDoctorDetail'], T.AdminDoctorDetail>
+  AdminSlot: Fits<S['AdminSlotOut'], T.AdminSlot>
+  AdminSlotList: Fits<S['AdminSlotList'], T.AdminSlotList>
   AppointmentType: Fits<S['AppointmentTypeOut'], T.AppointmentType>
   Availability: Fits<S['AvailabilityResponse'], T.Availability>
   AppointmentPage: Fits<S['Page_AppointmentSummary_'], T.Page<T.AppointmentSummary>>
@@ -52,6 +54,8 @@ export const responseContract: {
   DoctorPage: true,
   DoctorDetail: true,
   AdminDoctorDetail: true,
+  AdminSlot: true,
+  AdminSlotList: true,
   AppointmentType: true,
   Availability: true,
   AppointmentPage: true,
@@ -78,10 +82,14 @@ export const requestContract: {
   Register: Fits<T.RegisterPayload, S['RegisterRequest']>
   ProfileUpdate: Fits<T.ProfileUpdate, S['ProfileUpdate']>
   AppointmentCreate: Fits<T.AppointmentCreate, S['AppointmentCreate']>
+  SlotCreate: Fits<T.SlotCreate, S['SlotCreate']>
+  SlotUpdate: Fits<T.SlotUpdate, S['SlotUpdate']>
   ReviewCreate: Fits<T.ReviewCreate, S['ReviewCreate']>
 } = {
   Register: true,
   ProfileUpdate: true,
   AppointmentCreate: true,
+  SlotCreate: true,
+  SlotUpdate: true,
   ReviewCreate: true,
 }

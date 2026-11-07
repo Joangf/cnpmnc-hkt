@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String
+from sqlalchemy import CheckConstraint, ForeignKey, ForeignKeyConstraint, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, utcnow
@@ -22,8 +22,8 @@ class Appointment(TimestampMixin, Base):
     """Patient booking.
 
     Double booking is prevented by the `no_overlap` exclusion constraint
-    (doctor_id =, tstzrange(start_time, end_with_buffer) &&) WHERE status is PENDING/CONFIRMED,
-    created in the initial migration because it needs btree_gist.
+    (doctor_id =, reservation_position =, reserved range &&) for active appointments.
+    ERP appointments always use position 1; shared manual slots allocate distinct positions.
 
     `status` (appointment), `check_in_status` (ERP-only, BR-11) and payment status
     (Payment table) are deliberately separate (BR-07).
@@ -31,6 +31,19 @@ class Appointment(TimestampMixin, Base):
 
     __tablename__ = "appointments"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["slot_id", "doctor_id"], ["doctor_slots.id", "doctor_slots.doctor_id"],
+            name="fk_appointments_slot_doctor",
+        ),
+        CheckConstraint("reservation_position > 0", name="ck_appointments_position"),
+        CheckConstraint(
+            "slot_id IS NOT NULL OR reservation_position = 1", name="ck_appointments_erp_position"
+        ),
+        Index("ix_appointments_slot_id", "slot_id"),
+        Index(
+            "uq_appointments_patient_active_slot", "patient_id", "slot_id", unique=True,
+            postgresql_where=text("slot_id IS NOT NULL AND status IN ('PENDING', 'CONFIRMED')"),
+        ),
         Index("ix_appointments_doctor_start", "doctor_id", "start_time"),
         CheckConstraint("end_time > start_time", name="ck_appointments_time_range"),
         CheckConstraint("end_with_buffer >= end_time", name="ck_appointments_buffer_range"),
@@ -41,6 +54,8 @@ class Appointment(TimestampMixin, Base):
     patient_id: Mapped[int] = mapped_column(ForeignKey("patient_profiles.id"), index=True)
     doctor_id: Mapped[int] = mapped_column(ForeignKey("doctors.id"))
     appointment_type_id: Mapped[int] = mapped_column(ForeignKey("appointment_types.id"))
+    slot_id: Mapped[int | None]
+    reservation_position: Mapped[int] = mapped_column(default=1, server_default="1")
     start_time: Mapped[datetime]
     end_time: Mapped[datetime]
     end_with_buffer: Mapped[datetime]

@@ -93,6 +93,10 @@ class AppointmentTypeOut(BaseModel):
 class SlotOut(BaseModel):
     start_time: dt.datetime
     end_time: dt.datetime
+    slot_id: int | None = None
+    version: int | None = None
+    capacity: int | None = None
+    remaining_places: int | None = None
 
 
 class AvailabilityResponse(BaseModel):

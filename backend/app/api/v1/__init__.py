@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin,
+    admin_slots,
     appointments,
     auth,
     availability,
@@ -27,5 +28,6 @@ for module in (
     notifications,
     integrations,
     admin,
+    admin_slots,
 ):
     api_router.include_router(module.router)

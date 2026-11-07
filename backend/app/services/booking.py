@@ -40,13 +40,14 @@ from app.models.enums import (
     AppointmentStatus,
     CheckInStatus,
     NotificationType,
+    SchedulingMode,
     StatusSource,
 )
 from app.repositories import appointments as appointment_repo
 from app.repositories import directory as directory_repo
 from app.schemas.appointments import AppointmentCreate
-from app.services import audit, availability, idempotency, notifications, policies
-from app.services.scheduling_settings import resolve
+from app.services import audit, availability, idempotency, manual_slots, notifications, policies
+from app.services.scheduling_settings import resolve, select_type
 
 logger = structlog.get_logger(__name__)
 
@@ -139,6 +140,8 @@ async def transition(
         details={"from": old_status, "to": new_status, "source": source},
     )
     title, template = _STATUS_MESSAGES[new_status]
+    if appointment.slot_id is not None and new_status == AppointmentStatus.CONFIRMED:
+        template = "Your appointment {ref} on {when} has been confirmed in CareBook."
     content = template.format(
         ref=appointment.booking_reference, when=availability.format_local(appointment.start_time)
     )
@@ -210,14 +213,11 @@ async def _create(
     user_id: int,
     payload: AppointmentCreate,
 ) -> int:
-    appointment_type_id = payload.appointment_type_id
-    if appointment_type_id is None:
-        default_type = await session.scalar(
-            select(AppointmentType).where(AppointmentType.is_active.is_(True)).order_by(AppointmentType.id).limit(1)
-        )
-        if default_type is None:
-            raise ValidationFailed("No active appointment types available.")
-        appointment_type_id = default_type.id
+    candidate_doctor = await directory_repo.get_doctor(session, payload.doctor_id)
+    if candidate_doctor is None or not policies.doctor_is_published(candidate_doctor):
+        raise NotFound("Doctor not found.")
+    selected_type = await select_type(session, candidate_doctor, payload.appointment_type_id)
+    appointment_type_id = selected_type.id
 
     # Consistent lock order: type (shared), then doctor (exclusive). Re-read after locking:
     # authentication / previous queries may have populated this session's identity map.
@@ -238,27 +238,43 @@ async def _create(
     day = availability.local_day(start)
     availability.check_booking_window(day)
 
-    # BR-03: revalidate at submission time, bypassing the browse cache.
-    effective = resolve(doctor, appointment_type)
-    slots = await availability.compute_slots(
-        session, doctor.id, appointment_type, day, effective=effective
-    )
-    if not any(slot.start == start for slot in slots):
-        await session.rollback()  # release the row locks now
-        BOOKINGS.labels(result="unavailable").inc()
-        raise SlotTaken(
-            "The selected time is not available. Please choose another time.",
-            code="SlotUnavailable",
+    manual = doctor.scheduling_mode == SchedulingMode.MANUAL
+    slot_id, position = None, 1
+    if manual:
+        slot, position = await manual_slots.reserve_position(
+            session, doctor, payload.slot_id, payload.slot_version, start, patient_id
         )
+        end, reserved_end, slot_id = slot.end_time, slot.end_with_buffer, slot.id
+    else:
+        if payload.slot_id is not None or payload.slot_version is not None:
+            raise SlotTaken(
+                "Scheduling mode changed. Refresh availability.", code="ScheduleChanged"
+            )
+        # BR-03: revalidate at submission time, bypassing the browse cache.
+        effective = resolve(doctor, appointment_type)
+        slots = await availability.compute_slots(
+            session, doctor.id, appointment_type, day, effective=effective
+        )
+        if not any(slot.start == start for slot in slots):
+            await session.rollback()
+            BOOKINGS.labels(result="unavailable").inc()
+            raise SlotTaken(
+                "The selected time is not available. Please choose another time.",
+                code="SlotUnavailable",
+            )
+        end = start + effective.duration
+        reserved_end = end + effective.buffer
 
     appointment = Appointment(
         booking_reference=generate_booking_reference(),
         patient_id=patient_id,
         doctor_id=doctor.id,
         appointment_type_id=appointment_type.id,
+        slot_id=slot_id,
+        reservation_position=position,
         start_time=start,
-        end_time=start + effective.duration,
-        end_with_buffer=start + effective.duration + effective.buffer,
+        end_time=end,
+        end_with_buffer=reserved_end,
         status=AppointmentStatus.PENDING,
         check_in_status=CheckInStatus.NOT_CHECKED_IN,
         reason_for_visit=payload.reason_for_visit,
@@ -293,19 +309,24 @@ async def _create(
         actor_id=user_id,
         details={"booking_reference": appointment.booking_reference, "doctor_id": doctor_id},
     )
-    await notifications.notify_patient(  # FR-NOT-01
-        session,
-        patient_id,
-        NotificationType.BOOKING_SUBMITTED,
-        "Booking request submitted",
-        f"Your booking request {appointment.booking_reference} for "
-        f"{availability.format_local(start)} has been submitted and is awaiting confirmation.",
-        f"/appointments/{appointment.id}",
-    )
+    if manual:
+        await transition(session, appointment, AppointmentStatus.CONFIRMED,
+                         reason="Reserved in an admin-managed slot.", source=StatusSource.PLATFORM,
+                         actor_id=user_id)
+    else:
+        await notifications.notify_patient(
+            session, patient_id, NotificationType.BOOKING_SUBMITTED, "Booking request submitted",
+            f"Your booking request {appointment.booking_reference} for "
+            f"{availability.format_local(start)} has been submitted and is awaiting confirmation.",
+            f"/appointments/{appointment.id}",
+        )
     await session.commit()
     await availability.invalidate(redis, doctor_id, day)
 
-    await _submit_to_erp(session, erp, appointment, erp_doctor_id, patient_id)
+    if manual:
+        BOOKINGS.labels(result="confirmed").inc()
+    else:
+        await _submit_to_erp(session, erp, appointment, erp_doctor_id, patient_id)
     return appointment.id
 
 
@@ -380,7 +401,7 @@ async def cancel_appointment(
             code="CancellationWindowClosed",
         )
 
-    if appointment.erp_booking_id:
+    if appointment.slot_id is None and appointment.erp_booking_id:
         try:
             await erp.cancel_booking(appointment.erp_booking_id, reason)
         except ErpRejectedError as exc:

@@ -11,6 +11,7 @@ import argparse
 import asyncio
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from typing import NotRequired, TypedDict
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,7 +56,20 @@ SPECIALTIES = [
     ("Pediatrics", "Children's health."),
 ]
 
-HOSPITALS = [
+class HospitalSeed(TypedDict):
+    name: str
+    facility_type: FacilityType
+    address: str
+    city: str
+    phone: str
+    email: str
+    description: str
+    departments: list[str]
+    website: NotRequired[str]
+    avatar_url: NotRequired[str]
+
+
+HOSPITALS: list[HospitalSeed] = [
     {
         "name": "HKT Hospital",
         "facility_type": FacilityType.HOSPITAL,
@@ -119,7 +133,7 @@ GIVEN_NAMES = [
 ]
 
 # (name, description, duration, buffer, fee_override, specialty name or None)
-APPOINTMENT_TYPES = [
+APPOINTMENT_TYPES: list[tuple[str, str, int, int, Decimal | None, str | None]] = [
     ("General Consultation", "Standard consultation fee.", 20, 10, Decimal("200000"), None),
 ]
 
