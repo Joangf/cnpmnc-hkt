@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { api, type AdminEntity } from '../../api/endpoints'
 import type { AdminDoctorDetail, AppointmentTypeAdmin, Department, DepartmentVisibility, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
-import { Card, ErrorAlert, FilterChip, Spinner } from '../../components/ui'
+import { Card, ErrorAlert, FilterChip, Pagination, Spinner } from '../../components/ui'
 import { formatMoney, humanize, telHref } from '../../lib/format'
 import { HospitalAvatar } from '../HospitalsPage'
 import { AdminNav } from './AdminNav'
@@ -10,6 +10,7 @@ import { AdminNav } from './AdminNav'
 // FR-ADM-02: manage directory data. Deletion is a soft deactivate to preserve history.
 
 type AnyRecord = Record<string, unknown>
+const DIRECTORY_PAGE_SIZE = 10
 
 interface FieldDef {
   name: string
@@ -170,6 +171,7 @@ export default function AdminDirectoryPage() {
   const queryClient = useQueryClient()
   const [entity, setEntity] = useState<AdminEntity>('hospitals')
   const [editing, setEditing] = useState<Row | null>(null)
+  const [page, setPage] = useState(1)
 
   const specialties = useQuery({ queryKey: ['admin', 'specialties'], queryFn: () => api.admin.list<Specialty>('specialties') })
   const hospitals = useQuery({ queryKey: ['admin', 'hospitals'], queryFn: () => api.admin.list<HospitalDetail>('hospitals') })
@@ -213,6 +215,7 @@ export default function AdminDirectoryPage() {
     create.reset()
     update.reset()
     setEntity(next)
+    setPage(1)
   }
 
   // Quản lý 1 bệnh viện duy nhất: lấy record đầu tiên
@@ -355,6 +358,16 @@ export default function AdminDirectoryPage() {
     },
   }
   const current = config[entity]
+  const total = current.rows?.length ?? 0
+  const pages = Math.max(1, Math.ceil(total / DIRECTORY_PAGE_SIZE))
+  const currentPage = Math.min(page, pages)
+  const start = (currentPage - 1) * DIRECTORY_PAGE_SIZE
+  const visibleRows = current.rows?.slice(start, start + DIRECTORY_PAGE_SIZE)
+  const listLoaded = current.rows !== undefined
+
+  useEffect(() => {
+    if (listLoaded) setPage((previous) => Math.min(previous, pages))
+  }, [listLoaded, pages])
 
   return (
     <div>
@@ -449,8 +462,15 @@ export default function AdminDirectoryPage() {
             {!current.rows && <Spinner />}
             <ErrorAlert error={toggle.error} />
             <ErrorAlert error={setVisibility.error} />
+            {listLoaded && (
+              <p className="caption mb-3" aria-live="polite">
+                {total > 0
+                  ? `Showing ${start + 1}–${Math.min(start + DIRECTORY_PAGE_SIZE, total)} of ${total} ${current.label.toLowerCase()}`
+                  : 'No items to display.'}
+              </p>
+            )}
             <ul className="divide-y divide-line">
-              {current.rows?.map((row) => (
+              {visibleRows?.map((row) => (
                 <li key={row.id} className="flex items-center justify-between gap-3 py-3">
                   <div className={`min-w-0 ${row.is_active ? '' : 'text-muted'}`}>
                     <div className="flex flex-wrap items-center gap-2 font-semibold">
@@ -498,6 +518,7 @@ export default function AdminDirectoryPage() {
                 </li>
               ))}
             </ul>
+            <Pagination page={currentPage} pageSize={DIRECTORY_PAGE_SIZE} total={total} onChange={setPage} />
           </Card>
           <Card className="min-w-0 lg:col-span-2">
             <h2 className="section-title mb-4">
