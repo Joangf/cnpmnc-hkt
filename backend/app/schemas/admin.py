@@ -63,6 +63,7 @@ class HospitalCreate(BaseModel):
     phone: FacilityPhone | None = None
     email: EmailStr | None = None
     website: WebUrl | None = None
+    avatar_url: Url | None = None
     description: LongText | None = None
 
 
@@ -74,6 +75,7 @@ class HospitalUpdate(BaseModel):
     phone: FacilityPhone | None = None
     email: EmailStr | None = None
     website: WebUrl | None = None
+    avatar_url: Url | None = None
     description: LongText | None = None
     is_active: bool | None = None
 

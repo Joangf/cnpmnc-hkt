@@ -14,6 +14,7 @@ import DoctorsPage from './pages/DoctorsPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import HomePage from './pages/HomePage'
 import HospitalDetailPage from './pages/HospitalDetailPage'
+import HospitalsPage from './pages/HospitalsPage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 import NotificationsPage from './pages/NotificationsPage'
@@ -28,6 +29,7 @@ export default function App() {
       <Route element={<Layout />}>
         {/* Guest-accessible (FRD section 2) */}
         <Route index element={<HomePage />} />
+        <Route path="hospitals" element={<HospitalsPage />} />
         <Route path="hospitals/:hospitalId" element={<HospitalDetailPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="departments/:departmentId" element={<DepartmentDetailPage />} />

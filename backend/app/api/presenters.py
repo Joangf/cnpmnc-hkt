@@ -144,6 +144,8 @@ def hospital_summary(hospital: Hospital, *, include_inactive: bool = False) -> H
         city=hospital.city,
         phone=hospital.phone,
         email=hospital.email,
+        avatar_url=hospital.avatar_url,
+        description=hospital.description,
         is_active=hospital.is_active,
         specialties=[
             SpecialtyOut.model_validate(s)
@@ -165,7 +167,6 @@ def hospital_detail(hospital: Hospital, *, include_inactive: bool = False) -> Ho
     )
     return HospitalDetail(
         **summary.model_dump(),
-        description=hospital.description,
         website=hospital.website,
         departments=[department_out(d) for d in departments],
     )

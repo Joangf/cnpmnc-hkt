@@ -5,6 +5,7 @@ import { DoctorCard } from '../components/DoctorCard'
 import { IconArrowRight } from '../components/icons'
 import { EmptyState, ErrorAlert, stagger, Spinner } from '../components/ui'
 import { humanize, telHref } from '../lib/format'
+import { HospitalAvatar } from './HospitalsPage'
 
 export default function HospitalDetailPage() {
   const id = Number(useParams().hospitalId)
@@ -17,33 +18,43 @@ export default function HospitalDetailPage() {
 
   return (
     <div className="space-y-10">
-      <section className="panel flex flex-col overflow-hidden border border-line md:flex-row">
-        <div className="flex-1 space-y-3 bg-mist p-6 sm:p-8">
-          <p className="eyebrow">{humanize(h.facility_type)}</p>
-          <h1 className="page-title">{h.name}</h1>
-          <p className="text-muted">
-            {h.address}, {h.city}
-          </p>
+      <section className="panel overflow-hidden border border-line bg-canvas">
+        <div className="flex flex-col md:flex-row">
+          <div className="flex flex-1 flex-col gap-6 bg-mist p-6 sm:flex-row sm:items-center sm:p-8">
+            <HospitalAvatar hospital={h} tone="bg-canvas" className="h-28 w-28 text-[2rem] shadow-card sm:h-36 sm:w-36" />
+            <div className="min-w-0 space-y-2">
+              <p className="eyebrow">{humanize(h.facility_type)}</p>
+              <h1 className="page-title">{h.name}</h1>
+              <p className="text-muted">
+                {h.address}, {h.city}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col justify-center gap-2 border-t border-line p-6 sm:p-8 md:w-80 md:border-l md:border-t-0">
+            {h.phone && (
+              <a className="link w-fit" href={telHref(h.phone)}>
+                {h.phone}
+              </a>
+            )}
+            {h.email && (
+              <a className="link w-fit break-all" href={`mailto:${h.email}`}>
+                {h.email}
+              </a>
+            )}
+            {h.website && (
+              <a className="link w-fit break-all" href={h.website} target="_blank" rel="noreferrer">
+                Website
+              </a>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col justify-center gap-2 border-t border-line p-6 sm:p-8 md:w-80 md:border-l md:border-t-0">
-          {h.phone && (
-            <a className="link w-fit" href={telHref(h.phone)}>
-              {h.phone}
-            </a>
-          )}
-          {h.email && (
-            <a className="link w-fit break-all" href={`mailto:${h.email}`}>
-              {h.email}
-            </a>
-          )}
-          {h.website && (
-            <a className="link w-fit break-all" href={h.website} target="_blank" rel="noreferrer">
-              Website
-            </a>
-          )}
-        </div>
+        {h.description && (
+          <div className="border-t border-line p-6 sm:p-8">
+            <h2 className="label">About this facility</h2>
+            <p className="mt-1 max-w-3xl whitespace-pre-line">{h.description}</p>
+          </div>
+        )}
       </section>
-      {h.description && <p className="max-w-3xl">{h.description}</p>}
 
       <section>
         <h2 className="section-title mb-4">Departments &amp; clinics</h2>

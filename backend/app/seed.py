@@ -63,6 +63,8 @@ HOSPITALS = [
         "city": "Ho Chi Minh City",
         "phone": "+842800000001",
         "email": "contact@hkt-hospital.example",
+        "website": "https://hkt-hospital.example",
+        "avatar_url": "https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&w=800&q=80",
         "description": "HKT General Hospital provides medical services to the community.",
         "departments": [
             "General Internal Medicine",
@@ -80,7 +82,9 @@ HOSPITALS = [
         "city": "Ho Chi Minh City",
         "phone": "+842800000002",
         "email": "hello@lotus-clinic.example",
-        "description": "Fictional outpatient clinic for dermatology and ophthalmology.",
+        "website": "https://lotus-clinic.example",
+        "avatar_url": "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=800&q=80",
+        "description": "Fictional outpatient clinic specializing in dermatology and ophthalmology, designed for calm, same-day specialist consultations.",
         "departments": ["Dermatology", "Ophthalmology"],
     },
     {
@@ -90,7 +94,9 @@ HOSPITALS = [
         "city": "Hanoi",
         "phone": "+842400000003",
         "email": "info@greenvalley-medical.example",
-        "description": "Fictional regional medical center.",
+        "website": "https://greenvalley-medical.example",
+        "avatar_url": "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=800&q=80",
+        "description": "Fictional regional medical center providing family-centered care across internal medicine, pediatrics, ENT, and orthopedics.",
         "departments": [
             "General Internal Medicine",
             "Pediatrics",
@@ -216,7 +222,19 @@ SYMPTOMS: list[tuple[str, str, list[tuple[str, float]], str | None]] = [
 
 async def _seed_directory(session: AsyncSession) -> None:
     if await session.scalar(select(func.count(Specialty.id))):
-        print("directory already seeded")
+        updated = False
+        for data in HOSPITALS:
+            existing = await session.scalar(select(Hospital).where(Hospital.name == data["name"]))
+            if existing and not existing.avatar_url:
+                existing.avatar_url = data.get("avatar_url")
+                existing.website = existing.website or data.get("website")
+                existing.description = data.get("description") or existing.description
+                updated = True
+        if updated:
+            await session.commit()
+            print("backfilled hospital avatars and descriptions")
+        else:
+            print("directory already seeded")
         return
 
     specialties = {name: Specialty(name=name, description=desc) for name, desc in SPECIALTIES}

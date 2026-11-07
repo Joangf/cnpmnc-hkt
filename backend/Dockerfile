@@ -13,7 +13,7 @@ RUN pip install -r requirements.txt \
     && if [ "$INSTALL_DEV" = "true" ]; then pip install -r requirements-dev.txt; fi
 
 COPY . .
-RUN chmod +x entrypoint.sh && useradd --create-home --uid 1000 app
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh && useradd --create-home --uid 1000 app
 USER app
 
 EXPOSE 8000
