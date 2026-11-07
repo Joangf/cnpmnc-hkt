@@ -54,15 +54,15 @@ export default function DoctorDetailPage() {
           </div>
           <dl className="grid divide-y divide-line border-t border-line sm:grid-cols-3 sm:divide-x sm:divide-y-0 bg-surface/50">
             <div className="p-5 sm:p-6 text-center sm:text-left">
-              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Kinh nghiệm</dt>
-              <dd className="mt-1 text-2xl font-extrabold text-ink">{d.experience_years} năm</dd>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Experience</dt>
+              <dd className="mt-1 text-2xl font-extrabold text-ink">{d.experience_years} years</dd>
             </div>
             <div className="p-5 sm:p-6 text-center sm:text-left">
-              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Giá khám tư vấn</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Consultation fee</dt>
               <dd className="mt-1 text-2xl font-extrabold text-berry">{formatMoney(d.consultation_fee, d.currency)}</dd>
             </div>
             <div className="p-5 sm:p-6 text-center sm:text-left">
-              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Đánh giá người bệnh</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Patient rating</dt>
               <dd className="mt-1 font-bold text-ink">
                 <Rating avg={d.rating_avg} count={d.rating_count} />
               </dd>
@@ -73,7 +73,7 @@ export default function DoctorDetailPage() {
               {d.qualifications && (
                 <div>
                   <h2 className="text-sm font-bold uppercase tracking-wider text-ink mb-2 flex items-center gap-2">
-                    <IconAcademic size={17} className="text-berry" /> Học vấn &amp; Bằng cấp chuyên khoa
+                    <IconAcademic size={17} className="text-berry" /> Education &amp; Board Certifications
                   </h2>
                   <p className="text-base text-muted leading-relaxed pl-6 border-l-2 border-berry/30">{d.qualifications}</p>
                 </div>
@@ -81,7 +81,7 @@ export default function DoctorDetailPage() {
               {d.introduction && (
                 <div>
                   <h2 className="text-sm font-bold uppercase tracking-wider text-ink mb-2 flex items-center gap-2">
-                    <IconStethoscope size={17} className="text-berry" /> Giới thiệu về bác sĩ
+                    <IconStethoscope size={17} className="text-berry" /> About the Doctor
                   </h2>
                   <p className="text-base text-muted leading-relaxed pl-6 border-l-2 border-berry/30">{d.introduction}</p>
                 </div>
@@ -93,17 +93,17 @@ export default function DoctorDetailPage() {
         <section className="card p-6 sm:p-8 rounded-2xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-ink">
-              Đánh giá từ người bệnh
+              Patient Reviews
             </h2>
             {reviews.data && (
               <span className="text-xs font-semibold text-muted bg-surface px-3 py-1 rounded-full border border-line">
-                {reviews.data.items.length} nhận xét
+                {reviews.data.items.length} reviews
               </span>
             )}
           </div>
           {reviews.isLoading && <Spinner />}
           {reviews.data?.items.length === 0 && (
-            <EmptyState>Bác sĩ chưa có nhận xét nào. Hãy là người đầu tiên đặt khám và chia sẻ trải nghiệm.</EmptyState>
+            <EmptyState>No reviews yet for this doctor. Be the first patient to share your consultation experience.</EmptyState>
           )}
           <ul className="divide-y divide-line">
             {reviews.data?.items.map((r) => (

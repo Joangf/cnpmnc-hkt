@@ -42,13 +42,13 @@ export default function DepartmentsPage() {
     <div className="pb-12">
       <div className="mb-8">
         <div className="inline-flex items-center gap-2 rounded-full bg-blush px-3.5 py-1 text-xs font-semibold text-berry mb-3 border border-berry/20 uppercase tracking-wider">
-          Khoa &amp; Phòng khám chuyên sâu
+          Clinical Departments &amp; Clinics
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink mb-3">
-          Danh mục Khoa &amp; Phòng khám chuyên sâu
+          Specialized Departments &amp; Clinics
         </h1>
         <p className="max-w-2xl text-base text-muted leading-relaxed">
-          Tra cứu vị trí phòng khám, thông tin khoa điều trị và các bác sĩ phụ trách tại HKT Hospital.
+          Browse clinic locations, departmental services, and attending physicians at HKT Hospital.
         </p>
       </div>
 
@@ -61,12 +61,12 @@ export default function DepartmentsPage() {
       >
         <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4">
           <label className="flex-[2_1_280px]">
-            <span className="block text-sm font-semibold text-ink mb-1.5">Tên khoa, chuyên khoa hoặc tầng/vị trí</span>
+            <span className="block text-sm font-semibold text-ink mb-1.5">Department name, specialty or floor</span>
             <div className="relative">
               <input
                 className="input mt-0 pl-10"
                 type="search"
-                placeholder="Ví dụ: Tim mạch, Tầng 3, Nội tổng quát..."
+                placeholder="e.g. Cardiology, Floor 3, Internal Medicine..."
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
@@ -76,13 +76,13 @@ export default function DepartmentsPage() {
             </div>
           </label>
           <label className="flex-[1_1_220px]">
-            <span className="block text-sm font-semibold text-ink mb-1.5">Cơ sở / Bệnh viện</span>
+            <span className="block text-sm font-semibold text-ink mb-1.5">Facility / Hospital</span>
             <select
               className="input mt-0"
               value={hospitalId ?? ''}
               onChange={(e) => update({ hospital_id: e.target.value || undefined })}
             >
-              <option value="">Tất cả cơ sở</option>
+              <option value="">All facilities</option>
               {hospitals.data?.items.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name}
@@ -91,7 +91,7 @@ export default function DepartmentsPage() {
             </select>
           </label>
           <button className="btn-primary min-w-[130px] font-semibold py-3 shadow-button hover:shadow-button-hover">
-            Tìm kiếm
+            Search
           </button>
         </div>
       </form>
@@ -110,11 +110,11 @@ export default function DepartmentsPage() {
         <ErrorAlert error={departments.error} />
         {departments.data && (
           <p className="text-sm font-medium text-muted mb-4" aria-live="polite">
-            Tìm thấy <span className="font-bold text-ink">{departments.data.total}</span> khoa và phòng khám
+            Found <span className="font-bold text-ink">{departments.data.total}</span> departments and clinics
           </p>
         )}
         {departments.data?.items.length === 0 && (
-          <EmptyState>Không tìm thấy khoa/phòng khám nào phù hợp với bộ lọc.</EmptyState>
+          <EmptyState>No departments or clinics match your search filters.</EmptyState>
         )}
         {!!departments.data?.items.length && (
           <div className="grid gap-6 md:grid-cols-2">
@@ -152,16 +152,16 @@ export default function DepartmentsPage() {
                     )}
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-blush px-2.5 py-1 text-xs font-semibold text-berry border border-berry/20">
                       <IconStethoscope size={13} className="text-berry shrink-0" />
-                      <span>{d.doctor_count} bác sĩ phụ trách</span>
+                      <span>{d.doctor_count} attending {d.doctor_count === 1 ? 'physician' : 'physicians'}</span>
                     </span>
                   </div>
 
                   <Link
                     to={`/departments/${d.id}`}
                     className="link inline-flex items-center gap-1.5 text-xs font-bold pt-1"
-                    aria-label={`Xem chi tiết khoa ${d.name}`}
+                    aria-label={`View details of ${d.name}`}
                   >
-                    Xem chi tiết <IconArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    View details <IconArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </div>
               </article>

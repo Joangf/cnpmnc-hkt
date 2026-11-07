@@ -2,65 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Component classes for .claude/design/design-guidelines.md: mostly white, berry for the one main action,
-   1px warm lines, gentle corners, soft shadows, Figtree, 48px+ targets, 3px pink focus ring. */
+/* Component classes for .claude/design/design-guidelines.md: mostly white, teal for the one main action,
+   1px cool lines, gentle corners, soft shadows, Figtree, 48px+ targets, 3px teal focus ring. */
 
 @layer base {
   /* Palette as RGB triplets so Tailwind opacity modifiers still work (see tailwind.config.js).
-     Modern medical palette: crisp sapphire blue primary, clean slate neutrals, soft tints. */
+     HKT Care brand: deep teal-green primary, warm sand accents, cool clean neutrals. */
   :root {
     --c-canvas: 255 255 255; /* #FFFFFF */
     --c-on-accent: 255 255 255; /* #FFFFFF */
-    --c-ink: 15 23 42; /* #0F172A - Slate 900: crisp, high-contrast text */
-    --c-muted: 71 85 105; /* #475569 - Slate 600: clean, readable secondary text */
-    --c-berry: 26 86 219; /* #1A56DB - Royal Medical Sapphire Blue */
-    --c-berry-dark: 30 66 159; /* #1E429F - Deep Royal Blue */
-    --c-blush: 239 246 255; /* #EFF6FF - Blue 50: clean soft tint */
-    --c-mist: 240 249 255; /* #F0F9FF - Sky 50: info background */
-    --c-peach: 254 243 199; /* #FEF3C7 - Amber 100: warm rating/notice */
-    --c-surface: 248 250 252; /* #F8FAFC - Slate 50: modern neutral surface */
-    --c-line: 226 232 240; /* #E2E8F0 - Slate 200: crisp divider lines */
-    --c-field: 203 213 225; /* #CBD5E1 - Slate 300: clean input border */
-    --c-focus: 147 197 253; /* #93C5FD - Blue 300: modern focus ring */
-    --c-success: 16 185 129; /* #10B981 - Emerald 500 */
-    --c-success-soft: 236 253 245; /* #ECFDF5 - Emerald 50 */
-    --c-success-line: 167 243 208; /* #A7F3D0 - Emerald 200 */
-    --c-success-strong: 6 95 70; /* #065F46 - Emerald 800 */
-    --c-notice: 217 119 6; /* #D97706 - Amber 600 */
-    --c-notice-soft: 254 243 199; /* #FEF3C7 - Amber 100 */
+    --c-ink: 16 35 31; /* #10231F - Deep forest ink */
+    --c-muted: 76 99 93; /* #4C635D - Sage grey, readable secondary text */
+    --c-berry: 15 107 92; /* #0F6B5C - HKT Care Teal */
+    --c-berry-dark: 10 79 68; /* #0A4F44 - Deep teal */
+    --c-blush: 230 244 240; /* #E6F4F0 - Mint 50 */
+    --c-mist: 234 246 248; /* #EAF6F8 - Aqua mist */
+    --c-peach: 253 241 228; /* #FDF1E4 - Warm sand */
+    --c-surface: 246 250 249; /* #F6FAF9 - Fresh neutral surface */
+    --c-line: 220 232 228; /* #DCE8E4 - Cool divider lines */
+    --c-field: 195 214 208; /* #C3D6D0 - Input border */
+    --c-focus: 111 211 192; /* #6FD3C0 - Teal 300 focus ring */
+    --c-success: 21 128 61; /* #15803D - Green 700 */
+    --c-success-soft: 236 253 245; /* #ECFDF5 - Green 50 */
+    --c-success-line: 187 247 208; /* #BBF7D0 - Green 200 */
+    --c-success-strong: 22 101 52; /* #166534 - Green 800 */
+    --c-notice: 180 83 9; /* #B45309 - Amber 700 */
+    --c-notice-soft: 255 247 237; /* #FFF7ED - Amber 50 */
     --c-notice-line: 253 230 138; /* #FDE68A - Amber 200 */
     --c-notice-strong: 146 64 14; /* #92400E - Amber 800 */
-    --c-info: 2 132 199; /* #0284C7 - Sky 600 */
+    --c-info: 3 105 161; /* #0369A1 - Sky 700 */
     --c-info-line: 186 230 253; /* #BAE6FD - Sky 200 */
     --c-info-strong: 7 89 133; /* #075985 - Sky 800 */
-    --c-alert: 239 68 68; /* #EF4444 - Red 500 */
-    --c-alert-dark: 220 38 38; /* #DC2626 - Red 600 */
+    --c-alert: 220 38 38; /* #DC2626 - Red 600 */
+    --c-alert-dark: 185 28 28; /* #B91C1C - Red 700 */
     --c-alert-soft: 254 242 242; /* #FEF2F2 - Red 50 */
     --c-alert-line: 254 202 202; /* #FECACA - Red 200 */
     --c-alert-strong: 153 27 27; /* #991B1B - Red 800 */
-    --c-disabled: 241 245 249; /* #F1F5F9 - Slate 100 */
-    --c-disabled-text: 148 163 184; /* #94A3B8 - Slate 400 */
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 10px 25px -5px rgb(15 23 42 / 0.06);
-    --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 20px 32px -6px rgb(26 86 219 / 0.14);
-    --shadow-button: 0 4px 14px 0 rgb(26 86 219 / 0.28);
-    --shadow-button-hover: 0 6px 20px 0 rgb(26 86 219 / 0.38);
-    --shadow-alert: 0 4px 14px 0 rgb(239 68 68 / 0.25);
+    --c-disabled: 241 245 244; /* #F1F5F4 - Stone 100 */
+    --c-disabled-text: 148 163 160; /* #94A3A0 - Stone 400 */
+    --shadow-card: 0 1px 3px 0 rgb(16 35 31 / 0.05), 0 10px 25px -5px rgb(16 35 31 / 0.07);
+    --shadow-card-hover: 0 4px 6px -1px rgb(16 35 31 / 0.05), 0 20px 32px -6px rgb(15 107 92 / 0.16);
+    --shadow-button: 0 4px 14px 0 rgb(15 107 92 / 0.26);
+    --shadow-button-hover: 0 6px 20px 0 rgb(15 107 92 / 0.36);
+    --shadow-alert: 0 4px 14px 0 rgb(220 38 38 / 0.25);
     color-scheme: light;
   }
   :root[data-theme='dark'] {
-    --c-canvas: 15 23 42; /* #0F172A - Slate 900 */
-    --c-on-accent: 15 23 42; /* #0F172A */
-    --c-ink: 248 250 252; /* #F8FAFC - Slate 50 */
-    --c-muted: 148 163 184; /* #94A3B8 - Slate 400 */
-    --c-berry: 96 165 250; /* #60A5FA - Blue 400 */
-    --c-berry-dark: 147 197 253; /* #93C5FD - Blue 300 */
-    --c-blush: 30 58 138; /* #1E3A8A - Blue 900 */
-    --c-mist: 12 74 110; /* #0C4A6E - Sky 900 */
-    --c-peach: 69 26 3; /* #451A03 */
-    --c-surface: 30 41 59; /* #1E293B - Slate 800 */
-    --c-line: 51 65 85; /* #334155 - Slate 700 */
-    --c-field: 71 85 105; /* #475569 - Slate 600 */
-    --c-focus: 147 197 253; /* #93C5FD */
+    --c-canvas: 8 21 18; /* #081512 - Deep pine */
+    --c-on-accent: 4 35 30; /* #04231E */
+    --c-ink: 236 253 249; /* #ECFDF9 - Mint 50 */
+    --c-muted: 157 184 178; /* #9DB8B2 - Sage 300 */
+    --c-berry: 94 234 212; /* #5EEAD4 - Teal 300 */
+    --c-berry-dark: 153 246 228; /* #99F6E4 - Teal 200 */
+    --c-blush: 14 59 51; /* #0E3B33 - Deep teal tint */
+    --c-mist: 11 51 64; /* #0B3340 - Deep aqua */
+    --c-peach: 59 42 24; /* #3B2A18 - Dark sand */
+    --c-surface: 15 36 32; /* #0F2420 - Pine surface */
+    --c-line: 30 58 52; /* #1E3A34 */
+    --c-field: 44 74 67; /* #2C4A43 */
+    --c-focus: 94 234 212; /* #5EEAD4 */
     --c-success: 52 211 153; /* #34D399 */
     --c-success-soft: 6 78 59; /* #064E3B */
     --c-success-line: 16 185 129;
@@ -77,12 +77,12 @@
     --c-alert-soft: 127 29 29;
     --c-alert-line: 185 28 28;
     --c-alert-strong: 254 202 202;
-    --c-disabled: 30 41 59;
-    --c-disabled-text: 100 116 139;
+    --c-disabled: 30 41 38;
+    --c-disabled-text: 100 116 112;
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 25px rgba(0, 0, 0, 0.5);
     --shadow-card-hover: 0 4px 8px rgba(0, 0, 0, 0.4), 0 20px 32px rgba(0, 0, 0, 0.6);
-    --shadow-button: 0 4px 14px rgba(96, 165, 250, 0.25);
-    --shadow-button-hover: 0 6px 20px rgba(96, 165, 250, 0.35);
+    --shadow-button: 0 4px 14px rgba(94, 234, 212, 0.25);
+    --shadow-button-hover: 0 6px 20px rgba(94, 234, 212, 0.35);
     --shadow-alert: 0 4px 14px rgba(248, 113, 113, 0.25);
     color-scheme: dark;
   }
@@ -268,5 +268,43 @@
   }
   .table tbody tr:last-child td {
     @apply border-b-0;
+  }
+}
+
+/* Dual-handle time slider: two native range inputs stacked over one track. */
+@layer components {
+  .range-dual {
+    @apply relative h-8;
+  }
+  .range-dual-track {
+    @apply absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-line;
+  }
+  .range-dual-fill {
+    @apply absolute inset-y-0 rounded-full bg-berry;
+  }
+  .range-dual input[type='range'] {
+    @apply pointer-events-none absolute inset-0 m-0 h-8 w-full appearance-none bg-transparent;
+  }
+  .range-dual input[type='range']::-webkit-slider-thumb {
+    @apply pointer-events-auto h-6 w-6 cursor-grab appearance-none rounded-full border-2 border-canvas bg-berry shadow-button;
+  }
+  .range-dual input[type='range']::-moz-range-thumb {
+    @apply pointer-events-auto h-6 w-6 cursor-grab rounded-full border-2 border-canvas bg-berry shadow-button;
+  }
+  .range-dual input[type='range']:focus-visible::-webkit-slider-thumb {
+    @apply outline outline-[3px] outline-offset-2 outline-focus;
+  }
+  .range-dual input[type='range']:focus-visible::-moz-range-thumb {
+    @apply outline outline-[3px] outline-offset-2 outline-focus;
+  }
+  .range-dual input[type='range']:disabled::-webkit-slider-thumb {
+    @apply cursor-not-allowed bg-muted;
+  }
+}
+
+/* Round arrow buttons that overlay the ends of the day strip. */
+@layer components {
+  .day-nav {
+    @apply absolute top-1/2 z-10 h-9 w-9 -translate-y-[calc(50%+4px)] items-center justify-center rounded-full border border-line bg-canvas text-berry shadow-card transition-colors duration-fast hover:bg-blush;
   }
 }

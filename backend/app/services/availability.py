@@ -12,9 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import ValidationFailed
-from app.models import AppointmentType
+from app.models import AppointmentType, Doctor
 from app.repositories import appointments as appointment_repo
 from app.services.scheduling import Interval, ScheduleWindow, Slot, generate_slots
+from app.services.scheduling_settings import EffectiveSettings, resolve
 
 logger = structlog.get_logger(__name__)
 
@@ -39,13 +40,6 @@ def format_local(moment: datetime) -> str:
     return moment.astimezone(clinic_tz()).strftime("%d/%m/%Y %H:%M")
 
 
-def durations(appointment_type: AppointmentType) -> tuple[timedelta, timedelta]:
-    return (
-        timedelta(minutes=appointment_type.duration_minutes),
-        timedelta(minutes=appointment_type.buffer_minutes),
-    )
-
-
 def check_booking_window(day: date, now: datetime | None = None) -> None:
     today = local_day(now or datetime.now(UTC))
     if day < today:
@@ -58,28 +52,36 @@ def check_booking_window(day: date, now: datetime | None = None) -> None:
 
 
 async def compute_slots(
-    session: AsyncSession, doctor_id: int, appointment_type: AppointmentType, day: date
+    session: AsyncSession, doctor_id: int, appointment_type: AppointmentType, day: date,
+    *, effective: EffectiveSettings | None = None,
 ) -> list[Slot]:
     """Authoritative-as-possible computation straight from the database (used for BR-03)."""
+    if effective is None:
+        doctor = await session.get(Doctor, doctor_id)
+        if doctor is None:
+            return []
+        effective = resolve(doctor, appointment_type)
     start, end = day_bounds(day)
     rows = await appointment_repo.schedule_rows(session, doctor_id, start, end)
     windows = [
-        ScheduleWindow(r.start_time, r.end_time, r.max_appointments) for r in rows if r.is_available
+        ScheduleWindow(r.start_time, r.end_time, effective.window_capacity(r.max_appointments))
+        for r in rows if r.is_available
     ]
     blocked = [Interval(r.start_time, r.end_time) for r in rows if not r.is_available]
     busy = [
         Interval(s, e)
         for s, e in await appointment_repo.busy_intervals(
-            session, doctor_id, start - timedelta(hours=12), end + timedelta(hours=12)
+            session, doctor_id,
+            min([start, *(r.start_time for r in rows)]),
+            max([end, *(r.end_time for r in rows)]),
         )
     ]
-    duration, buffer = durations(appointment_type)
     return generate_slots(
         windows,
         busy,
         blocked=blocked,
-        duration=duration,
-        buffer=buffer,
+        duration=effective.duration,
+        buffer=effective.buffer,
         increment=timedelta(minutes=settings.slot_increment_minutes),
         not_before=datetime.now(UTC) + timedelta(minutes=settings.booking_min_lead_minutes),
     )
@@ -97,7 +99,11 @@ async def get_slots_cached(
     day: date,
 ) -> list[Slot]:
     """Short-TTL cache for browsing. Never used for booking validation."""
-    key, field = _cache_key(doctor_id, day), str(appointment_type.id)
+    doctor = await session.get(Doctor, doctor_id)
+    if doctor is None:
+        return []
+    effective = resolve(doctor, appointment_type)
+    key, field = _cache_key(doctor_id, day), effective.fingerprint
     try:
         cached = await redis.hget(key, field)  # type: ignore[misc]  # redis-py stub union
         if cached:
@@ -108,7 +114,7 @@ async def get_slots_cached(
     except RedisError:
         logger.warning("availability_cache_read_failed")
 
-    slots = await compute_slots(session, doctor_id, appointment_type, day)
+    slots = await compute_slots(session, doctor_id, appointment_type, day, effective=effective)
     try:
         payload = json.dumps([[s.start.isoformat(), s.end.isoformat()] for s in slots])
         async with redis.pipeline(transaction=True) as pipe:

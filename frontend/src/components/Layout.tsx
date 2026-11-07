@@ -81,7 +81,6 @@ export function Layout() {
 
   const mainLinks: NavItem[] = [
     { to: '/doctors', label: 'Find a doctor' },
-    { to: '/departments', label: 'Departments' },
     { to: '/symptoms', label: 'Symptom checker' },
   ]
   const accountLinks: NavItem[] = isPatient
@@ -126,7 +125,7 @@ export function Layout() {
         {/* The emergency number is always visible (booking flow step 1). */}
         <div className="bg-surface/80 border-b border-line/60">
           <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-6 px-4 text-xs font-medium text-muted sm:px-6">
-            <p className="hidden py-2 sm:block">HKT Hospital - Đặt lịch khám trực tuyến 24/7 · Xác nhận ngay</p>
+            <p className="hidden py-2 sm:block">HKT Hospital - Online booking 24/7 · Instant confirmation</p>
             <div className="flex items-center gap-6">
               <nav aria-label="Account" className="hidden items-center gap-5 xl:flex">
                 {accountLinks.map((l) => (
@@ -145,7 +144,7 @@ export function Layout() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-alert opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-alert"></span>
                 </span>
-                <span className="text-muted">Cấp cứu 24/7:</span>
+                <span className="text-muted">Emergency 24/7:</span>
                 <a href={`tel:${EMERGENCY_NUMBER}`} className="font-bold text-alert hover:underline">
                   {EMERGENCY_NUMBER}
                 </a>

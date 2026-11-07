@@ -254,10 +254,10 @@ async def _seed_directory(session: AsyncSession) -> None:
                 specialty_id=specialties[specialty_name].id,
                 name=f"{specialty_name} Department",
                 description=(
-                    f"Khoa {specialty_name} tại {hospital.name}: tư vấn, thăm khám và "
-                    "điều trị chuyên khoa."
+                    f"{specialty_name} Department at {hospital.name}: consultation, examination and "
+                    "specialist treatment."
                 ),
-                location=f"Tầng {(dept_index % 4) + 1}, Tòa {chr(65 + dept_index % 3)}",
+                location=f"Floor {(dept_index % 4) + 1}, Building {chr(65 + dept_index % 3)}",
             )
             dept_index += 1
             session.add(department)

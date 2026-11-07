@@ -152,6 +152,10 @@ export interface DoctorDetail extends DoctorSummary {
   erp_doctor_id: string | null
 }
 
+export interface AdminDoctorDetail extends DoctorDetail {
+  max_appointments_per_window: number
+}
+
 export interface AppointmentType {
   id: number
   name: string

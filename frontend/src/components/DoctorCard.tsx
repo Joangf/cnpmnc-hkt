@@ -59,7 +59,7 @@ export function DoctorAvatar({
         initials(doctor.full_name)
       )}
       <span
-        title="Bác sĩ đang nhận lịch khám"
+        title="Doctor is accepting appointments"
         className="absolute bottom-1 right-1 block h-3 w-3 rounded-full border-2 border-white bg-success shadow-sm"
       />
     </div>
@@ -71,7 +71,7 @@ export function Rating({ avg, count }: { avg: string | number; count: number }) 
   if (count === 0 && (!numAvg || numAvg === 0)) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
-        <Stars value={5} /> <span className="font-semibold text-ink">5.0</span> (Mới)
+        <Stars value={5} /> <span className="font-semibold text-ink">5.0</span> (New)
       </span>
     )
   }
@@ -112,26 +112,31 @@ export function DoctorCard({ doctor, style }: { doctor: DoctorSummary; style?: C
               {doctor.specialty.name}
             </span>
             <span className="caption font-medium">
-              • {doctor.experience_years} năm kinh nghiệm
+              • {doctor.experience_years} yrs experience
             </span>
           </div>
 
           <p className="caption text-xs truncate mt-0.5 flex items-center gap-1">
             <IconLocation size={13} className="text-muted shrink-0" />
-            <span className="truncate">{doctor.hospital.name} · {doctor.department.name}</span>
+            <span className="truncate">
+              {doctor.hospital.name} ·{' '}
+              <Link to={`/departments/${doctor.department.id}`} className="hover:underline" aria-label={`View department: ${doctor.department.name}`}>
+                {doctor.department.name}
+              </Link>
+            </span>
           </p>
         </div>
       </div>
 
       <div className="flex items-center justify-between border-t border-line/60 pt-3">
         <div>
-          <span className="block text-xs font-medium text-muted">Phí khám</span>
+          <span className="block text-xs font-medium text-muted">Consultation fee</span>
           <span className="text-lg font-bold text-berry">
             {formatMoney(doctor.consultation_fee, doctor.currency)}
           </span>
         </div>
         <div className="text-right">
-          <span className="block text-xs font-medium text-muted">Đánh giá</span>
+          <span className="block text-xs font-medium text-muted">Rating</span>
           <Rating avg={doctor.rating_avg} count={doctor.rating_count} />
         </div>
       </div>
@@ -139,17 +144,17 @@ export function DoctorCard({ doctor, style }: { doctor: DoctorSummary; style?: C
       <div className="flex gap-2.5 pt-1">
         <Link
           to={`${href}#book`}
-          aria-label={`Đặt lịch khám với ${doctor.full_name}`}
+          aria-label={`Book appointment with ${doctor.full_name}`}
           className="btn-primary flex-1 py-2.5 text-sm font-semibold shadow-button hover:shadow-button-hover"
         >
-          Đặt lịch khám
+          Book appointment
         </Link>
         <Link
           to={href}
-          aria-label={`Xem hồ sơ bác sĩ ${doctor.full_name}`}
+          aria-label={`View profile of ${doctor.full_name}`}
           className="btn-secondary px-4 py-2.5 text-sm font-semibold"
         >
-          Xem hồ sơ
+          View profile
         </Link>
       </div>
     </article>

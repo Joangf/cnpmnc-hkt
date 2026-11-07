@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api, type AdminEntity } from '../../api/endpoints'
-import type { AppointmentTypeAdmin, Department, DepartmentVisibility, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
+import type { AdminDoctorDetail, AppointmentTypeAdmin, Department, DepartmentVisibility, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
 import { Card, ErrorAlert, FilterChip, Spinner } from '../../components/ui'
 import { IconCheck } from '../../components/icons'
 import { formatMoney, humanize, telHref } from '../../lib/format'
@@ -20,6 +20,11 @@ interface FieldDef {
   /** Not editable once created (the API's update schema does not accept it). */
   createOnly?: boolean
   placeholder?: string
+  min?: number
+  max?: number
+  step?: number
+  defaultValue?: string
+  help?: string
   options?: { value: string | number; label: string }[]
   /** Current value from a listed record, when it is not simply `record[name]`. */
   get?: (record: AnyRecord) => unknown
@@ -88,7 +93,7 @@ function EntityForm({
   return (
     <form className="grid gap-5 sm:grid-cols-2" onSubmit={handle}>
       {visible.map((f) => {
-        const initial = editing ? currentValue(f, editing) : ''
+        const initial = editing ? currentValue(f, editing) : f.defaultValue ?? ''
         const isFullWidth = f.type === 'textarea' || f.name === 'avatar_url'
         return (
           <label key={f.name} className={isFullWidth ? 'sm:col-span-2' : ''}>
@@ -122,7 +127,10 @@ function EntityForm({
                 required={f.required}
                 defaultValue={initial}
                 placeholder={f.placeholder}
-                min={f.type === 'number' ? 0 : undefined}
+                min={f.type === 'number' ? f.min ?? 0 : undefined}
+                max={f.max}
+                step={f.step}
+                aria-describedby={f.help ? `help-${f.name}` : undefined}
                 onChange={
                   f.name === 'avatar_url'
                     ? (e) => setAvatarPreview(e.target.value.trim())
@@ -132,6 +140,7 @@ function EntityForm({
                 }
               />
             )}
+            {f.help && <span id={`help-${f.name}`} className="caption mt-1 block">{f.help}</span>}
             {f.name === 'avatar_url' && avatarPreview && (
               <div className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-surface p-3">
                 <HospitalAvatar
@@ -166,7 +175,7 @@ export default function AdminDirectoryPage() {
   const specialties = useQuery({ queryKey: ['admin', 'specialties'], queryFn: () => api.admin.list<Specialty>('specialties') })
   const hospitals = useQuery({ queryKey: ['admin', 'hospitals'], queryFn: () => api.admin.list<HospitalDetail>('hospitals') })
   const departments = useQuery({ queryKey: ['admin', 'departments'], queryFn: () => api.admin.list<Department>('departments') })
-  const doctors = useQuery({ queryKey: ['admin', 'doctors'], queryFn: () => api.admin.list<DoctorDetail>('doctors') })
+  const doctors = useQuery({ queryKey: ['admin', 'doctors'], queryFn: () => api.admin.list<AdminDoctorDetail>('doctors') })
   const types = useQuery({ queryKey: ['admin', 'appointment-types'], queryFn: () => api.admin.list<AppointmentTypeAdmin>('appointment-types') })
 
   const invalidate = () => {
@@ -175,6 +184,8 @@ export default function AdminDirectoryPage() {
     queryClient.invalidateQueries({ queryKey: ['hospital'] })
     queryClient.invalidateQueries({ queryKey: ['doctors'] })
     queryClient.invalidateQueries({ queryKey: ['specialties'] })
+    queryClient.invalidateQueries({ queryKey: ['appointment-types'] })
+    queryClient.invalidateQueries({ queryKey: ['availability'] })
   }
 
   const create = useMutation({ mutationFn: (body: AnyRecord) => api.admin.create(entity, body), onSuccess: invalidate })
@@ -205,7 +216,7 @@ export default function AdminDirectoryPage() {
     setEntity(next)
   }
 
-  // Quản lý 1 bệnh viện duy nhất: lấy record đầu tiên
+  // Manage a single hospital: use the first record.
   const primaryHospital = hospitals.data?.[0]
 
   const hospitalFields: FieldDef[] = [
@@ -288,7 +299,7 @@ export default function AdminDirectoryPage() {
         id: d.id,
         is_active: d.is_active,
         title: d.full_name,
-        subtitle: `${d.hospital.name} · ${d.department.name} · ${d.specialty.name} · ${formatMoney(d.consultation_fee)} · ERP ${d.erp_doctor_id ?? 'not linked'}`,
+        subtitle: `${d.hospital.name} · ${d.department.name} · ${d.specialty.name} · ${formatMoney(d.consultation_fee)} · ERP ${d.erp_doctor_id ?? 'not linked'} · Capacity ${d.max_appointments_per_window} per work window`,
         record: { ...d },
       })),
       fields: [
@@ -308,6 +319,11 @@ export default function AdminDirectoryPage() {
         { name: 'experience_years', label: 'Years of experience', type: 'number' },
         { name: 'consultation_fee', label: 'Consultation fee', type: 'number' },
         { name: 'erp_doctor_id', label: 'ERP doctor ID' },
+        {
+          name: 'max_appointments_per_window', label: 'Capacity per work window',
+          type: 'number', required: true, min: 1, max: 2147483647, step: 1, defaultValue: '1',
+          help: 'Total bookings across all appointment types in each doctor work window. Default: 1. A stricter hospital schedule limit still applies. Existing bookings are preserved when this is lowered.',
+        },
         { name: 'avatar_url', label: 'Photo URL' },
         { name: 'qualifications', label: 'Qualifications', type: 'textarea' },
         { name: 'introduction', label: 'Introduction', type: 'textarea' },
@@ -326,10 +342,14 @@ export default function AdminDirectoryPage() {
       })),
       fields: [
         { name: 'name', label: 'Name', required: true },
-        { name: 'duration_minutes', label: 'Duration (min)', type: 'number', required: true },
-        { name: 'buffer_minutes', label: 'Buffer (min)', type: 'number' },
+        { name: 'duration_minutes', label: 'Duration (min)', type: 'number', required: true, min: 5, max: 480, step: 1, help: '5-480 whole minutes. Changes apply to new bookings.' },
+        { name: 'buffer_minutes', label: 'Buffer (min)', type: 'number', required: true, min: 0, max: 120, step: 1, defaultValue: '0', help: '0-120 whole minutes reserved after the consultation.' },
         { name: 'fee_override', label: 'Fee override', type: 'number' },
         { name: 'specialty_id', label: 'Limit to specialty', type: 'select', options: specialtyOptions },
+        {
+          name: 'doctor_id', label: 'Limit to doctor', type: 'select',
+          options: doctors.data?.map((d) => ({ value: d.id, label: `${d.full_name} · ${d.specialty.name}${d.is_active ? '' : ' - inactive'}` })),
+        },
         { name: 'description', label: 'Description', type: 'textarea' },
       ],
     },
@@ -349,13 +369,13 @@ export default function AdminDirectoryPage() {
       </div>
 
       {entity === 'hospitals' ? (
-        /* Giao diện chỉnh sửa duy nhất 1 bệnh viện */
+        /* Editor for the single hospital. */
         <div>
           {!primaryHospital ? (
             <Spinner />
           ) : (
             <div className="grid gap-8 lg:grid-cols-5">
-              {/* Preview thông tin bệnh viện hiện tại */}
+              {/* Preview of the current hospital information. */}
               <Card className="min-w-0 space-y-5 lg:col-span-2">
                 <h2 className="section-title">Current hospital</h2>
                 <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
@@ -398,7 +418,7 @@ export default function AdminDirectoryPage() {
                 )}
               </Card>
 
-              {/* Form chỉnh sửa trực tiếp bệnh viện này */}
+              {/* Form to edit this hospital directly. */}
               <Card className="min-w-0 lg:col-span-3">
                 <h2 className="section-title mb-4">Edit hospital details</h2>
                 <EntityForm
@@ -425,7 +445,7 @@ export default function AdminDirectoryPage() {
           )}
         </div>
       ) : (
-        /* Giao diện các thực thể khác (Specialties, Departments, Doctors...) */
+        /* Other entities (Specialties, Departments, Doctors...). */
         <div className="grid gap-8 lg:grid-cols-5">
           <Card className="min-w-0 lg:col-span-3">
             <h2 className="section-title mb-3">{current.label}</h2>
@@ -496,6 +516,9 @@ export default function AdminDirectoryPage() {
             )}
             <div className="mt-3">
               <ErrorAlert error={editing ? update.error : create.error} />
+              {!editing && (update.isSuccess || create.isSuccess) && (entity === 'doctors' || entity === 'appointment-types') && (
+                <p role="status" className="font-semibold text-success">Scheduling settings saved.</p>
+              )}
             </div>
           </Card>
         </div>

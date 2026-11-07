@@ -41,6 +41,13 @@ export const IconCheck: IconComponent = (p) => (
   </Icon>
 )
 
+export const IconCalendar: IconComponent = (p) => (
+  <Icon {...p}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+  </Icon>
+)
+
 export const IconClock: IconComponent = (p) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="9" />
@@ -79,15 +86,6 @@ export const IconAcademic: IconComponent = (p) => (
   <Icon {...p}>
     <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
     <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5" />
-  </Icon>
-)
-
-export const IconCalendar: IconComponent = (p) => (
-  <Icon {...p}>
-    <rect x="3" y="4" width="18" height="18" rx="2" />
-    <line x1="16" y1="2" x2="16" y2="6" />
-    <line x1="8" y1="2" x2="8" y2="6" />
-    <line x1="3" y1="10" x2="21" y2="10" />
   </Icon>
 )
 
