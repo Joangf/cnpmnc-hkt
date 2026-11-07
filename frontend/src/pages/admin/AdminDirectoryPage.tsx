@@ -132,7 +132,7 @@ export default function AdminDirectoryPage() {
         id: d.id,
         is_active: d.is_active,
         title: d.full_name,
-        subtitle: `${d.hospital.name} · ${d.department.name} · ${formatMoney(d.consultation_fee)} · ERP ${d.erp_doctor_id ?? 'not linked'}`,
+        subtitle: `${d.hospital.name} · ${d.department.name} · ERP ${d.erp_doctor_id ?? 'not linked'}`,
       })),
       fields: [
         {
@@ -145,7 +145,6 @@ export default function AdminDirectoryPage() {
         { name: 'full_name', label: 'Full name', required: true },
         { name: 'title', label: 'Title' },
         { name: 'experience_years', label: 'Years of experience', type: 'number' },
-        { name: 'consultation_fee', label: 'Consultation fee', type: 'number' },
         { name: 'erp_doctor_id', label: 'ERP doctor ID' },
         { name: 'qualifications', label: 'Qualifications', type: 'textarea' },
         { name: 'introduction', label: 'Introduction', type: 'textarea' },
@@ -165,7 +164,7 @@ export default function AdminDirectoryPage() {
         { name: 'name', label: 'Name', required: true },
         { name: 'duration_minutes', label: 'Duration (min)', type: 'number', required: true },
         { name: 'buffer_minutes', label: 'Buffer (min)', type: 'number' },
-        { name: 'fee_override', label: 'Fee override', type: 'number' },
+        { name: 'fee_override', label: 'Consultation fee (VND)', type: 'number', required: true },
         { name: 'specialty_id', label: 'Limit to specialty', type: 'select', options: specialtyOptions },
         { name: 'description', label: 'Description', type: 'textarea' },
       ],

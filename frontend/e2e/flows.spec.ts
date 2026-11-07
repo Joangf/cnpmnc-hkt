@@ -38,7 +38,7 @@ test('guest can browse facilities, doctors and the symptom checker', async ({ pa
 
   await page.getByRole('link', { name: 'Hospitals & clinics' }).first().click()
   await expect(page.getByRole('heading', { name: 'Hospitals & clinics' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Lotus Skin & Eye Clinic' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Riverside General Hospital' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Symptom checker' }).first().click()
   await expect(page.getByText(/does not diagnose conditions/)).toBeVisible()

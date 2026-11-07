@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import type { DoctorSummary } from '../api/types'
-import { formatMoney } from '../lib/format'
 import { Stars } from './ui'
 
 function initials(name: string): string {
@@ -57,7 +56,6 @@ export function DoctorCard({ doctor, style }: { doctor: DoctorSummary; style?: C
         </div>
       </div>
       <div className="flex flex-1 flex-wrap content-start gap-2">
-        <span className="tag">Fee: {formatMoney(doctor.consultation_fee, doctor.currency)}</span>
         <span className="tag">{doctor.department.name}</span>
         <span className="tag">
           <Rating avg={doctor.rating_avg} count={doctor.rating_count} />

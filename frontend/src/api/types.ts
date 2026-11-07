@@ -109,8 +109,6 @@ export interface DoctorSummary {
   full_name: string
   title: string | null
   experience_years: number
-  consultation_fee: Decimal | null
-  currency: string
   rating_avg: Decimal
   rating_count: number
   avatar_url: string | null

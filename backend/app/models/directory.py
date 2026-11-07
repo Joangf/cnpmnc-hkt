@@ -65,7 +65,6 @@ class Doctor(TimestampMixin, Base):
     qualifications: Mapped[str | None] = mapped_column(Text)
     experience_years: Mapped[int] = mapped_column(default=0)
     introduction: Mapped[str | None] = mapped_column(Text)
-    consultation_fee: Mapped[Decimal | None]
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     # Identifier of this doctor in the hospital ERP/HIS; null = not integrated.
     erp_doctor_id: Mapped[str | None] = mapped_column(String(64), unique=True)

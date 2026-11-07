@@ -79,7 +79,6 @@ class DoctorCreate(BaseModel):
     qualifications: LongText | None = None
     experience_years: int = Field(default=0, ge=0, le=70)
     introduction: LongText | None = None
-    consultation_fee: Decimal | None = Field(default=None, ge=0)
     avatar_url: ShortText | None = None
     erp_doctor_id: ShortText | None = None
 
@@ -91,7 +90,6 @@ class DoctorUpdate(BaseModel):
     qualifications: LongText | None = None
     experience_years: int | None = Field(default=None, ge=0, le=70)
     introduction: LongText | None = None
-    consultation_fee: Decimal | None = Field(default=None, ge=0)
     avatar_url: ShortText | None = None
     erp_doctor_id: ShortText | None = None
     is_active: bool | None = None

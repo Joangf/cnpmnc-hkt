@@ -72,7 +72,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
     },
   })
 
-  const fee = selectedType?.fee ?? doctor.consultation_fee
+  const fee = selectedType?.fee ?? '0'
   const step = slot ? 4 : 3
 
   return (
@@ -188,7 +188,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
               </div>
               <div className="flex justify-between gap-4 bg-surface px-4 py-3">
                 <dt className="font-semibold">Total fee</dt>
-                <dd className="text-right font-semibold">{formatMoney(fee, doctor.currency)}</dd>
+                <dd className="text-right font-semibold">{formatMoney(fee, selectedType.currency)}</dd>
               </div>
             </dl>
             <p className="caption">Your request goes to the hospital first. We confirm it as soon as they accept.</p>

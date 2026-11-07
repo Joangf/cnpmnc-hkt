@@ -5,7 +5,7 @@ import { api } from '../api/endpoints'
 import { BookingPanel } from '../components/BookingPanel'
 import { DoctorAvatar, Rating } from '../components/DoctorCard'
 import { EmptyState, ErrorAlert, Spinner, Stars } from '../components/ui'
-import { formatDateTime, formatMoney } from '../lib/format'
+import { formatDateTime } from '../lib/format'
 
 export default function DoctorDetailPage() {
   const id = Number(useParams().doctorId)
@@ -47,8 +47,8 @@ export default function DoctorDetailPage() {
               <dd className="mt-1 text-h2 font-semibold">{d.experience_years} years</dd>
             </div>
             <div className="p-5 sm:p-6">
-              <dt className="label">Consultation fee</dt>
-              <dd className="mt-1 text-h2 font-semibold">{formatMoney(d.consultation_fee, d.currency)}</dd>
+              <dt className="label">Specialty</dt>
+              <dd className="mt-1 text-h2 font-semibold">{d.specialty.name}</dd>
             </div>
             <div className="p-5 sm:p-6">
               <dt className="label">Rating</dt>

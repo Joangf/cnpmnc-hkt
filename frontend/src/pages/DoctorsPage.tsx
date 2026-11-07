@@ -12,7 +12,6 @@ export default function DoctorsPage() {
   const num = (key: string) => (params.get(key) ? Number(params.get(key)) : undefined)
   const page = num('page') ?? 1
 
-  const hospitals = useQuery({ queryKey: ['hospitals', 'all'], queryFn: () => api.directory.hospitals({ page_size: 100 }) })
   const doctors = useQuery({
     queryKey: ['doctors', params.toString()],
     queryFn: () =>
@@ -50,17 +49,6 @@ export default function DoctorsPage() {
           <span className="label">Doctor name</span>
           <input className="input" type="search" placeholder="e.g. Nguyen" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <label className="flex-[1_1_220px]">
-          <span className="label">Location</span>
-          <select className="input" value={num('hospital_id') ?? ''} onChange={(e) => update({ hospital_id: e.target.value || undefined, department_id: undefined })}>
-            <option value="">All facilities</option>
-            {hospitals.data?.items.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <button className="btn-primary w-full sm:w-auto">Search</button>
       </form>
       <SpecialtyFilter
@@ -76,7 +64,7 @@ export default function DoctorsPage() {
             {doctors.data.total} {doctors.data.total === 1 ? 'doctor' : 'doctors'}
           </p>
         )}
-        {doctors.data?.items.length === 0 && <EmptyState>No doctors match your filters. Try another specialty or location.</EmptyState>}
+        {doctors.data?.items.length === 0 && <EmptyState>No doctors match your filters. Try another specialty.</EmptyState>}
         {!!doctors.data?.items.length && (
           <div className="grid gap-5 md:grid-cols-2">
             {doctors.data.items.map((d, i) => (

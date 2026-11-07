@@ -69,35 +69,13 @@ HOSPITALS = [
             "Respiratory Medicine",
             "Cardiology",
             "Gastroenterology",
-            "Neurology",
+            "Dermatology",
+            "Ophthalmology",
             "Orthopedics",
-        ],
-    },
-    {
-        "name": "Lotus Skin & Eye Clinic",
-        "facility_type": FacilityType.CLINIC,
-        "address": "88 Lotus Street, District 3",
-        "city": "Ho Chi Minh City",
-        "phone": "+842800000002",
-        "email": "hello@lotus-clinic.example",
-        "description": "Fictional outpatient clinic for dermatology and ophthalmology.",
-        "departments": ["Dermatology", "Ophthalmology"],
-    },
-    {
-        "name": "Green Valley Medical Center",
-        "facility_type": FacilityType.HOSPITAL,
-        "address": "5 Green Valley Road, Cau Giay",
-        "city": "Hanoi",
-        "phone": "+842400000003",
-        "email": "info@greenvalley-medical.example",
-        "description": "Fictional regional medical center.",
-        "departments": [
-            "General Internal Medicine",
-            "Pediatrics",
-            "Otorhinolaryngology (ENT)",
             "Rheumatology",
-            "Orthopedics",
-            "Respiratory Medicine",
+            "Otorhinolaryngology (ENT)",
+            "Neurology",
+            "Pediatrics",
         ],
     },
 ]
@@ -118,8 +96,8 @@ GIVEN_NAMES = [
 
 # (name, description, duration, buffer, fee_override, specialty name or None)
 APPOINTMENT_TYPES = [
-    ("Standard consultation", "General consultation.", 20, 10, None, None),
-    ("Extended consultation", "For complex or multiple concerns.", 30, 10, None, None),
+    ("Standard consultation", "General consultation.", 20, 10, Decimal("200000"), None),
+    ("Extended consultation", "For complex or multiple concerns.", 30, 10, Decimal("350000"), None),
     (
         "Follow-up visit",
         "Review of a previous consultation or test results.",
@@ -133,7 +111,7 @@ APPOINTMENT_TYPES = [
         "Assessment before a minor skin procedure.",
         40,
         10,
-        None,
+        Decimal("300000"),
         "Dermatology",
     ),
     (
@@ -141,8 +119,32 @@ APPOINTMENT_TYPES = [
         "Vision and eye health check.",
         30,
         10,
-        None,
+        Decimal("300000"),
         "Ophthalmology",
+    ),
+    (
+        "Cardiac evaluation & ECG",
+        "Cardiovascular assessment with ECG.",
+        30,
+        10,
+        Decimal("350000"),
+        "Cardiology",
+    ),
+    (
+        "Pediatric developmental screening",
+        "Child wellness and developmental checkup.",
+        30,
+        10,
+        Decimal("250000"),
+        "Pediatrics",
+    ),
+    (
+        "ENT endoscopy consultation",
+        "Ear, nose, and throat examination with video endoscopy.",
+        25,
+        10,
+        Decimal("300000"),
+        "Otorhinolaryngology (ENT)",
     ),
 ]
 
@@ -237,7 +239,20 @@ async def _seed_directory(session: AsyncSession) -> None:
             )
             session.add(department)
             await session.flush()
-            for _ in range(2):
+            doctor_count = (
+                3
+                if specialty_name
+                in (
+                    "General Internal Medicine",
+                    "Respiratory Medicine",
+                    "Cardiology",
+                    "Dermatology",
+                    "Orthopedics",
+                    "Pediatrics",
+                )
+                else 2
+            )
+            for _ in range(doctor_count):
                 index += 1
                 family = FAMILY_NAMES[index % len(FAMILY_NAMES)]
                 given = GIVEN_NAMES[(index * 3) % len(GIVEN_NAMES)]
@@ -256,7 +271,6 @@ async def _seed_directory(session: AsyncSession) -> None:
                             f"Fictional {specialty_name.lower()} specialist at {hospital.name}, "
                             "focused on clear explanations and shared decisions."
                         ),
-                        consultation_fee=Decimal(200000 + (index % 4) * 50000),
                         erp_doctor_id=f"ERP-D{index:04d}",
                     )
                 )
@@ -344,7 +358,7 @@ async def _seed_demo_history(session: AsyncSession, patient_id: int) -> None:
         status=AppointmentStatus.COMPLETED,
         check_in_status=CheckInStatus.CHECKED_IN,
         reason_for_visit="Demo appointment",
-        fee_amount=doctor.consultation_fee or Decimal("0"),
+        fee_amount=appointment_type.fee_override or Decimal("200000"),
         currency=settings.currency,
         erp_booking_id="ERP-DEMO-0001",
     )

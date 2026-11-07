@@ -29,17 +29,14 @@ function HeroArt() {
 export default function HomePage() {
   const navigate = useNavigate()
   const specialties = useQuery({ queryKey: ['specialties'], queryFn: api.directory.specialties })
-  const hospitals = useQuery({ queryKey: ['hospitals', 'all'], queryFn: () => api.directory.hospitals({ page_size: 100 }) })
   const [q, setQ] = useState('')
   const [specialtyId, setSpecialtyId] = useState('')
-  const [hospitalId, setHospitalId] = useState('')
 
   const search = (e: FormEvent) => {
     e.preventDefault()
     const params = new URLSearchParams()
     if (q.trim()) params.set('q', q.trim())
     if (specialtyId) params.set('specialty_id', specialtyId)
-    if (hospitalId) params.set('hospital_id', hospitalId)
     navigate(`/doctors${params.size ? `?${params}` : ''}`)
   }
 
@@ -54,7 +51,7 @@ export default function HomePage() {
             booked in minutes.
           </h1>
           <p className="max-w-[500px] text-[1.1875rem] leading-relaxed text-muted">
-            See real availability across our hospitals and clinics. Browse without an account and sign in only when you book.
+            See real availability across our doctors and clinics. Browse without an account and sign in only when you book.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link to="/doctors" className="btn-primary">
@@ -82,17 +79,6 @@ export default function HomePage() {
             {specialties.data?.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex-[1_1_200px]">
-          <span className="label">Location</span>
-          <select className="input" value={hospitalId} onChange={(e) => setHospitalId(e.target.value)}>
-            <option value="">All facilities</option>
-            {hospitals.data?.items.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
               </option>
             ))}
           </select>

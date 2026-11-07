@@ -10,9 +10,7 @@ from app.models.enums import ACTIVE_APPOINTMENT_STATUSES, AppointmentStatus, Pay
 
 
 def effective_fee(doctor: Doctor, appointment_type: AppointmentType) -> Decimal:
-    if appointment_type.fee_override is not None:
-        return appointment_type.fee_override
-    return doctor.consultation_fee or Decimal("0")
+    return appointment_type.fee_override or Decimal("0")
 
 
 def type_applies_to_doctor(appointment_type: AppointmentType, doctor: Doctor) -> bool:

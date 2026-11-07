@@ -46,8 +46,6 @@ class DoctorSummary(BaseModel):
     full_name: str
     title: str | None
     experience_years: int
-    consultation_fee: Decimal | None
-    currency: str
     rating_avg: Decimal
     rating_count: int
     avatar_url: str | None
