@@ -5,6 +5,7 @@ import { api } from '../api/endpoints'
 import { DoctorCard } from '../components/DoctorCard'
 import { SpecialtyFilter } from '../components/SpecialtyFilter'
 import { EmptyState, ErrorAlert, stagger, Pagination, Spinner } from '../components/ui'
+import { IconSearch } from '../components/icons'
 
 export default function DoctorsPage() {
   const [params, setParams] = useSearchParams()
@@ -37,55 +38,116 @@ export default function DoctorsPage() {
   }
 
   return (
-    <div>
-      <h1 className="page-title mb-6">Find a doctor</h1>
+    <div className="pb-12">
+      {/* Page Header */}
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blush text-berry text-xs font-semibold tracking-wider uppercase mb-3 border border-berry/20">
+          Danh mục bác sĩ chuyên khoa
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink mb-3">
+          Tìm kiếm &amp; Đặt lịch bác sĩ chuyên khoa
+        </h1>
+        <p className="text-muted text-base sm:text-lg max-w-2xl leading-relaxed">
+          Khám phá danh sách các bác sĩ chuyên khoa hàng đầu tại HKT Hospital. Đặt lịch khám nhanh chóng, minh bạch chi phí và an tâm điều trị.
+        </p>
+      </div>
+
+      {/* Search Form */}
       <form
-        className="card flex flex-wrap items-end gap-4"
+        className="rounded-2xl border border-line/80 bg-canvas p-5 shadow-card hover:shadow-card-hover transition-all duration-base sm:p-6 mb-6"
         onSubmit={(e) => {
           e.preventDefault()
           update({ q: q.trim() || undefined })
         }}
       >
-        <label className="flex-[2_1_260px]">
-          <span className="label">Doctor name</span>
-          <input className="input" type="search" placeholder="e.g. Nguyen" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
-        <label className="flex-[1_1_220px]">
-          <span className="label">Location</span>
-          <select className="input" value={num('hospital_id') ?? ''} onChange={(e) => update({ hospital_id: e.target.value || undefined, department_id: undefined })}>
-            <option value="">All facilities</option>
-            {hospitals.data?.items.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="btn-primary w-full sm:w-auto">Search</button>
+        <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4">
+          <label className="flex-[2_1_280px]">
+            <span className="block text-sm font-semibold text-ink mb-1.5">Tên bác sĩ</span>
+            <div className="relative">
+              <input
+                className="input mt-0 pl-10"
+                type="search"
+                placeholder="Ví dụ: Nguyen, Le, Ha..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none flex items-center">
+                <IconSearch size={18} />
+              </span>
+            </div>
+          </label>
+
+          <label className="flex-[1_1_240px]">
+            <span className="block text-sm font-semibold text-ink mb-1.5">Cơ sở / Phòng khám</span>
+            <select
+              className="input mt-0"
+              value={num('hospital_id') ?? ''}
+              onChange={(e) => update({ hospital_id: e.target.value || undefined, department_id: undefined })}
+            >
+              <option value="">Tất cả cơ sở</option>
+              {hospitals.data?.items.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex gap-2">
+            <button className="btn-primary min-w-[130px] flex-1 md:flex-initial">
+              Tìm kiếm
+            </button>
+            {(q || num('hospital_id') || num('specialty_id')) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ('')
+                  setParams(new URLSearchParams())
+                }}
+                className="btn-secondary px-4 text-sm"
+                title="Xóa bộ lọc"
+              >
+                Đặt lại
+              </button>
+            )}
+          </div>
+        </div>
       </form>
+
+      {/* Specialty Filter */}
       <SpecialtyFilter
         value={num('specialty_id')}
         onChange={(id) => update({ specialty_id: id ? String(id) : undefined, department_id: undefined })}
       />
 
       <div className="mt-8">
-        {doctors.isLoading && <Spinner />}
+        {doctors.isLoading && (
+          <div className="py-12 text-center">
+            <Spinner />
+          </div>
+        )}
         <ErrorAlert error={doctors.error} />
         {doctors.data && (
-          <p className="caption mb-3" aria-live="polite">
-            {doctors.data.total} {doctors.data.total === 1 ? 'doctor' : 'doctors'}
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-medium text-muted" aria-live="polite">
+              Tìm thấy <span className="font-bold text-ink">{doctors.data.total}</span> bác sĩ phù hợp
+            </p>
+          </div>
         )}
-        {doctors.data?.items.length === 0 && <EmptyState>No doctors match your filters. Try another specialty or location.</EmptyState>}
+        {doctors.data?.items.length === 0 && (
+          <EmptyState>Không tìm thấy bác sĩ nào phù hợp với bộ lọc. Vui lòng thử tìm kiếm theo chuyên khoa hoặc cơ sở khác.</EmptyState>
+        )}
         {!!doctors.data?.items.length && (
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             {doctors.data.items.map((d, i) => (
               <DoctorCard key={d.id} doctor={d} style={stagger(i)} />
             ))}
           </div>
         )}
         {doctors.data && (
-          <Pagination page={page} pageSize={doctors.data.page_size} total={doctors.data.total} onChange={(p) => update({ page: String(p) })} />
+          <div className="mt-8">
+            <Pagination page={page} pageSize={doctors.data.page_size} total={doctors.data.total} onChange={(p) => update({ page: String(p) })} />
+          </div>
         )}
       </div>
     </div>

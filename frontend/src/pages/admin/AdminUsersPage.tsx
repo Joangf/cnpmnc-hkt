@@ -55,9 +55,9 @@ export default function AdminUsersPage() {
             {users.data?.items.map((u) => (
               <tr key={u.id}>
                 <td className="font-semibold">{u.email}</td>
-                <td>{u.full_name ?? '—'}</td>
+                <td>{u.full_name ?? '-'}</td>
                 <td>{humanize(u.role)}</td>
-                <td>{u.last_login_at ? formatDateTime(u.last_login_at) : '—'}</td>
+                <td>{u.last_login_at ? formatDateTime(u.last_login_at) : '-'}</td>
                 <td>{humanize(u.account_status)}</td>
                 <td className="text-right">
                   {u.id !== me?.id && (

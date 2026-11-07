@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { api, type AdminEntity } from '../../api/endpoints'
 import type { AppointmentTypeAdmin, Department, DepartmentVisibility, DoctorDetail, HospitalDetail, Specialty } from '../../api/types'
 import { Card, ErrorAlert, FilterChip, Spinner } from '../../components/ui'
+import { IconCheck } from '../../components/icons'
 import { formatMoney, humanize, telHref } from '../../lib/format'
 import { HospitalAvatar } from '../HospitalsPage'
 import { AdminNav } from './AdminNav'
@@ -106,7 +107,7 @@ function EntityForm({
               />
             ) : f.type === 'select' ? (
               <select name={f.name} className="input" required={f.required} defaultValue={initial}>
-                <option value="">—</option>
+                <option value="">-</option>
                 {f.options?.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -298,7 +299,7 @@ export default function AdminDirectoryPage() {
           required: true,
           options: departments.data?.map((d) => ({
             value: d.id,
-            label: `${d.name} · ${d.specialty.name} (${hospitalName.get(d.hospital_id) ?? d.hospital_id})${d.is_active ? '' : ' — inactive'}`,
+            label: `${d.name} · ${d.specialty.name} (${hospitalName.get(d.hospital_id) ?? d.hospital_id})${d.is_active ? '' : ' - inactive'}`,
           })),
           get: (r) => (r.department as DoctorDetail['department']).id,
         },
@@ -413,7 +414,10 @@ export default function AdminDirectoryPage() {
                 <div className="mt-3">
                   <ErrorAlert error={update.error} />
                   {update.isSuccess && (
-                    <p className="font-semibold text-success">✓ Hospital information updated successfully!</p>
+                    <p className="font-semibold text-success flex items-center gap-1.5">
+                      <IconCheck size={16} />
+                      <span>Hospital information updated successfully!</span>
+                    </p>
                   )}
                 </div>
               </Card>
