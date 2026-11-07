@@ -32,8 +32,9 @@ class PatientProfile(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     full_name: Mapped[str] = mapped_column(String(100))
-    date_of_birth: Mapped[date]
-    phone_number: Mapped[str] = mapped_column(String(20))
+    # Optional at registration; patients can add them later on their profile.
+    date_of_birth: Mapped[date | None]
+    phone_number: Mapped[str | None] = mapped_column(String(20))
     address: Mapped[str | None] = mapped_column(String(255))
 
     user: Mapped[User] = relationship(back_populates="profile", lazy="raise")

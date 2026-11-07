@@ -24,6 +24,12 @@ describe('validation (mirrors backend rules)', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('allows date of birth and phone number to be left empty at registration', () => {
+    const base = { email: 'a@example.com', password: 'Secret123', confirm_password: 'Secret123', full_name: 'Test User' }
+    expect(registerSchema.safeParse({ ...base, date_of_birth: '', phone_number: '' }).success).toBe(true)
+    expect(registerSchema.safeParse({ ...base, date_of_birth: '', phone_number: '12' }).success).toBe(false)
+  })
 })
 
 describe('helpers', () => {

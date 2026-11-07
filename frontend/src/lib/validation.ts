@@ -15,6 +15,10 @@ export const dateOfBirthSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please enter a valid date.')
   .refine((v) => new Date(v) < new Date(), 'Date of birth must be in the past.')
 
+/** Optional fields: an empty input is allowed and means "not provided". */
+export const optionalDateOfBirthSchema = z.union([z.literal(''), dateOfBirthSchema])
+export const optionalPhoneSchema = z.union([z.literal(''), phoneSchema])
+
 export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters.')
@@ -27,15 +31,15 @@ export const registerSchema = z
     password: passwordSchema,
     confirm_password: z.string(),
     full_name: fullNameSchema,
-    date_of_birth: dateOfBirthSchema,
-    phone_number: phoneSchema,
+    date_of_birth: optionalDateOfBirthSchema,
+    phone_number: optionalPhoneSchema,
   })
   .refine((v) => v.password === v.confirm_password, { message: 'Passwords do not match.', path: ['confirm_password'] })
 
 export const profileSchema = z.object({
   full_name: fullNameSchema,
-  date_of_birth: dateOfBirthSchema,
-  phone_number: phoneSchema,
+  date_of_birth: optionalDateOfBirthSchema,
+  phone_number: optionalPhoneSchema,
   address: z.string().trim().max(255).optional(),
 })
 
