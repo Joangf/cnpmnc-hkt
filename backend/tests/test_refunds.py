@@ -233,6 +233,32 @@ async def test_paid_appointment_that_will_not_happen_can_request_refund(context,
         assert "New refund request" in admin_titles
 
 
+async def test_patient_can_cancel_pending_refund_request_and_resubmit(context):
+    ids, client, sessions = context
+    appointment_id, payment_id = await make_payment(
+        sessions, ids, appointment_status=AppointmentStatus.CANCELLED
+    )
+    # 1. Request refund
+    res = await client.post(request_url(payment_id), json=ACCOUNT, headers=ids.headers())
+    assert res.status_code == 200
+    assert (await detail(client, ids, appointment_id))["can_request_refund"] is False
+
+    # 2. Cancel refund request
+    cancel_res = await client.post(
+        f"/api/v1/payments/{payment_id}/cancel-refund-request", headers=ids.headers()
+    )
+    assert cancel_res.status_code == 200
+    assert cancel_res.json()["refund_status"] is None
+
+    # 3. Can request refund again with new account
+    assert (await detail(client, ids, appointment_id))["can_request_refund"] is True
+    new_account = {**ACCOUNT, "account_number": "9999999999"}
+    res2 = await client.post(request_url(payment_id), json=new_account, headers=ids.headers())
+    assert res2.status_code == 200
+    assert res2.json()["refund_account_number"] == "9999999999"
+    assert res2.json()["refund_status"] == "REQUESTED"
+
+
 @pytest.mark.parametrize(
     "appointment_status,payment_status,check_in",
     [

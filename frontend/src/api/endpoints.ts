@@ -89,6 +89,8 @@ export const api = {
     get: (id: number) => request<T.Payment>('GET', `/payments/${id}`),
     requestRefund: (id: number, body: T.RefundRequest) =>
       request<T.Payment>('POST', `/payments/${id}/refund-request`, { body }),
+    cancelRefund: (id: number) =>
+      request<T.Payment>('POST', `/payments/${id}/cancel-refund-request`),
   },
 
   notifications: {

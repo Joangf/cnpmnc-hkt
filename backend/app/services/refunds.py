@@ -106,6 +106,39 @@ async def request_refund(
     return payment
 
 
+async def cancel_refund_request(
+    session: AsyncSession, patient: PatientProfile, payment_id: int
+) -> Payment:
+    """Patient cancels an open refund request while it is still in REQUESTED status.
+    Resets refund_status to None so they can submit a new request. Errors: NotFound, InvalidState.
+    """
+    payment = await refund_repo.get_for_update(session, payment_id)
+    if payment is None or payment.appointment.patient_id != patient.id:
+        raise NotFound("Payment not found.")
+    if payment.refund_status != RefundStatus.REQUESTED:
+        raise InvalidState(
+            "Only pending refund requests can be cancelled.",
+            code="RefundCannotBeCancelled",
+        )
+
+    payment.refund_status = None
+    payment.refund_reference = None
+    payment.refund_requested_at = None
+    audit.record(
+        session,
+        "payment.refund_cancelled",
+        "payment",
+        payment.id,
+        actor_id=patient.user_id,
+        details={
+            "appointment_id": payment.appointment.id,
+            "amount": str(payment.amount),
+        },
+    )
+    await session.commit()
+    return payment
+
+
 async def list_refunds(
     session: AsyncSession, refund_status: RefundStatus | None, page: int, page_size: int
 ) -> tuple[list[Payment], int]:

@@ -35,6 +35,20 @@ async def request_refund(
     return presenters.payment_out(payment)
 
 
+@router.post(
+    "/payments/{payment_id}/cancel-refund-request",
+    response_model=PaymentOut,
+    operation_id="cancelRefundRequest",
+    responses=error_responses(401, 403, 404, 409),
+    description="Cancels an open refund request while REQUESTED, allowing the patient to resubmit with new bank details.",
+)
+async def cancel_refund_request(
+    payment_id: int, patient: CurrentPatient, session: SessionDep
+) -> PaymentOut:
+    payment = await refund_service.cancel_refund_request(session, patient, payment_id)
+    return presenters.payment_out(payment)
+
+
 @router.get(
     "/admin/refunds",
     response_model=Page[AdminRefundOut],

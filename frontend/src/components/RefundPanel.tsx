@@ -31,6 +31,7 @@ function refundTarget(payments: PaymentSummary[]): PaymentSummary | undefined {
 }
 
 export function RefundPanel({ appointment, onDone }: { appointment: AppointmentDetail; onDone: () => void }) {
+  const queryClient = useQueryClient()
   const target = refundTarget(appointment.payments)
   const hasRefund = !!target?.refund_status
   const payment = useQuery({
@@ -38,6 +39,18 @@ export function RefundPanel({ appointment, onDone }: { appointment: AppointmentD
     queryFn: () => api.payments.get(target!.id),
     enabled: hasRefund,
   })
+
+  const cancelMutation = useMutation({
+    mutationFn: () => api.payments.cancelRefund(target!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payment', target?.id] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'refunds'] })
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointment.id] })
+      queryClient.invalidateQueries({ queryKey: ['appointments'] })
+      onDone()
+    },
+  })
+
   if (!target || (!hasRefund && !appointment.can_request_refund)) return null
 
   return (
@@ -45,7 +58,14 @@ export function RefundPanel({ appointment, onDone }: { appointment: AppointmentD
       <h2 className="section-title">Refund</h2>
       {hasRefund && payment.isLoading && <Spinner />}
       <ErrorAlert error={payment.error} />
-      {payment.data && <RefundStatusNotice payment={payment.data} />}
+      <ErrorAlert error={cancelMutation.error} />
+      {payment.data && (
+        <RefundStatusNotice
+          payment={payment.data}
+          onCancel={() => cancelMutation.mutate()}
+          isCancelling={cancelMutation.isPending}
+        />
+      )}
       {appointment.can_request_refund && (
         <RefundForm
           // Remount when the refund changes so a resubmission starts from the latest details.
@@ -61,7 +81,15 @@ export function RefundPanel({ appointment, onDone }: { appointment: AppointmentD
   )
 }
 
-function RefundStatusNotice({ payment: p }: { payment: Payment }) {
+function RefundStatusNotice({
+  payment: p,
+  onCancel,
+  isCancelling,
+}: {
+  payment: Payment
+  onCancel?: () => void
+  isCancelling?: boolean
+}) {
   const account = `${p.refund_bank_name} · ${p.refund_account_number} · ${p.refund_account_name}`
   if (p.refund_status === 'REQUESTED') {
     return (
@@ -71,6 +99,19 @@ function RefundStatusNotice({ payment: p }: { payment: Payment }) {
           <strong>{p.refund_reference}</strong>.
         </p>
         {p.refund_requested_at && <p className="caption mt-1">Requested {formatDateTime(p.refund_requested_at)}</p>}
+        {onCancel && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line/40 pt-3">
+            <span className="text-xs text-muted">Entered the wrong bank account details?</span>
+            <button
+              type="button"
+              disabled={isCancelling}
+              onClick={onCancel}
+              className="btn-secondary btn-sm"
+            >
+              {isCancelling ? 'Cancelling...' : 'Cancel request & change account'}
+            </button>
+          </div>
+        )}
       </Notice>
     )
   }
