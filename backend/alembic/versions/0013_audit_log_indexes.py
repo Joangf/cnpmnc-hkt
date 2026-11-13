@@ -4,8 +4,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0012_audit_log_indexes"
-down_revision = "0011_erp_owned_slots"
+revision = "0013_audit_log_indexes"
+down_revision = "0012_review_is_edited"
 branch_labels = None
 depends_on = None
 
