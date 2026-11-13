@@ -225,6 +225,12 @@ async def test_paid_appointment_that_will_not_happen_can_request_refund(context,
             )
         ).all()
         assert "Refund requested" in titles
+        admin_titles = (
+            await session.scalars(
+                select(Notification.title).where(Notification.user_id == ids.admin)
+            )
+        ).all()
+        assert "New refund request" in admin_titles
 
 
 @pytest.mark.parametrize(

@@ -34,6 +34,27 @@ async def notify_patient(
         notify_user(session, user_id, type_, title, content, link)
 
 
+async def notify_admins(
+    session: AsyncSession,
+    type_: NotificationType,
+    title: str,
+    content: str,
+    link: str | None = None,
+) -> None:
+    from app.models import User
+    from app.models.enums import AccountStatus, UserRole
+
+    admin_user_ids = (
+        await session.scalars(
+            select(User.id).where(
+                User.role == UserRole.ADMIN, User.account_status == AccountStatus.ACTIVE
+            )
+        )
+    ).all()
+    for uid in admin_user_ids:
+        notify_user(session, uid, type_, title, content, link)
+
+
 async def list_for_user(
     session: AsyncSession, user_id: int, *, unread_only: bool, limit: int
 ) -> tuple[list[Notification], int]:

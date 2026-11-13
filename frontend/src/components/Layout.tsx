@@ -62,7 +62,7 @@ export function Layout() {
   const notifications = useQuery({
     queryKey: ['notifications'],
     queryFn: api.notifications.list,
-    enabled: isPatient,
+    enabled: !!user,
     refetchInterval: 30_000,
   })
   const unread = notifications.data?.unread_count ?? 0
@@ -106,7 +106,26 @@ export function Layout() {
         { to: '/profile', label: 'Profile' },
       ]
     : isAdmin
-      ? [{ to: '/admin', label: 'Admin' }]
+      ? [
+          { to: '/admin', label: 'Admin' },
+          {
+            to: '/notifications',
+            label: (
+              <>
+                Notifications
+                {unread > 0 && (
+                  <span
+                    key={unread}
+                    className="ml-2 inline-flex min-w-6 animate-pop items-center justify-center rounded-full bg-berry px-1.5 text-xs font-semibold text-on-accent"
+                  >
+                    {unread}
+                    <span className="sr-only"> unread</span>
+                  </span>
+                )}
+              </>
+            ),
+          },
+        ]
       : [
           { to: '/login', label: 'Sign in' },
           { to: '/register', label: 'Register' },

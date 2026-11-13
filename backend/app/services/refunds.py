@@ -94,6 +94,14 @@ async def request_refund(
         f"We received your refund request for appointment {appointment.booking_reference}. "
         "The hospital will transfer the full amount to your bank account.",
     )
+    await notifications.notify_admins(
+        session,
+        NotificationType.PAYMENT_RESULT,
+        "New refund request",
+        f"Patient {patient.full_name} requested a refund for appointment "
+        f"{appointment.booking_reference} ({payment.amount:,.0f} {payment.currency}).",
+        "/admin/refunds",
+    )
     await session.commit()
     return payment
 
