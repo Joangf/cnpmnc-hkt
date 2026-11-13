@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { api } from '../api/endpoints'
 import type { AppointmentDetail, Payment, PaymentSummary } from '../api/types'
 import { formatDateTime, formatMoney } from '../lib/format'
@@ -93,26 +93,35 @@ function RefundStatusNotice({
   const account = `${p.refund_bank_name} · ${p.refund_account_number} · ${p.refund_account_name}`
   if (p.refund_status === 'REQUESTED') {
     return (
-      <Notice tone="info" title="Refund requested">
-        <p>
-          The hospital will transfer {formatMoney(p.amount, p.currency)} to {account}. Transfer content:{' '}
-          <strong>{p.refund_reference}</strong>.
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="badge bg-blush text-berry font-semibold text-xs">Refund requested</span>
+          {p.refund_requested_at && (
+            <span className="caption">Requested {formatDateTime(p.refund_requested_at)}</span>
+          )}
+        </div>
+        <p className="text-control text-ink">
+          The hospital will transfer <strong>{formatMoney(p.amount, p.currency)}</strong> to{' '}
+          <span className="font-medium">{account}</span>.
         </p>
-        {p.refund_requested_at && <p className="caption mt-1">Requested {formatDateTime(p.refund_requested_at)}</p>}
+        <p className="text-sm text-muted">
+          Transfer content:{' '}
+          <strong className="font-mono text-ink tracking-wide">{p.refund_reference}</strong>
+        </p>
         {onCancel && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line/40 pt-3">
-            <span className="text-xs text-muted">Entered the wrong bank account details?</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 pt-4">
+            <span className="text-sm text-muted">Entered the wrong bank account details?</span>
             <button
               type="button"
               disabled={isCancelling}
               onClick={onCancel}
               className="btn-secondary btn-sm"
             >
-              {isCancelling ? 'Cancelling...' : 'Cancel request & change account'}
+              {isCancelling ? 'Cancelling...' : 'Cancel request'}
             </button>
           </div>
         )}
-      </Notice>
+      </div>
     )
   }
   if (p.refund_status === 'COMPLETED') {
@@ -222,15 +231,12 @@ function RefundForm({
         </div>
       ) : (
         <Field label="Bank" error={errors.bank}>
-          <select className="input" value={selected} onChange={(e) => setChoice(e.target.value)}>
-            <option value="">Choose your bank</option>
-            {banks.data?.map((b) => (
-              <option key={b.bin} value={b.bin}>
-                {b.shortName} — {b.name}
-              </option>
-            ))}
-            <option value={MANUAL}>My bank is not listed</option>
-          </select>
+          <BankCombobox
+            banks={banks.data ?? []}
+            selectedBin={selected}
+            onSelect={(bin) => setChoice(bin)}
+            error={errors.bank}
+          />
         </Field>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -262,5 +268,178 @@ function RefundForm({
         {submit.isPending ? 'Sending…' : resubmit ? 'Send refund request again' : 'Request refund'}
       </button>
     </form>
+  )
+}
+
+function BankCombobox({
+  banks,
+  selectedBin,
+  onSelect,
+  error,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+}: {
+  banks: Bank[]
+  selectedBin: string
+  onSelect: (bin: string) => void
+  error?: string
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const selectedBank = banks.find((b) => b.bin === selectedBin)
+  const [query, setQuery] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (selectedBank) {
+      setQuery(`${selectedBank.shortName} — ${selectedBank.name}`)
+    } else if (!selectedBin) {
+      setQuery('')
+    }
+  }, [selectedBin, selectedBank])
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+        if (selectedBank) {
+          setQuery(`${selectedBank.shortName} — ${selectedBank.name}`)
+        } else {
+          setQuery('')
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [selectedBank])
+
+  const filtered = banks.filter((b) => {
+    const q = query.trim().toLowerCase()
+    if (!q) return true
+    if (selectedBank && `${selectedBank.shortName} — ${selectedBank.name}`.toLowerCase() === q) {
+      return true
+    }
+    return (
+      b.shortName.toLowerCase().includes(q) ||
+      b.name.toLowerCase().includes(q) ||
+      b.bin.includes(q)
+    )
+  })
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setOpen(false)
+      if (selectedBank) {
+        setQuery(`${selectedBank.shortName} — ${selectedBank.name}`)
+      } else {
+        setQuery('')
+      }
+    } else if (e.key === 'Enter') {
+      if (open && filtered.length > 0) {
+        e.preventDefault()
+        const first = filtered[0]
+        onSelect(first.bin)
+        setQuery(`${first.shortName} — ${first.name}`)
+        setOpen(false)
+        inputRef.current?.blur()
+      }
+    } else if (e.key === 'ArrowDown') {
+      if (!open) {
+        setOpen(true)
+      }
+    }
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div className="relative flex items-center mt-2">
+        <input
+          ref={inputRef}
+          type="text"
+          className={`input mt-0 pr-10 ${error ? 'border-alert' : ''}`}
+          placeholder="Search by bank name or code (e.g. MB, VCB, VietinBank)..."
+          value={query}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
+          onFocus={(e) => {
+            setOpen(true)
+            e.target.select()
+          }}
+          onClick={() => {
+            if (!open) setOpen(true)
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            if (!open) setOpen(true)
+          }}
+          onKeyDown={handleKeyDown}
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={open ? 'Close bank list' : 'Open bank list'}
+          className="absolute right-0 top-0 bottom-0 flex items-center px-3 text-muted hover:text-ink"
+          onClick={() => {
+            if (open) {
+              setOpen(false)
+            } else {
+              setOpen(true)
+              inputRef.current?.focus()
+              inputRef.current?.select()
+            }
+          }}
+        >
+          <span
+            className="text-xs transition-transform duration-fast inline-block"
+            style={{ transform: open ? 'rotate(180deg)' : 'none' }}
+          >
+            ▼
+          </span>
+        </button>
+      </div>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-md border border-line bg-canvas shadow-card divide-y divide-line/40">
+          {filtered.map((b) => (
+            <button
+              key={b.bin}
+              type="button"
+              className={`flex w-full flex-col px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-blush hover:text-berry ${
+                b.bin === selectedBin ? 'bg-blush font-semibold text-berry' : 'text-ink'
+              }`}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                onSelect(b.bin)
+                setQuery(`${b.shortName} — ${b.name}`)
+                setOpen(false)
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{b.shortName}</span>
+                <span className="text-xs text-muted font-mono">{b.bin}</span>
+              </div>
+              <span className="text-xs text-muted line-clamp-1 mt-0.5">{b.name}</span>
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <p className="p-3 text-center text-sm text-muted">No banks match &ldquo;{query}&rdquo;.</p>
+          )}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 border-t border-line bg-surface/50 px-3.5 py-2.5 text-left text-sm text-berry hover:bg-blush font-medium"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              onSelect(MANUAL)
+              setOpen(false)
+            }}
+          >
+            <span>+ My bank is not listed (Enter manually)</span>
+          </button>
+        </div>
+      )}
+    </div>
   )
 }

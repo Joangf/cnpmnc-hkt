@@ -135,6 +135,14 @@ async def cancel_refund_request(
             "amount": str(payment.amount),
         },
     )
+    await notifications.notify_admins(
+        session,
+        NotificationType.PAYMENT_RESULT,
+        "Refund request cancelled",
+        f"Patient {patient.full_name} cancelled the refund request for appointment "
+        f"{payment.appointment.booking_reference}.",
+        "/admin/refunds",
+    )
     await session.commit()
     return payment
 

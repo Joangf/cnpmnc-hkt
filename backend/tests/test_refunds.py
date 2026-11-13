@@ -250,6 +250,14 @@ async def test_patient_can_cancel_pending_refund_request_and_resubmit(context):
     assert cancel_res.status_code == 200
     assert cancel_res.json()["refund_status"] is None
 
+    async with sessions() as session:
+        admin_titles = (
+            await session.scalars(
+                select(Notification.title).where(Notification.user_id == ids.admin)
+            )
+        ).all()
+        assert "Refund request cancelled" in admin_titles
+
     # 3. Can request refund again with new account
     assert (await detail(client, ids, appointment_id))["can_request_refund"] is True
     new_account = {**ACCOUNT, "account_number": "9999999999"}

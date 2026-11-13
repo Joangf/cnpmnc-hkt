@@ -43,13 +43,17 @@ export default function App() {
         <Route path="register" element={<RegisterPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
 
+        {/* Authenticated (any role) */}
+        <Route element={<RequireAuth />}>
+          <Route path="notifications" element={<NotificationsPage />} />
+        </Route>
+
         {/* Patient-only (BR-01, BR-12) */}
         <Route element={<RequireAuth role="PATIENT" />}>
           <Route path="profile" element={<ProfilePage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
           <Route path="payments/:paymentId" element={<PaymentPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Admin-only (BR-13) */}

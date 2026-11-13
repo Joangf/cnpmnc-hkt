@@ -1,9 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api } from '../../api/endpoints'
 import type { AdminRefund, RefundStatus } from '../../api/types'
 import { StatusBadge } from '../../components/StatusBadge'
-import { EmptyState, ErrorAlert, Field, FilterChip, Pagination, Spinner } from '../../components/ui'
+import { EmptyState, ErrorAlert, FilterChip, Pagination, Spinner } from '../../components/ui'
 import { formatDateTime, formatMoney, humanize } from '../../lib/format'
 import { AdminNav } from './AdminNav'
 
@@ -83,15 +83,26 @@ export default function AdminRefundsPage() {
 function RefundDetail({ refund: r, onDone }: { refund: AdminRefund; onDone: () => void }) {
   const queryClient = useQueryClient()
   const [note, setNote] = useState('')
-  const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string>()
+  const noteRef = useRef<HTMLInputElement>(null)
   const onSuccess = () => {
     void queryClient.invalidateQueries({ queryKey: ['admin', 'refunds'] })
     onDone()
   }
   const complete = useMutation({ mutationFn: () => api.admin.completeRefund(r.id, note.trim() || undefined), onSuccess })
-  const reject = useMutation({ mutationFn: () => api.admin.rejectRefund(r.id, reason.trim()), onSuccess })
+  const reject = useMutation({ mutationFn: () => api.admin.rejectRefund(r.id, note.trim()), onSuccess })
   const busy = complete.isPending || reject.isPending
+
+  const handleReject = () => {
+    const ok = note.trim().length >= 3
+    if (!ok) {
+      setReasonError('Enter a reason for rejection (at least 3 characters).')
+      noteRef.current?.focus()
+      return
+    }
+    setReasonError(undefined)
+    reject.mutate()
+  }
 
   return (
     <div className="mt-4 grid gap-6 rounded-lg border border-line bg-surface p-4 sm:grid-cols-[220px_1fr] sm:p-5">
@@ -144,29 +155,47 @@ function RefundDetail({ refund: r, onDone }: { refund: AdminRefund; onDone: () =
           <>
             <p className="caption">Scan the QR in the hospital's bank app, transfer, then mark it as transferred.</p>
             <ErrorAlert error={complete.error ?? reject.error} />
-            <div className="flex flex-wrap items-end gap-3">
-              <Field label="Bank transaction reference (optional)" className="min-w-[220px] flex-1">
-                <input className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
-              </Field>
-              <button className="btn-primary" disabled={busy} onClick={() => complete.mutate()}>
-                {complete.isPending ? 'Saving…' : 'Mark as transferred'}
-              </button>
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <Field label="Rejection reason" error={reasonError} className="min-w-[220px] flex-1">
-                <input className="input" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
-              </Field>
-              <button
-                className="btn-danger"
-                disabled={busy}
-                onClick={() => {
-                  const ok = reason.trim().length >= 3
-                  setReasonError(ok ? undefined : 'Tell the patient why (at least 3 characters).')
-                  if (ok) reject.mutate()
-                }}
-              >
-                {reject.isPending ? 'Saving…' : 'Reject'}
-              </button>
+            <div className="pt-1">
+              <label htmlFor="refund-note-input" className="label block">
+                Note / Rejection reason
+              </label>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <input
+                  id="refund-note-input"
+                  ref={noteRef}
+                  className={`input mt-0 w-full max-w-sm sm:max-w-md ${reasonError ? 'border-alert' : ''}`}
+                  maxLength={500}
+                  placeholder="e.g. Bank ref or reason for rejection..."
+                  value={note}
+                  onChange={(e) => {
+                    setNote(e.target.value)
+                    if (reasonError) setReasonError(undefined)
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={busy}
+                  onClick={() => complete.mutate()}
+                >
+                  {complete.isPending ? 'Saving…' : 'Mark as transferred'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-danger"
+                  disabled={busy}
+                  onClick={handleReject}
+                >
+                  {reject.isPending ? 'Saving…' : 'Reject'}
+                </button>
+              </div>
+              {reasonError ? (
+                <p className="field-error mt-2">{reasonError}</p>
+              ) : (
+                <p className="field-hint mt-2">
+                  Bank reference if transferred (optional), or reason if rejecting (required).
+                </p>
+              )}
             </div>
           </>
         )}
