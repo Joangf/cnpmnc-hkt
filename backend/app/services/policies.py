@@ -106,3 +106,15 @@ def can_request_refund(appointment: Appointment) -> bool:
 def can_review(appointment: Appointment) -> bool:
     """BR-08 / BR-09. Requires `appointment.review` to be loaded."""
     return appointment.status == AppointmentStatus.COMPLETED and appointment.review is None
+
+
+def can_edit_review(appointment: Appointment, now: datetime | None = None) -> bool:
+    """Can edit review if appointment has a review, is_edited is False, and within 24 hours of creation."""
+    review = appointment.review
+    if review is None or getattr(review, "is_edited", False):
+        return False
+    now = now or datetime.now(UTC)
+    created_at = review.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    return (now - created_at) <= timedelta(hours=24)

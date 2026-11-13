@@ -4,6 +4,33 @@ import { api } from '../api/endpoints'
 import { upcomingDays } from '../lib/format'
 import { IconArrowLeft, IconArrowRight, IconCalendar } from './icons'
 
+/** Specialty picker: a plain dropdown. */
+export function SpecialtyCombobox({ value, onChange }: { value?: number; onChange: (id?: number) => void }) {
+  const specialties = useQuery({ queryKey: ['specialties'], queryFn: () => api.directory.specialties() })
+  const items = (specialties.data ?? []).filter((s) => s.is_active)
+
+  return (
+    <div className="flex-1 min-w-0">
+      <label htmlFor="specialty-select" className="block text-sm font-semibold text-ink mb-1.5">
+        Specialty
+      </label>
+      <select
+        id="specialty-select"
+        className="input mt-0 h-[52px] bg-surface"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+      >
+        <option value="">All specialties</option>
+        {items.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 /** Department picker: a plain dropdown. */
 export function DepartmentCombobox({ value, onChange }: { value?: number; onChange: (id?: number) => void }) {
   const departments = useQuery({ queryKey: ['departments', 'all'], queryFn: () => api.directory.departments({ page_size: 100 }) })

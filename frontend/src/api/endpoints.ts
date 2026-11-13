@@ -1,7 +1,7 @@
 import { request } from './http'
 import type * as T from './types'
 
-type Scope = 'upcoming' | 'past' | 'all'
+type Scope = 'upcoming' | 'completed' | 'cancelled' | 'past' | 'all'
 
 export const api = {
   auth: {
@@ -81,6 +81,8 @@ export const api = {
     /** Returns the open PENDING payment if there is one, so repeated calls are safe. */
     pay: (id: number) => request<T.Payment>('POST', `/appointments/${id}/payments`),
     review: (id: number, body: T.ReviewCreate) => request<T.Review>('POST', `/appointments/${id}/review`, { body }),
+    updateReview: (id: number, body: T.ReviewCreate) =>
+      request<T.Review>('PATCH', `/appointments/${id}/review`, { body }),
   },
 
   payments: {
@@ -111,6 +113,7 @@ export const api = {
       request<T.Page<T.AdminReview>>('GET', '/admin/reviews', { query }),
     moderateReview: (id: number, status: 'PUBLISHED' | 'HIDDEN' | 'REMOVED', note?: string) =>
       request<T.AdminReview>('PATCH', `/admin/reviews/${id}`, { body: { status, note } }),
+    deleteReview: (id: number) => request<void>('DELETE', `/admin/reviews/${id}`),
     appointments: (query: { appointment_status?: string; page?: number }) =>
       request<T.Page<T.AdminAppointment>>('GET', '/admin/appointments', { query }),
     auditLogs: (

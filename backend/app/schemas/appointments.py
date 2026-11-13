@@ -11,6 +11,7 @@ from app.models.enums import (
     StatusSource,
 )
 from app.schemas.common import ORMModel, RefOut
+from app.schemas.reviews import ReviewOut
 from app.schemas.validators import ShortText
 
 
@@ -66,6 +67,8 @@ class AppointmentSummary(BaseModel):
     fee_amount: Decimal
     currency: str
     payment_due_at: datetime | None
+    has_review: bool = False
+    review_rating: int | None = None
 
 
 class AppointmentDetail(AppointmentSummary):
@@ -77,6 +80,8 @@ class AppointmentDetail(AppointmentSummary):
     can_request_refund: bool
     can_review: bool
     has_review: bool
+    can_edit_review: bool = False
+    review: ReviewOut | None = None
     cancellation_deadline: datetime
 
 

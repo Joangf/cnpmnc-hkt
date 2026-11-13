@@ -13,6 +13,11 @@ class ReviewCreate(BaseModel):
     comment: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
 
 
+class ReviewUpdate(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    comment: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+
+
 class ReviewOut(ORMModel):
     id: int
     appointment_id: int
@@ -20,6 +25,7 @@ class ReviewOut(ORMModel):
     rating: int
     comment: str | None
     status: ReviewStatus
+    is_edited: bool = False
     created_at: datetime
 
 
@@ -29,6 +35,7 @@ class ReviewPublic(BaseModel):
     comment: str | None
     # Reviewer identity is not exposed publicly (NFR-04).
     author: str = "Verified patient"
+    is_edited: bool = False
     created_at: datetime
 
 

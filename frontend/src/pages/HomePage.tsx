@@ -91,7 +91,7 @@ export default function HomePage() {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link to="/doctors" className="btn-primary shadow-button hover:shadow-button-hover font-semibold px-6 py-3">
-              Find a doctor now
+              Booking now
             </Link>
             <Link to="/departments" className="btn-secondary font-semibold px-5 py-3">
               Browse specialties

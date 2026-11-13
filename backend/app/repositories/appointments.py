@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import exists, not_, or_, select
+from sqlalchemy import and_, exists, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -21,7 +21,7 @@ from app.models.enums import (
 )
 from app.repositories.base import paginate
 
-Scope = Literal["upcoming", "past", "all"]
+Scope = Literal["upcoming", "completed", "cancelled", "past", "all"]
 
 
 def summary_options() -> tuple:
@@ -32,6 +32,7 @@ def summary_options() -> tuple:
         .joinedload(Department.specialty),
         joinedload(Appointment.appointment_type),
         selectinload(Appointment.payments),
+        selectinload(Appointment.review),
     )
 
 
@@ -39,7 +40,6 @@ def detail_options() -> tuple:
     return (
         *summary_options(),
         selectinload(Appointment.history),
-        selectinload(Appointment.review),
     )
 
 
@@ -71,9 +71,19 @@ async def list_for_patient(
     )
     active = Appointment.status.in_(ACTIVE_APPOINTMENT_STATUSES)
     if scope == "upcoming":
-        stmt = stmt.where(Appointment.start_time >= now, active).order_by(
-            Appointment.start_time.asc()
+        stmt = stmt.where(active).order_by(Appointment.start_time.asc())
+    elif scope == "completed":
+        stmt = stmt.where(Appointment.status == AppointmentStatus.COMPLETED).order_by(
+            Appointment.start_time.desc()
         )
+    elif scope == "cancelled":
+        stmt = stmt.where(
+            Appointment.status.in_([
+                AppointmentStatus.CANCELLED,
+                AppointmentStatus.REJECTED,
+                AppointmentStatus.NO_SHOW,
+            ])
+        ).order_by(Appointment.start_time.desc())
     elif scope == "past":
         stmt = stmt.where(or_(Appointment.start_time < now, not_(active))).order_by(
             Appointment.start_time.desc()

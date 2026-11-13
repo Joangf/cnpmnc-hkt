@@ -7,7 +7,7 @@ import type { AppointmentDetail } from '../api/types'
 import { IconArrowLeft, IconClock } from '../components/icons'
 import { RefundPanel } from '../components/RefundPanel'
 import { StatusBadge } from '../components/StatusBadge'
-import { Card, ErrorAlert, Field, Notice, Spinner } from '../components/ui'
+import { Card, ErrorAlert, Field, Notice, Spinner, Stars } from '../components/ui'
 import { formatDateTime, formatMoney, humanize } from '../lib/format'
 import { reviewSchema } from '../lib/validation'
 
@@ -112,7 +112,7 @@ export default function AppointmentDetailPage() {
       {/* Owned by S3-C (components/RefundPanel.tsx): renders nothing unless a refund applies. */}
       <RefundPanel appointment={a} onDone={() => appointment.refetch()} />
       {a.can_review && <ReviewCard appointmentId={a.id} onDone={() => appointment.refetch()} />}
-      {a.has_review && <Notice tone="success">Thank you - you have reviewed this appointment.</Notice>}
+      {a.has_review && <ReviewDisplayCard appointment={a} onRefresh={() => appointment.refetch()} />}
 
       {a.payments.length > 0 && (
         <Card>
@@ -265,6 +265,132 @@ function ReviewCard({ appointmentId, onDone }: { appointmentId: number; onDone: 
       >
         Submit review
       </button>
+    </Card>
+  )
+}
+
+function ReviewDisplayCard({
+  appointment,
+  onRefresh,
+}: {
+  appointment: AppointmentDetail
+  onRefresh: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const r = appointment.review
+  const [rating, setRating] = useState(r?.rating ?? 5)
+  const [comment, setComment] = useState(r?.comment ?? '')
+  const [validation, setValidation] = useState<string>()
+
+  const update = useMutation({
+    mutationFn: () =>
+      api.appointments.updateReview(appointment.id, {
+        rating,
+        comment: comment.trim() || undefined,
+      }),
+    onSuccess: () => {
+      setEditing(false)
+      onRefresh()
+    },
+  })
+
+  if (!r) {
+    return <Notice tone="success">Thank you - you have reviewed this appointment.</Notice>
+  }
+
+  return (
+    <Card className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+        <div>
+          <h2 className="section-title">Your review for Dr. {appointment.doctor.name}</h2>
+          <p className="caption mt-0.5">
+            Submitted {formatDateTime(r.created_at)}
+            {r.is_edited && <span className="ml-1 font-semibold text-muted italic">(Edited)</span>}
+          </p>
+        </div>
+        {appointment.can_edit_review && !editing && (
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => {
+              setRating(r.rating)
+              setComment(r.comment ?? '')
+              setEditing(true)
+            }}
+          >
+            Edit review
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-4 pt-1">
+          <div className="flex gap-2" role="radiogroup" aria-label="Rating">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={rating === n}
+                aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                className={`flex h-11 w-11 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${
+                  n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-canvas text-muted hover:border-berry'
+                }`}
+                onClick={() => setRating(n)}
+              >
+                {n <= rating ? '★' : '☆'}
+              </button>
+            ))}
+          </div>
+          <Field label="Your experience (optional)">
+            <textarea
+              className="input"
+              rows={3}
+              maxLength={2000}
+              placeholder="Share your experience"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          </Field>
+          {validation && <p className="field-error">{validation}</p>}
+          <ErrorAlert error={update.error} />
+          <div className="flex gap-3">
+            <button
+              className="btn-primary"
+              disabled={update.isPending}
+              onClick={() => {
+                const check = reviewSchema.safeParse({ rating, comment })
+                setValidation(check.success ? undefined : check.error.issues[0]?.message)
+                if (check.success) update.mutate()
+              }}
+            >
+              {update.isPending ? 'Saving…' : 'Save changes'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={update.isPending}
+              onClick={() => setEditing(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center gap-2">
+            <Stars value={r.rating} />
+            <span className="text-sm font-bold text-ink">{r.rating}/5</span>
+          </div>
+          {r.comment ? (
+            <p className="rounded-lg border border-line bg-surface p-3 text-sm text-ink leading-relaxed">
+              {r.comment}
+            </p>
+          ) : (
+            <p className="caption italic">No written comment.</p>
+          )}
+        </div>
+      )}
     </Card>
   )
 }

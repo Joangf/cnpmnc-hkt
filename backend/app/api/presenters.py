@@ -44,7 +44,7 @@ from app.schemas.directory import (
 )
 from app.schemas.payments import AdminRefundOut, PaymentOut
 from app.schemas.profile import ProfileOut
-from app.schemas.reviews import AdminReviewOut, ReviewPublic
+from app.schemas.reviews import AdminReviewOut, ReviewOut, ReviewPublic
 from app.services import policies, sepay
 
 
@@ -243,6 +243,8 @@ def appointment_type_admin(appointment_type: AppointmentType) -> AppointmentType
 def _summary_fields(appointment: Appointment) -> dict:
     """Needs: doctor.hospital, doctor.department, appointment_type, payments."""
     doctor = appointment.doctor
+    has_review = appointment.review is not None
+    review_rating = appointment.review.rating if has_review else None
     return {
         "id": appointment.id,
         "booking_reference": appointment.booking_reference,
@@ -261,6 +263,8 @@ def _summary_fields(appointment: Appointment) -> dict:
         "fee_amount": appointment.fee_amount,
         "currency": appointment.currency,
         "payment_due_at": appointment.payment_due_at,
+        "has_review": has_review,
+        "review_rating": review_rating,
     }
 
 
@@ -284,7 +288,8 @@ def appointment_detail(appointment: Appointment, now: datetime | None = None) ->
         can_pay=policies.can_pay(appointment, now),
         can_request_refund=policies.can_request_refund(appointment),
         can_review=policies.can_review(appointment),
-        has_review=appointment.review is not None,
+        can_edit_review=policies.can_edit_review(appointment, now),
+        review=ReviewOut.model_validate(appointment.review) if appointment.review else None,
         cancellation_deadline=policies.cancellation_deadline(appointment.start_time),
     )
 
@@ -351,7 +356,11 @@ def admin_refund_out(payment: Payment) -> AdminRefundOut:
 
 def review_public(review: Review) -> ReviewPublic:
     return ReviewPublic(
-        id=review.id, rating=review.rating, comment=review.comment, created_at=review.created_at
+        id=review.id,
+        rating=review.rating,
+        comment=review.comment,
+        is_edited=getattr(review, "is_edited", False),
+        created_at=review.created_at,
     )
 
 

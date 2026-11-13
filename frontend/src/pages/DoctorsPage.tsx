@@ -8,7 +8,7 @@ import {
   availabilityFromParams,
   availabilityToParams,
   AvailabilityPanel,
-  DepartmentCombobox,
+  SpecialtyCombobox,
 } from '../components/SearchFilters'
 import { EmptyState, ErrorAlert, stagger, Pagination, Spinner } from '../components/ui'
 
@@ -17,12 +17,12 @@ export default function DoctorsPage() {
   const [q, setQ] = useState(params.get('q') ?? '')
   const num = (key: string) => (params.get(key) ? Number(params.get(key)) : undefined)
   const page = num('page') ?? 1
-  const [departmentId, setDepartmentId] = useState(num('department_id'))
+  const [specialtyId, setSpecialtyId] = useState(num('specialty_id'))
   const [range, setRange] = useState(availabilityFromParams(params.get('available_from'), params.get('available_to')))
 
-  // Back/forward navigation changes the URL; keep the department and time filters in step (the name box keeps what is typed).
+  // Back/forward navigation changes the URL; keep the specialty and time filters in step (the name box keeps what is typed).
   useEffect(() => {
-    setDepartmentId(params.get('department_id') ? Number(params.get('department_id')) : undefined)
+    setSpecialtyId(params.get('specialty_id') ? Number(params.get('specialty_id')) : undefined)
     setRange(availabilityFromParams(params.get('available_from'), params.get('available_to')))
   }, [params])
 
@@ -51,18 +51,18 @@ export default function DoctorsPage() {
     setParams(next)
   }
 
-  // Department and availability apply as soon as they change (time slider is debounced while dragging).
+  // Specialty and availability apply as soon as they change (time slider is debounced while dragging).
   useEffect(() => {
-    const want = { department_id: departmentId ? String(departmentId) : '', ...availabilityToParams(range) }
-    const have = { department_id: params.get('department_id') ?? '', available_from: params.get('available_from') ?? '', available_to: params.get('available_to') ?? '' }
-    if (want.department_id === have.department_id && (want.available_from ?? '') === have.available_from && (want.available_to ?? '') === have.available_to) return
+    const want = { specialty_id: specialtyId ? String(specialtyId) : '', ...availabilityToParams(range) }
+    const have = { specialty_id: params.get('specialty_id') ?? '', available_from: params.get('available_from') ?? '', available_to: params.get('available_to') ?? '' }
+    if (want.specialty_id === have.specialty_id && (want.available_from ?? '') === have.available_from && (want.available_to ?? '') === have.available_to) return
     const id = setTimeout(
-      () => update({ department_id: want.department_id || undefined, available_from: want.available_from, available_to: want.available_to }),
+      () => update({ specialty_id: want.specialty_id || undefined, available_from: want.available_from, available_to: want.available_to }),
       300,
     )
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [departmentId, range])
+  }, [specialtyId, range])
 
   return (
     <div className="pb-12">
@@ -86,7 +86,7 @@ export default function DoctorsPage() {
           e.preventDefault()
           update({
             q: q.trim() || undefined,
-            department_id: departmentId ? String(departmentId) : undefined,
+            specialty_id: specialtyId ? String(specialtyId) : undefined,
             available_from: availabilityToParams(range).available_from,
             available_to: availabilityToParams(range).available_to,
           })
@@ -101,7 +101,7 @@ export default function DoctorsPage() {
               <div className="relative">
                 <input
                   id="doctor-name"
-                  className="input mt-0 pl-10"
+                  className="input mt-0 h-[52px] pl-10"
                   type="search"
                   placeholder="e.g. Nguyen, Le, Smith..."
                   value={q}
@@ -113,12 +113,12 @@ export default function DoctorsPage() {
               </div>
             </div>
             <div className="flex items-end gap-3">
-              <DepartmentCombobox value={departmentId} onChange={setDepartmentId} />
+              <SpecialtyCombobox value={specialtyId} onChange={setSpecialtyId} />
               <button
                 type="submit"
                 aria-label="Search doctors"
                 title="Search"
-                className="btn-primary min-w-[120px] font-semibold py-3 shadow-button hover:shadow-button-hover"
+                className="btn-primary min-w-[120px] h-[52px] font-semibold shadow-button hover:shadow-button-hover"
               >
                 Search
               </button>

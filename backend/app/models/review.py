@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, String, Text
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -28,6 +28,7 @@ class Review(TimestampMixin, Base):
     status: Mapped[ReviewStatus] = mapped_column(
         enum_column(ReviewStatus), default=ReviewStatus.PUBLISHED
     )
+    is_edited: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     moderated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     moderation_note: Mapped[str | None] = mapped_column(String(500))
 

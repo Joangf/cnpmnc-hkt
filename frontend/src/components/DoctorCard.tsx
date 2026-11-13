@@ -67,17 +67,17 @@ export function DoctorAvatar({
 
 export function Rating({ avg, count }: { avg: string | number; count: number }) {
   const numAvg = Number(avg)
-  if (count === 0 && (!numAvg || numAvg === 0)) {
+  if (count === 0 || !numAvg || numAvg === 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
-        <Stars value={5} /> <span className="font-semibold text-ink">5.0</span> (New)
+      <span className="text-xs font-medium text-muted">
+        No reviews yet
       </span>
     )
   }
   return (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-ink">
-      <Stars value={numAvg || 5} /> <span className="font-semibold">{(numAvg || 5).toFixed(1)}</span>
-      <span className="text-muted">({count > 0 ? count : 12})</span>
+      <Stars value={numAvg} /> <span className="font-semibold">{numAvg.toFixed(1)}</span>
+      <span className="text-muted">({count})</span>
     </span>
   )
 }
@@ -137,20 +137,13 @@ export function DoctorCard({ doctor, style }: { doctor: DoctorSummary; style?: C
         </div>
       </div>
 
-      <div className="flex gap-2.5 pt-1">
+      <div className="pt-2 flex justify-end">
         <Link
           to={`${href}#book`}
           aria-label={`Book appointment with ${doctor.full_name}`}
-          className="btn-primary flex-1 py-2.5 text-sm font-semibold shadow-button hover:shadow-button-hover"
+          className="btn-primary w-auto min-w-[180px] px-6 text-center text-sm font-semibold shadow-button hover:shadow-button-hover"
         >
           Book appointment
-        </Link>
-        <Link
-          to={href}
-          aria-label={`View profile of ${doctor.full_name}`}
-          className="btn-secondary px-4 py-2.5 text-sm font-semibold"
-        >
-          View profile
         </Link>
       </div>
     </article>

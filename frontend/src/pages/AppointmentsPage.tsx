@@ -8,11 +8,14 @@ import { dateParts, formatTime } from '../lib/format'
 
 const TABS = [
   { value: 'upcoming', label: 'Upcoming' },
-  { value: 'past', label: 'Past & cancelled' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ] as const
 
+type AppointmentScope = (typeof TABS)[number]['value']
+
 export default function AppointmentsPage() {
-  const [scope, setScope] = useState<'upcoming' | 'past'>('upcoming')
+  const [scope, setScope] = useState<AppointmentScope>('upcoming')
   const [page, setPage] = useState(1)
   const appointments = useQuery({
     queryKey: ['appointments', scope, page],
@@ -72,6 +75,17 @@ export default function AppointmentsPage() {
                     <div className="flex flex-col items-start gap-2 sm:items-end">
                       <StatusBadge status={a.status} />
                       <span className="font-mono text-sm text-muted">{a.booking_reference}</span>
+                      {a.status === 'COMPLETED' && (
+                        a.has_review ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blush px-2.5 py-0.5 text-xs font-semibold text-berry border border-berry/20">
+                            ★ {a.review_rating ? `${a.review_rating}.0` : ''} Reviewed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-notice/15 px-2.5 py-0.5 text-xs font-semibold text-notice-strong border border-notice/30">
+                            Leave a review ⭐
+                          </span>
+                        )
+                      )}
                     </div>
                   </div>
                 </Link>
