@@ -5,11 +5,11 @@ from decimal import Decimal
 from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base, ErpMirrorMixin, TimestampMixin
 from app.models.enums import DepartmentVisibility, FacilityType, SchedulingMode, enum_column
 
 
-class Specialty(TimestampMixin, Base):
+class Specialty(ErpMirrorMixin, TimestampMixin, Base):
     __tablename__ = "specialties"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -18,7 +18,7 @@ class Specialty(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(default=True)
 
 
-class Hospital(TimestampMixin, Base):
+class Hospital(ErpMirrorMixin, TimestampMixin, Base):
     """A hospital or clinic in the platform directory (FR-DIS-01, FR-CLN-01)."""
 
     __tablename__ = "hospitals"
@@ -40,7 +40,7 @@ class Hospital(TimestampMixin, Base):
     departments: Mapped[list[Department]] = relationship(back_populates="hospital", lazy="raise")
 
 
-class Department(TimestampMixin, Base):
+class Department(ErpMirrorMixin, TimestampMixin, Base):
     __tablename__ = "departments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -60,15 +60,11 @@ class Department(TimestampMixin, Base):
     doctors: Mapped[list[Doctor]] = relationship(back_populates="department", lazy="raise")
 
 
-class Doctor(TimestampMixin, Base):
+class Doctor(ErpMirrorMixin, TimestampMixin, Base):
     __tablename__ = "doctors"
     __table_args__ = (
-        CheckConstraint(
-            "scheduling_mode IN ('ERP', 'MANUAL')", name="ck_doctors_scheduling_mode"
-        ),
-        CheckConstraint(
-            "max_appointments_per_window > 0", name="ck_doctors_capacity_positive"
-        ),
+        CheckConstraint("scheduling_mode IN ('ERP', 'MANUAL')", name="ck_doctors_scheduling_mode"),
+        CheckConstraint("max_appointments_per_window > 0", name="ck_doctors_capacity_positive"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

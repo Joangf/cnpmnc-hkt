@@ -31,8 +31,9 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
     queryKey: ['availability', doctor.id, selectedType?.id, day],
     queryFn: () => api.directory.availability(doctor.id, day, selectedType?.id),
     enabled: !!selectedType,
+    refetchInterval: 30_000,
   })
-  const manual = availability.data?.source === 'manual-slots'
+  const manual = availability.data?.source === 'erp-slots'
   useEffect(() => {
     if (slot && availability.data && !availability.data.slots.some((offer) =>
       offer.start_time === slot.start_time && offer.slot_id === slot.slot_id && offer.version === slot.version
@@ -177,7 +178,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
               </div>
             </dl>
             <p className="caption">{manual
-              ? 'CareBook confirms this reservation immediately when a place is available.'
+              ? 'The hospital confirms your reservation when a place is available.'
               : 'Your request goes to the hospital first. We confirm it as soon as they accept.'}</p>
             {/* Primary action sticks to the bottom on small screens. */}
             <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-canvas px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6 lg:static lg:m-0 lg:border-0 lg:p-0">

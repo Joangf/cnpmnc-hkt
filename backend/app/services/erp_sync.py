@@ -1,23 +1,22 @@
 """ERP/HIS synchronisation: schedule cache refresh, inbound status events, reconciliation."""
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from redis.asyncio import Redis
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import Conflict, NotFound
 from app.integrations.erp.base import ErpAdapter, ErpTimeoutError, ErpUnavailableError
-from app.models import Appointment, Doctor, DoctorSchedule
+from app.models import Appointment, Doctor
 from app.models.enums import (
     ACTIVE_APPOINTMENT_STATUSES,
     AppointmentStatus,
     CheckInStatus,
     NotificationType,
-    ScheduleSource,
     SchedulingMode,
     StatusSource,
 )
@@ -35,62 +34,9 @@ async def sync_schedules(session: AsyncSession, erp: ErpAdapter) -> bool:
 
 
 async def sync_all_schedules(session: AsyncSession, erp: ErpAdapter) -> tuple[int, int]:
-    """Replace the cached ERP schedule for every integrated doctor. Returns (synced, failed)."""
-    tz = availability.clinic_tz()
-    today = datetime.now(tz).date()
-    end = today + timedelta(days=settings.booking_horizon_days)
-    range_start = datetime.combine(today, time.min, tzinfo=tz)
+    from app.services.erp_catalog import sync_catalog
 
-    doctors = (
-        await session.scalars(
-            select(Doctor).where(Doctor.is_active.is_(True), Doctor.erp_doctor_id.is_not(None),
-                                 Doctor.scheduling_mode == SchedulingMode.ERP)
-        )
-    ).all()
-    failures = 0
-    for doctor in doctors:
-        assert doctor.erp_doctor_id is not None
-        try:
-            windows = await erp.get_schedule(doctor.erp_doctor_id, today, end)
-        except (ErpUnavailableError, ErpTimeoutError):
-            failures += 1
-            logger.warning("schedule_sync_failed", doctor_id=doctor.id)
-            continue
-        # Serialize window replacement with local reservations; the ERP call above
-        # deliberately happens before locking, so network I/O does not hold the lock.
-        await session.execute(
-            select(Doctor.id).where(Doctor.id == doctor.id).with_for_update()
-        )
-        # The mode may have changed while the ERP request was in flight.
-        await session.refresh(doctor)
-        if doctor.scheduling_mode != SchedulingMode.ERP:
-            await session.commit()
-            continue
-        await session.execute(
-            delete(DoctorSchedule).where(
-                DoctorSchedule.doctor_id == doctor.id,
-                DoctorSchedule.source == ScheduleSource.ERP,
-                DoctorSchedule.start_time >= range_start,
-            )
-        )
-        now = datetime.now(UTC)
-        # Also versions availability cache entries when ERP windows/limits change.
-        doctor.updated_at = now
-        session.add_all(
-            DoctorSchedule(
-                doctor_id=doctor.id,
-                start_time=w.start_time,
-                end_time=w.end_time,
-                max_appointments=w.max_appointments,
-                is_available=w.is_available,
-                source=ScheduleSource.ERP,
-                synced_at=now,
-            )
-            for w in windows
-        )
-        await session.commit()
-    logger.info("schedule_sync_completed", doctors=len(doctors), failures=failures)
-    return len(doctors) - failures, failures
+    return await sync_catalog(session, erp)
 
 
 async def handle_event(session: AsyncSession, redis: Redis, event: ErpEvent) -> str:
@@ -99,7 +45,9 @@ async def handle_event(session: AsyncSession, redis: Redis, event: ErpEvent) -> 
         raise NotFound("Unknown booking reference.")
     if event.erp_booking_id and appointment.erp_booking_id != event.erp_booking_id:
         appointment.erp_booking_id = event.erp_booking_id
+
     days = {availability.local_day(appointment.start_time)}
+    was_active = appointment.status in ACTIVE_APPOINTMENT_STATUSES
     if event.type == "APPOINTMENT_STATUS_CHANGED":
         new_status = booking.parse_status(event.status)
         if new_status is None:
@@ -108,6 +56,17 @@ async def handle_event(session: AsyncSession, redis: Redis, event: ErpEvent) -> 
         changed = await booking.transition(
             session, appointment, new_status, reason=event.reason, source=StatusSource.ERP
         )
+        if (
+            changed
+            and appointment.slot_id is not None
+            and was_active
+            and new_status not in ACTIVE_APPOINTMENT_STATUSES
+        ):
+            from app.models import DoctorSlot
+
+            slot = await session.get(DoctorSlot, appointment.slot_id)
+            if slot:
+                slot.erp_booked_count = max(0, slot.erp_booked_count - 1)
     elif event.type == "CHECK_IN_STATUS_CHANGED":
         changed = await _set_check_in_status(session, appointment, event.check_in_status)
     else:
@@ -159,15 +118,17 @@ async def _set_check_in_status(
 
 
 async def _reschedule(session: AsyncSession, appointment: Appointment, event: ErpEvent) -> bool:
+    if appointment.slot_id is not None:
+        return False  # Shared slots are immutable once booked.
     if event.start_time is None or event.end_time is None or event.end_time <= event.start_time:
         return False
     if appointment.status not in ACTIVE_APPOINTMENT_STATUSES:
         return False
     # Old ERP references can outlive a switch to manual mode. Do not let a delayed
     # reschedule create a new future ERP interval inside an admin-managed schedule.
-    mode = await session.scalar(select(Doctor.scheduling_mode).where(
-        Doctor.id == appointment.doctor_id
-    ).with_for_update())
+    mode = await session.scalar(
+        select(Doctor.scheduling_mode).where(Doctor.id == appointment.doctor_id).with_for_update()
+    )
     if mode != SchedulingMode.ERP:
         return False
     buffer = appointment.end_with_buffer - appointment.end_time
@@ -213,6 +174,9 @@ async def _reschedule(session: AsyncSession, appointment: Appointment, event: Er
 
 async def reconcile_pending(session: AsyncSession, erp: ErpAdapter) -> bool:
     """Fallback poller: resolve PENDING bookings whose ERP outcome was never received."""
+    from app.services.erp_catalog import require_ready
+
+    await require_ready(session)
     now = datetime.now(UTC)
     expiry = now - timedelta(minutes=settings.pending_booking_expiry_minutes)
     for appointment in await appointment_repo.list_stale_pending(

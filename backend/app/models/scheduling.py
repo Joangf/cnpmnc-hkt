@@ -6,11 +6,11 @@ from decimal import Decimal
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin, utcnow
+from app.models.base import Base, ErpMirrorMixin, TimestampMixin, utcnow
 from app.models.enums import ScheduleSource, enum_column
 
 
-class AppointmentType(TimestampMixin, Base):
+class AppointmentType(ErpMirrorMixin, TimestampMixin, Base):
     """Configurable duration/buffer rules (FR-BOOK-08/09, BR-05).
 
     Scope: `doctor_id` set -> that doctor only; else `specialty_id` set -> doctors of that
@@ -58,8 +58,8 @@ class DoctorSchedule(Base):
     synced_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
-class DoctorSlot(TimestampMixin, Base):
-    """Admin-managed shared appointment interval, independent of ERP schedule caches."""
+class DoctorSlot(ErpMirrorMixin, TimestampMixin, Base):
+    """Shared appointment interval mirrored from the hospital ERP."""
 
     __tablename__ = "doctor_slots"
     __table_args__ = (
@@ -82,5 +82,6 @@ class DoctorSlot(TimestampMixin, Base):
     end_with_buffer: Mapped[datetime]
     buffer_minutes: Mapped[int] = mapped_column(default=0, server_default="0")
     capacity: Mapped[int] = mapped_column(default=1, server_default="1")
+    erp_booked_count: Mapped[int] = mapped_column(default=0, server_default="0")
     is_open: Mapped[bool] = mapped_column(default=True, server_default="true")
     version: Mapped[int] = mapped_column(default=1, server_default="1")

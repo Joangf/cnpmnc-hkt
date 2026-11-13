@@ -151,7 +151,6 @@ async def list_stale_pending(
         .where(
             Appointment.status == AppointmentStatus.PENDING,
             Appointment.created_at < created_before,
-            Appointment.slot_id.is_(None),
         )
         .order_by(Appointment.created_at)
         .limit(limit)

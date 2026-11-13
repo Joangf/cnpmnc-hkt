@@ -58,6 +58,7 @@ SPECIALTIES = [
     ("Pediatrics", "Children's health."),
 ]
 
+
 class HospitalSeed(TypedDict):
     name: str
     facility_type: FacilityType
@@ -136,7 +137,7 @@ GIVEN_NAMES = [
 
 # (name, description, duration, buffer, fee_override, specialty name or None)
 APPOINTMENT_TYPES: list[tuple[str, str, int, int, Decimal | None, str | None]] = [
-    ("General Consultation", "Standard consultation fee.", 20, 10, Decimal("200000"), None),
+    ("General Consultation", "Standard consultation fee.", 20, 0, Decimal("200000"), None),
 ]
 
 # (name, keywords, [(specialty, weight)], red_flag_message)  -- PENDING CLINICAL REVIEW
@@ -365,7 +366,7 @@ async def _seed_demo_history(session: AsyncSession, patient_id: int) -> None:
         appointment_type_id=appointment_type.id,
         start_time=start,
         end_time=end,
-        end_with_buffer=end + timedelta(minutes=appointment_type.buffer_minutes),
+        end_with_buffer=end,
         status=AppointmentStatus.COMPLETED,
         check_in_status=CheckInStatus.CHECKED_IN,
         reason_for_visit="Demo appointment",
@@ -477,8 +478,12 @@ async def _seed_manual_doctor_slots(session: AsyncSession) -> None:
 
 async def main(loadtest_users: int) -> None:
     async with SessionLocal() as session:
-        await _seed_directory(session)
-        await _seed_manual_doctor_slots(session)
+        from app.models import ErpSyncState
+
+        state = await session.get(ErpSyncState, 1)
+        if not state or not state.ready:
+            await _seed_directory(session)
+        # ERP cutover/bootstrap owns all new schedule data.
         await _ensure_user(
             session, settings.admin_email, settings.admin_password, UserRole.ADMIN, None
         )

@@ -98,6 +98,7 @@ export const api = {
   },
 
   admin: {
+    erpStatus: () => request<T.ErpStatus>('GET', '/admin/integrations/erp/status'),
     slots: (doctorId: number, date: string) =>
       request<T.AdminSlotList>('GET', `/admin/doctors/${doctorId}/slots`, { query: { date } }),
     createSlot: (doctorId: number, body: T.SlotCreate) =>

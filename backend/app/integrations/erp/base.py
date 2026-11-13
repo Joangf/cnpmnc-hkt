@@ -21,6 +21,8 @@ class ErpBookingRequest:
     start_time: datetime
     end_time: datetime
     patient_ref: str  # opaque patient identifier; no PII is sent to the ERP mock
+    slot_id: str | None = None
+    slot_version: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +66,9 @@ class ErpAdapter(ABC):
 
     @abstractmethod
     async def cancel_booking(self, erp_booking_id: str, reason: str | None) -> None: ...
+
+    async def get_catalog(self) -> dict:
+        raise ErpUnavailableError("ERP catalog is not supported by this adapter")
 
     async def aclose(self) -> None:
         return None

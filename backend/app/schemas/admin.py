@@ -216,3 +216,8 @@ class AuditLogOut(ORMModel):
 class ScheduleSyncResult(BaseModel):
     doctors_synced: int
     success: bool
+
+
+class ErpStatusOut(BaseModel):
+    ready: bool
+    synced_at: datetime | None = None

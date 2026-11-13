@@ -21,6 +21,7 @@ export const responseContract: {
   DoctorPage: Fits<S['Page_DoctorSummary_'], T.Page<T.DoctorSummary>>
   DoctorDetail: Fits<S['DoctorDetail'], T.DoctorDetail>
   AdminDoctorDetail: Fits<S['AdminDoctorDetail'], T.AdminDoctorDetail>
+  ErpStatus: Fits<S['ErpStatusOut'], T.ErpStatus>
   AdminSlot: Fits<S['AdminSlotOut'], T.AdminSlot>
   AdminSlotList: Fits<S['AdminSlotList'], T.AdminSlotList>
   AppointmentType: Fits<S['AppointmentTypeOut'], T.AppointmentType>
@@ -55,6 +56,7 @@ export const responseContract: {
   DoctorPage: true,
   DoctorDetail: true,
   AdminDoctorDetail: true,
+  ErpStatus: true,
   AdminSlot: true,
   AdminSlotList: true,
   AppointmentType: true,

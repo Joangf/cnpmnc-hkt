@@ -1,14 +1,14 @@
 """Add is_edited to reviews table.
 
-Revision ID: 0011_review_is_edited
-Revises: 0010_sepay_payments
+Revision ID: 0012_review_is_edited
+Revises: 0011_erp_owned_slots
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0011_review_is_edited"
-down_revision = "0010_sepay_payments"
+revision = "0012_review_is_edited"
+down_revision = "0011_erp_owned_slots"
 branch_labels = None
 depends_on = None
 
@@ -21,4 +21,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("reviews", "is_edited")
-

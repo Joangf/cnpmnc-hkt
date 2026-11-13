@@ -207,6 +207,10 @@ async def ctx(sessions, monkeypatch):
     monkeypatch.setattr(settings, "sepay_api_token", "")
     async with sessions() as session:
         ids = await seed(session)
+        from app.models import ErpSyncState
+        state = await session.get(ErpSyncState, 1)
+        state.ready = True
+        await session.commit()
     redis, erp = MemoryRedis(), StubErp()
 
     async def request_session():

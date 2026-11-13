@@ -425,25 +425,28 @@ check("moderate review", r.status_code == 200 and r.json()["status"] == "HIDDEN"
 public_ids = [x["id"] for x in guest.get(f"/doctors/{reviews[0]['doctor_id']}/reviews").json()["items"]]
 check("hidden review not public", reviews[0]["id"] not in public_ids, public_ids)
 admin.patch(f"/admin/reviews/{reviews[0]['id']}", json={"status": "PUBLISHED"})
-r = admin.post(
-    "/admin/hospitals",
-    json={"name": "Smoke Clinic", "address": "9 Test Rd", "city": "Da Nang", "facility_type": "CLINIC"},
-)
-check("admin create hospital", r.status_code == 201, r.text[:300])
-hid = r.json()["id"]
-r = admin.patch(f"/admin/hospitals/{hid}", json={"is_active": False})
-check("admin deactivate hospital", r.status_code == 200 and r.json()["is_active"] is False)
-check("inactive hospital hidden from guests", guest.get(f"/hospitals/{hid}").status_code == 404)
-check(
-    "admin null name -> 422", admin.patch(f"/admin/hospitals/{hid}", json={"name": None}).status_code == 422
-)
 for entity in ("specialties", "departments", "doctors", "appointment-types", "hospitals"):
     check(f"admin list {entity}", admin.get(f"/admin/{entity}").status_code == 200)
-r = admin.post(
-    "/admin/appointment-types",
-    json={"name": "Smoke type", "duration_minutes": 25, "buffer_minutes": 5, "specialty_id": 1},
+    r = admin.post(f"/admin/{entity}", json={})
+    check(
+        f"admin create {entity} denied -> 403 ErpOwnedData",
+        r.status_code == 403 and r.json().get("error", {}).get("code") == "ErpOwnedData",
+        r.text[:200],
+    )
+    r = admin.patch(f"/admin/{entity}/1", json={})
+    check(
+        f"admin update {entity} denied -> 403 ErpOwnedData",
+        r.status_code == 403 and r.json().get("error", {}).get("code") == "ErpOwnedData",
+        r.text[:200],
+    )
+r = admin.post("/admin/doctors/1/slots", json={})
+check(
+    "admin create slot denied -> 403 ErpOwnedData",
+    r.status_code == 403 and r.json().get("error", {}).get("code") == "ErpOwnedData",
+    r.text[:200],
 )
-check("admin create appointment type", r.status_code == 201, r.text[:300])
+r = admin.get("/admin/integrations/erp/status")
+check("admin ERP sync status", r.status_code == 200 and r.json().get("ready") is True, r.text[:200])
 check("admin appointments", admin.get("/admin/appointments").json()["total"] >= 3)
 check("audit log populated", admin.get("/admin/audit-logs").json()["total"] > 10)
 r = admin.post("/admin/integrations/erp/sync-schedules")

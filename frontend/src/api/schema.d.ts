@@ -1186,12 +1186,21 @@ export interface components {
         };
         /** AdminSlotList */
         AdminSlotList: {
+            /** Synced At */
+            synced_at?: string | null;
             /** Doctor Id */
             doctor_id: number;
             /** Timezone */
             timezone: string;
             /** Slots */
             slots: components["schemas"]["AdminSlotOut"][];
+        };
+        /** ErpStatusOut */
+        ErpStatusOut: {
+            /** Ready */
+            ready: boolean;
+            /** Synced At */
+            synced_at?: string | null;
         };
         /** AdminSlotOut */
         AdminSlotOut: {
@@ -1209,8 +1218,6 @@ export interface components {
              * Format: date-time
              */
             end_time: string;
-            /** Buffer Minutes */
-            buffer_minutes: number;
             /** Capacity */
             capacity: number;
             /** Is Open */
@@ -2382,11 +2389,6 @@ export interface components {
              */
             end_time: string;
             /**
-             * Buffer Minutes
-             * @default 0
-             */
-            buffer_minutes: number;
-            /**
              * Capacity
              * @default 1
              */
@@ -2426,8 +2428,6 @@ export interface components {
             start_time?: string | null;
             /** End Time */
             end_time?: string | null;
-            /** Buffer Minutes */
-            buffer_minutes?: number | null;
             /** Capacity */
             capacity?: number | null;
             /** Is Open */

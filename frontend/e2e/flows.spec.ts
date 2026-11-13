@@ -182,7 +182,7 @@ test('protected pages redirect to sign-in and back', async ({ page }) => {
   await expect(page.getByText('Demo appointment').or(page.getByText(/HK[A-Z2-9]{8}/).first())).toBeVisible()
 })
 
-test('admin sees the dashboard and manages the directory', async ({ page }) => {
+test('admin sees the dashboard and views the read-only ERP directory', async ({ page }) => {
   await page.goto('/login')
   await signIn(page, 'admin@example.com', 'Admin12345!')
   await expect(page).toHaveURL(/\/admin$/)
@@ -190,15 +190,10 @@ test('admin sees the dashboard and manages the directory', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Directory' }).click()
+  await expect(page.getByText(/Directory information is managed by the hospital ERP/)).toBeVisible()
   await page.getByRole('button', { name: 'Specialties' }).click()
-  const name = `E2E Specialty ${Date.now()}`
-  await page.getByLabel('Name *').fill(name)
-  // The list is paginated, so the new row may land beyond page 1: check the create call instead.
-  const created = page.waitForResponse(
-    (r) => r.url().endsWith('/api/v1/admin/specialties') && r.request().method() === 'POST',
-  )
-  await page.getByRole('button', { name: 'Create' }).click()
-  expect((await created).status()).toBe(201)
+  await expect(page.getByRole('heading', { name: 'Cardiology' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /create|edit|deactivate|save/i })).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Reviews' }).click()
   await expect(page.getByRole('button', { name: 'All' })).toBeVisible()

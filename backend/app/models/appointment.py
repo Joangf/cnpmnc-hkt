@@ -23,7 +23,7 @@ class Appointment(TimestampMixin, Base):
 
     Double booking is prevented by the `no_overlap` exclusion constraint
     (doctor_id =, reservation_position =, reserved range &&) for active appointments.
-    ERP appointments always use position 1; shared manual slots allocate distinct positions.
+    Shared slots allocate distinct positions; legacy window bookings use position 1.
 
     `status` (appointment), `check_in_status` (ERP-only, BR-11) and payment status
     (Payment table) are deliberately separate (BR-07).

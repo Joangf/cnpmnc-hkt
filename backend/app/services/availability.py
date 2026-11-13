@@ -13,10 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.errors import ValidationFailed
 from app.models import AppointmentType, Doctor
-from app.models.enums import SchedulingMode
-from app.repositories import appointments as appointment_repo
-from app.services.scheduling import Interval, ScheduleWindow, Slot, generate_slots
-from app.services.scheduling_settings import EffectiveSettings, resolve
+from app.services.scheduling import Slot
+from app.services.scheduling_settings import EffectiveSettings
 
 logger = structlog.get_logger(__name__)
 
@@ -53,43 +51,24 @@ def check_booking_window(day: date, now: datetime | None = None) -> None:
 
 
 async def compute_slots(
-    session: AsyncSession, doctor_id: int, appointment_type: AppointmentType, day: date,
-    *, effective: EffectiveSettings | None = None,
+    session: AsyncSession,
+    doctor_id: int,
+    appointment_type: AppointmentType,
+    day: date,
+    *,
+    effective: EffectiveSettings | None = None,
 ) -> list[Slot]:
     """Authoritative-as-possible computation straight from the database (used for BR-03)."""
     doctor = await session.get(Doctor, doctor_id)
     if doctor is None:
         return []
-    if doctor.scheduling_mode == SchedulingMode.MANUAL:
-        from app.services.manual_slots import offers
+    from app.models import ErpSyncState
+    from app.services.manual_slots import offers
 
-        return await offers(session, doctor_id, day)
-    if effective is None:
-        effective = resolve(doctor, appointment_type)
-    start, end = day_bounds(day)
-    rows = await appointment_repo.schedule_rows(session, doctor_id, start, end)
-    windows = [
-        ScheduleWindow(r.start_time, r.end_time, effective.window_capacity(r.max_appointments))
-        for r in rows if r.is_available
-    ]
-    blocked = [Interval(r.start_time, r.end_time) for r in rows if not r.is_available]
-    busy = [
-        Interval(s, e)
-        for s, e in await appointment_repo.busy_intervals(
-            session, doctor_id,
-            min([start, *(r.start_time for r in rows)]),
-            max([end, *(r.end_time for r in rows)]),
-        )
-    ]
-    return generate_slots(
-        windows,
-        busy,
-        blocked=blocked,
-        duration=effective.duration,
-        buffer=effective.buffer,
-        increment=timedelta(minutes=settings.slot_increment_minutes),
-        not_before=datetime.now(UTC) + timedelta(minutes=settings.booking_min_lead_minutes),
-    )
+    state = await session.get(ErpSyncState, 1)
+    if not state or not state.ready:
+        return []
+    return await offers(session, doctor_id, day)
 
 
 def _cache_key(doctor_id: int, day: date) -> str:
@@ -104,23 +83,36 @@ async def get_slots_cached(
     day: date,
 ) -> list[Slot]:
     """Short-TTL cache for browsing. Never used for booking validation."""
+    from app.models import ErpSyncState
+
+    state = await session.get(ErpSyncState, 1)
+    if not state or not state.ready:
+        return []
     doctor = await session.get(Doctor, doctor_id)
     if doctor is None:
         return []
-    effective = None if doctor.scheduling_mode == SchedulingMode.MANUAL else resolve(
-        doctor, appointment_type
+    effective = None
+    fingerprint = json.dumps(
+        [
+            appointment_type.id,
+            str(appointment_type.updated_at),
+            str(doctor.updated_at),
+        ]
     )
-    fingerprint = effective.fingerprint if effective else json.dumps([
-        appointment_type.id, str(appointment_type.updated_at), str(doctor.updated_at),
-    ])
     key = _cache_key(doctor_id, day)
     field = f"v2:{doctor.scheduling_mode}:{fingerprint}"
     try:
         cached = await redis.hget(key, field)  # type: ignore[misc]  # redis-py stub union
         if cached:
             return [
-                Slot(datetime.fromisoformat(s["start"]), datetime.fromisoformat(s["end"]),
-                     s["slot_id"], s["version"], s["capacity"], s["remaining_places"])
+                Slot(
+                    datetime.fromisoformat(s["start"]),
+                    datetime.fromisoformat(s["end"]),
+                    s["slot_id"],
+                    s["version"],
+                    s["capacity"],
+                    s["remaining_places"],
+                )
                 for s in json.loads(cached)
             ]
     except RedisError:
@@ -128,11 +120,19 @@ async def get_slots_cached(
 
     slots = await compute_slots(session, doctor_id, appointment_type, day, effective=effective)
     try:
-        payload = json.dumps([
-            {"start": s.start.isoformat(), "end": s.end.isoformat(), "slot_id": s.slot_id,
-             "version": s.version, "capacity": s.capacity, "remaining_places": s.remaining_places}
-            for s in slots
-        ])
+        payload = json.dumps(
+            [
+                {
+                    "start": s.start.isoformat(),
+                    "end": s.end.isoformat(),
+                    "slot_id": s.slot_id,
+                    "version": s.version,
+                    "capacity": s.capacity,
+                    "remaining_places": s.remaining_places,
+                }
+                for s in slots
+            ]
+        )
         async with redis.pipeline(transaction=True) as pipe:
             pipe.hset(key, field, payload)
             pipe.expire(key, settings.availability_cache_seconds)

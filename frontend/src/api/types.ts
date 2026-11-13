@@ -158,12 +158,16 @@ export interface AdminDoctorDetail extends DoctorDetail {
 
 export type SchedulingMode = 'ERP' | 'MANUAL'
 
+export interface ErpStatus {
+  ready: boolean
+  synced_at?: string | null
+}
+
 export interface AdminSlot {
   id: number
   doctor_id: number
   start_time: string
   end_time: string
-  buffer_minutes: number
   capacity: number
   is_open: boolean
   version: number
@@ -172,6 +176,7 @@ export interface AdminSlot {
 }
 
 export interface AdminSlotList {
+  synced_at?: string | null
   doctor_id: number
   timezone: string
   slots: AdminSlot[]
@@ -180,7 +185,6 @@ export interface AdminSlotList {
 export interface SlotCreate {
   start_time: string
   end_time: string
-  buffer_minutes: number
   capacity: number
   is_open: boolean
 }
