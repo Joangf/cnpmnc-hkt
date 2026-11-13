@@ -28,6 +28,7 @@ from app.models import (
     DoctorSlot,
     Hospital,
     PatientProfile,
+    Payment,
     Specialty,
     Symptom,
     SymptomSpecialtyRule,
@@ -38,6 +39,7 @@ from app.models.enums import (
     AppointmentStatus,
     CheckInStatus,
     FacilityType,
+    PaymentStatus,
     SchedulingMode,
     StatusSource,
     UserRole,
@@ -395,6 +397,143 @@ async def _seed_demo_history(session: AsyncSession, patient_id: int) -> None:
     print("seeded demo appointment history")
 
 
+async def _seed_refund_test_appointments(session: AsyncSession, patient_id: int) -> None:
+    """Seeds two CONFIRMED + PAID appointments for the demo patient to test refunds:
+    1. HK-REFUND-USR1: For testing cancellation by the patient directly on the web.
+    2. HK-REFUND-ERP2: For testing rejection / cancellation from the hospital ERP.
+    """
+    existing_refs = set(
+        (
+            await session.scalars(
+                select(Appointment.booking_reference).where(
+                    Appointment.booking_reference.in_(["HK-REFUND-USR1", "HK-REFUND-ERP2"])
+                )
+            )
+        ).all()
+    )
+
+    doctors = (await session.scalars(select(Doctor).order_by(Doctor.id).limit(2))).all()
+    if not doctors:
+        return
+    doctor1 = doctors[0]
+    doctor2 = doctors[1] if len(doctors) > 1 else doctors[0]
+
+    appointment_type = await session.scalar(
+        select(AppointmentType)
+        .where(AppointmentType.specialty_id.is_(None))
+        .order_by(AppointmentType.id)
+        .limit(1)
+    )
+    if appointment_type is None:
+        appointment_type = await session.scalar(select(AppointmentType).limit(1))
+    if appointment_type is None:
+        return
+
+    fee = appointment_type.fee_override or Decimal("200000")
+
+    # 1. Test case: Patient cancellation
+    if "HK-REFUND-USR1" not in existing_refs:
+        day1 = (datetime.now(clinic_tz()) + timedelta(days=3)).date()
+        start1 = datetime.combine(day1, time(9, 30), tzinfo=clinic_tz()).astimezone(UTC)
+        end1 = start1 + timedelta(minutes=appointment_type.duration_minutes)
+
+        apt1 = Appointment(
+            booking_reference="HK-REFUND-USR1",
+            patient_id=patient_id,
+            doctor_id=doctor1.id,
+            appointment_type_id=appointment_type.id,
+            start_time=start1,
+            end_time=end1,
+            end_with_buffer=end1,
+            status=AppointmentStatus.CONFIRMED,
+            check_in_status=CheckInStatus.NOT_CHECKED_IN,
+            reason_for_visit="Test refund: Patient cancellation flow",
+            fee_amount=fee,
+            currency=settings.currency,
+            erp_booking_id="ERP-REFUND-0001",
+        )
+        session.add(apt1)
+        await session.flush()
+
+        for field, old, new, src in (
+            ("status", None, AppointmentStatus.PENDING, StatusSource.PATIENT),
+            ("status", AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, StatusSource.ERP),
+        ):
+            session.add(
+                AppointmentStatusHistory(
+                    appointment_id=apt1.id,
+                    field=field,
+                    from_value=old,
+                    to_value=new,
+                    source=src,
+                )
+            )
+
+        pay1 = Payment(
+            appointment_id=apt1.id,
+            amount=fee,
+            currency=settings.currency,
+            status=PaymentStatus.PAID,
+            payment_code="CBRFTEST01",
+            paid_at=datetime.now(UTC) - timedelta(hours=2),
+            provider_reference="SEPAY_RF_001",
+        )
+        session.add(pay1)
+        print("seeded refund test appointment HK-REFUND-USR1 (Patient cancel test)")
+
+    # 2. Test case: Hospital rejection
+    if "HK-REFUND-ERP2" not in existing_refs:
+        day2 = (datetime.now(clinic_tz()) + timedelta(days=4)).date()
+        start2 = datetime.combine(day2, time(14, 0), tzinfo=clinic_tz()).astimezone(UTC)
+        end2 = start2 + timedelta(minutes=appointment_type.duration_minutes)
+
+        apt2 = Appointment(
+            booking_reference="HK-REFUND-ERP2",
+            patient_id=patient_id,
+            doctor_id=doctor2.id,
+            appointment_type_id=appointment_type.id,
+            start_time=start2,
+            end_time=end2,
+            end_with_buffer=end2,
+            status=AppointmentStatus.CONFIRMED,
+            check_in_status=CheckInStatus.NOT_CHECKED_IN,
+            reason_for_visit="Test refund: Hospital ERP rejection flow",
+            fee_amount=fee,
+            currency=settings.currency,
+            erp_booking_id="ERP-REFUND-0002",
+        )
+        session.add(apt2)
+        await session.flush()
+
+        for field, old, new, src in (
+            ("status", None, AppointmentStatus.PENDING, StatusSource.PATIENT),
+            ("status", AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, StatusSource.ERP),
+        ):
+            session.add(
+                AppointmentStatusHistory(
+                    appointment_id=apt2.id,
+                    field=field,
+                    from_value=old,
+                    to_value=new,
+                    source=src,
+                )
+            )
+
+        pay2 = Payment(
+            appointment_id=apt2.id,
+            amount=fee,
+            currency=settings.currency,
+            status=PaymentStatus.PAID,
+            payment_code="CBRFTEST02",
+            paid_at=datetime.now(UTC) - timedelta(hours=3),
+            provider_reference="SEPAY_RF_002",
+        )
+        session.add(pay2)
+        print("seeded refund test appointment HK-REFUND-ERP2 (Hospital rejection test)")
+
+    await session.commit()
+
+
 async def _seed_loadtest_users(session: AsyncSession, count: int) -> None:
     existing = set(
         (
@@ -503,6 +642,7 @@ async def main(loadtest_users: int) -> None:
         )
         if profile_id:
             await _seed_demo_history(session, profile_id)
+            await _seed_refund_test_appointments(session, profile_id)
         if loadtest_users:
             await _seed_loadtest_users(session, loadtest_users)
     await engine.dispose()

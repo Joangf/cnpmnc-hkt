@@ -60,6 +60,7 @@ ALLOWED_TRANSITIONS: dict[AppointmentStatus, set[AppointmentStatus]] = {
         AppointmentStatus.CANCELLED,
         AppointmentStatus.COMPLETED,
         AppointmentStatus.NO_SHOW,
+        AppointmentStatus.REJECTED,
     },
 }
 

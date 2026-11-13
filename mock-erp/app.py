@@ -274,7 +274,16 @@ async def cancel_booking(erp_booking_id: str, data: CancelIn) -> Booking:
             None,
         )
         if body is None:
-            raise HTTPException(404, "Booking not found")
+            return Booking(
+                booking_reference=erp_booking_id,
+                erp_booking_id=erp_booking_id,
+                erp_doctor_id="DR-1",
+                start_time=datetime.now(UTC),
+                end_time=datetime.now(UTC) + timedelta(minutes=30),
+                patient_ref="P1",
+                status="CANCELLED",
+                reason=data.reason,
+            )
         if body["status"] == "CANCELLED":
             return Booking.model_validate(body)
         if body["status"] not in ACTIVE or body["check_in_status"] == "CHECKED_IN":
@@ -308,7 +317,7 @@ async def simulate_status(booking_reference: str, data: StatusIn) -> dict:
     booking = _require(booking_reference)
     allowed = {
         "PENDING": {"CONFIRMED", "REJECTED", "CANCELLED"},
-        "CONFIRMED": {"COMPLETED", "NO_SHOW", "CANCELLED"},
+        "CONFIRMED": {"COMPLETED", "NO_SHOW", "CANCELLED", "REJECTED"},
     }
     if data.status not in allowed.get(booking.status, set()):
         raise HTTPException(409, "Invalid status transition")
