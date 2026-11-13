@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { api } from '../../api/endpoints'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Card, ErrorAlert, Notice, Spinner } from '../../components/ui'
@@ -105,7 +106,12 @@ export default function AdminDashboardPage() {
       </Card>
 
       <Card className="mt-8 overflow-x-auto">
-        <h2 className="section-title mb-3">Audit log</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="section-title">Audit log</h2>
+          <Link to="/admin/audit-logs" className="link inline-flex items-center gap-1.5 text-sm font-semibold">
+            View all and filter logs
+          </Link>
+        </div>
         <table className="table">
           <thead>
             <tr>
@@ -124,7 +130,7 @@ export default function AdminDashboardPage() {
                   {log.entity_type} {log.entity_id}
                 </td>
                 <td>
-                  {humanize(log.actor_type)}
+                  {log.actor_name || log.actor_email || humanize(log.actor_type)}
                   {log.actor_id ? ` #${log.actor_id}` : ''}
                 </td>
               </tr>

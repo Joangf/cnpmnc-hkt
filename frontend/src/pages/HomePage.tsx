@@ -28,10 +28,12 @@ const SPECIALTY_ICONS: [RegExp, IconComponent][] = [
 const specialtyIcon = (name: string) => SPECIALTY_ICONS.find(([re]) => re.test(name))?.[1] ?? IconStethoscope
 
 const DEFAULT_HOSPITAL_HERO =
-  'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80'
+  'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&w=1200&q=80'
 
 // The site is branded for HKT Hospital, while extra facilities are seeded for demo data.
 const BRAND_HOSPITAL = 'HKT Hospital'
+const BRAND_ADDRESS = '12 HKT Street, District 1, Ho Chi Minh City'
+const isBrandHospital = (name: string) => name.toLowerCase().includes('hkt')
 
 export default function HomePage() {
   const specialties = useQuery({
@@ -52,9 +54,8 @@ export default function HomePage() {
   })
   const [imgError, setImgError] = useState(false)
 
-  // Prefer the branded hospital; fall back to the first record in the directory.
-  const hospital =
-    hospitals.data?.items?.find((h) => h.name === BRAND_HOSPITAL) ?? hospitals.data?.items?.[0]
+  // Show the branded hospital only; never fall back to unrelated seeded facilities.
+  const hospital = hospitals.data?.items?.find((h) => isBrandHospital(h.name))
 
   useEffect(() => {
     setImgError(false)
@@ -126,12 +127,11 @@ export default function HomePage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
           <div className="absolute bottom-6 left-6 right-6 text-white pointer-events-none">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-md px-3 py-1 text-xs font-semibold text-white mb-2">
+            <h3 className="text-xl font-bold">{hospital?.name ?? BRAND_HOSPITAL}</h3>
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-md px-3 py-1 text-xs font-semibold text-white">
               <IconLocation size={14} className="shrink-0" />
-              <span>{hospital ? `${hospital.address}, ${hospital.city}` : '12 HKT Street, District 1, Ho Chi Minh City'}</span>
+              <span>{hospital ? `${hospital.address}, ${hospital.city}` : BRAND_ADDRESS}</span>
             </div>
-            <h3 className="text-xl font-bold">{hospital?.name ?? 'HKT International General Hospital'}</h3>
-            <p className="text-xs text-white/80 mt-1">Modern facilities · Compassionate care 24/7</p>
           </div>
         </div>
       </section>

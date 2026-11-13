@@ -14,6 +14,7 @@ Order of operations, all in one transaction until step 4 (FR-BOOK-05, BR-04):
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 from redis.asyncio import Redis
@@ -134,6 +135,9 @@ async def transition(
     appointment_repo.add_history(
         session, appointment.id, "status", old_status, new_status, reason, source
     )
+    details: dict[str, Any] = {"from": old_status, "to": new_status, "source": source}
+    if reason:
+        details["reason"] = reason[:500]
     audit.record(
         session,
         "appointment.status_changed",
@@ -141,7 +145,7 @@ async def transition(
         appointment.id,
         actor_id=actor_id,
         actor_type=audit.actor_type_for(source),
-        details={"from": old_status, "to": new_status, "source": source},
+        details=details,
     )
     title, template = _STATUS_MESSAGES[new_status]
     content = template.format(

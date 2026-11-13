@@ -205,6 +205,8 @@ class AuditLogOut(ORMModel):
     id: int
     actor_id: int | None
     actor_type: ActorType
+    actor_name: str | None = None
+    actor_email: str | None = None
     action: str
     entity_type: str
     entity_id: str | None

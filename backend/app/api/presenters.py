@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.models import (
     Appointment,
     AppointmentType,
+    AuditLog,
     Department,
     Doctor,
     Hospital,
@@ -18,6 +19,7 @@ from app.schemas.admin import (
     AdminDoctorDetail,
     AdminUserOut,
     AppointmentTypeAdminOut,
+    AuditLogOut,
     DepartmentAdminOut,
 )
 from app.schemas.appointments import (
@@ -351,6 +353,15 @@ def review_public(review: Review) -> ReviewPublic:
     return ReviewPublic(
         id=review.id, rating=review.rating, comment=review.comment, created_at=review.created_at
     )
+
+
+def audit_log(log: AuditLog) -> AuditLogOut:
+    """Needs: log.actor (and actor.profile, may be absent for admins)."""
+    out = AuditLogOut.model_validate(log)
+    if log.actor is not None:
+        out.actor_email = log.actor.email
+        out.actor_name = log.actor.profile.full_name if log.actor.profile else None
+    return out
 
 
 def admin_review(review: Review) -> AdminReviewOut:

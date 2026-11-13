@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
+import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminDirectoryPage from './pages/admin/AdminDirectoryPage'
 import AdminRefundsPage from './pages/admin/AdminRefundsPage'
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="refunds" element={<AdminRefundsPage />} />
+          <Route path="audit-logs" element={<AdminAuditLogsPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

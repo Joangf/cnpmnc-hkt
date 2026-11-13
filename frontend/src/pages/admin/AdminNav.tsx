@@ -7,6 +7,7 @@ const items = [
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/reviews', label: 'Reviews' },
   { to: '/admin/refunds', label: 'Refunds' },
+  { to: '/admin/audit-logs', label: 'Audit logs' },
 ]
 
 export function AdminNav() {

@@ -113,7 +113,21 @@ export const api = {
       request<T.AdminReview>('PATCH', `/admin/reviews/${id}`, { body: { status, note } }),
     appointments: (query: { appointment_status?: string; page?: number }) =>
       request<T.Page<T.AdminAppointment>>('GET', '/admin/appointments', { query }),
-    auditLogs: (page = 1) => request<T.Page<T.AuditLog>>('GET', '/admin/audit-logs', { query: { page } }),
+    auditLogs: (
+      query: {
+        actor?: string
+        actor_id?: number
+        actor_type?: string
+        appointment?: string
+        entity_type?: string
+        entity_id?: string
+        action?: string
+        date_from?: string
+        date_to?: string
+        page?: number
+        page_size?: number
+      } = {},
+    ) => request<T.Page<T.AuditLog>>('GET', '/admin/audit-logs', { query }),
     refunds: (query: { refund_status?: T.RefundStatus; page?: number }) =>
       request<T.Page<T.AdminRefund>>('GET', '/admin/refunds', { query }),
     completeRefund: (paymentId: number, note?: string) =>

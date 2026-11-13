@@ -976,6 +976,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/integrations/erp/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Erp Status */
+        get: operations["adminErpStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/doctors/{doctor_id}/slots": {
         parameters: {
             query?: never;
@@ -1194,13 +1211,6 @@ export interface components {
             timezone: string;
             /** Slots */
             slots: components["schemas"]["AdminSlotOut"][];
-        };
-        /** ErpStatusOut */
-        ErpStatusOut: {
-            /** Ready */
-            ready: boolean;
-            /** Synced At */
-            synced_at?: string | null;
         };
         /** AdminSlotOut */
         AdminSlotOut: {
@@ -1445,6 +1455,10 @@ export interface components {
             /** Actor Id */
             actor_id: number | null;
             actor_type: components["schemas"]["ActorType"];
+            /** Actor Name */
+            actor_name?: string | null;
+            /** Actor Email */
+            actor_email?: string | null;
             /** Action */
             action: string;
             /** Entity Type */
@@ -1708,6 +1722,13 @@ export interface components {
             max_appointments_per_window?: number | null;
             /** Scheduling Mode */
             scheduling_mode?: "MANUAL" | null;
+        };
+        /** ErpStatusOut */
+        ErpStatusOut: {
+            /** Ready */
+            ready: boolean;
+            /** Synced At */
+            synced_at?: string | null;
         };
         /** ErrorBody */
         ErrorBody: {
@@ -5629,8 +5650,15 @@ export interface operations {
     adminListAuditLogs: {
         parameters: {
             query?: {
+                actor?: string | null;
+                actor_id?: number | null;
+                actor_type?: components["schemas"]["ActorType"] | null;
+                appointment?: string | null;
                 entity_type?: string | null;
+                entity_id?: string | null;
                 action?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -5667,13 +5695,13 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Validation failed (ValidationFailed) */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5716,6 +5744,44 @@ export interface operations {
             };
             /** @description Integration unavailable (ErpUnavailable, EmailDeliveryFailed) */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminErpStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpStatusOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

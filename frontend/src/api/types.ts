@@ -432,6 +432,8 @@ export interface AuditLog {
   id: number
   actor_id: number | null
   actor_type: string
+  actor_name?: string | null
+  actor_email?: string | null
   action: string
   entity_type: string
   entity_id: string | null

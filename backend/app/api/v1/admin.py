@@ -1,6 +1,6 @@
 """Administration (FRD 4.13). Every route requires the ADMIN role (BR-13); mutations are audited."""
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, status
@@ -12,13 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import presenters
 from app.api.deps import AdminUser, ErpDep, PageDep, SessionDep, deny_erp_write
 from app.core.errors import Conflict, InvalidState, NotFound, ValidationFailed
-from app.models import AppointmentType, AuditLog, Base, Department, Doctor, Hospital, Specialty
-from app.models.enums import AccountStatus, AppointmentStatus, ReviewStatus, UserRole
+from app.models import AppointmentType, Base, Department, Doctor, Hospital, Specialty
+from app.models.enums import AccountStatus, ActorType, AppointmentStatus, ReviewStatus, UserRole
 from app.repositories import appointments as appointment_repo
+from app.repositories import audit as audit_repo
 from app.repositories import directory as directory_repo
 from app.repositories import reviews as review_repo
 from app.repositories import users as user_repo
-from app.repositories.base import paginate
 from app.schemas.admin import (
     AdminDoctorDetail,
     AdminUserOut,
@@ -133,6 +133,11 @@ async def _ensure_unique_erp_doctor_id(
 
 def _local_start(day: date | None) -> datetime | None:
     return datetime.combine(day, time.min, tzinfo=availability.clinic_tz()) if day else None
+
+
+def _local_end(day: date | None) -> datetime | None:
+    """Exclusive upper bound: the whole of `day` in clinic time is included."""
+    return _local_start(day + timedelta(days=1)) if day else None
 
 
 # --- Users (FR-ACC-05, FR-ADM-03) -------------------------------------------------------------
@@ -642,22 +647,46 @@ async def report_summary(
     return await reports.summary(session, _local_start(date_from), _local_start(date_to))
 
 
-@router.get("/audit-logs", response_model=Page[AuditLogOut], operation_id="adminListAuditLogs")
+@router.get(
+    "/audit-logs",
+    response_model=Page[AuditLogOut],
+    operation_id="adminListAuditLogs",
+    responses=error_responses(422),
+)
 async def list_audit_logs(
     admin: AdminUser,
     session: SessionDep,
     paging: PageDep,
+    actor: str | None = None,
+    actor_id: int | None = None,
+    actor_type: ActorType | None = None,
+    appointment: str | None = None,
     entity_type: str | None = None,
+    entity_id: str | None = None,
     action: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> Page[AuditLogOut]:
-    stmt = select(AuditLog).order_by(AuditLog.created_at.desc())
-    if entity_type:
-        stmt = stmt.where(AuditLog.entity_type == entity_type)
-    if action:
-        stmt = stmt.where(AuditLog.action == action)
-    items, total = await paginate(session, stmt, paging.page, paging.page_size)
+    if date_from and date_to and date_from > date_to:
+        raise ValidationFailed(
+            "'date_from' must be on or before 'date_to'.", code="InvalidDateRange"
+        )
+    items, total = await audit_repo.list_admin(
+        session,
+        actor=actor,
+        actor_id=actor_id,
+        actor_type=actor_type,
+        appointment=appointment,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=action,
+        date_from=_local_start(date_from),
+        date_to=_local_end(date_to),
+        page=paging.page,
+        page_size=paging.page_size,
+    )
     return Page[AuditLogOut](
-        items=[AuditLogOut.model_validate(i) for i in items],
+        items=[presenters.audit_log(i) for i in items],
         total=total,
         page=paging.page,
         page_size=paging.page_size,
