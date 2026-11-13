@@ -264,7 +264,7 @@
     @apply border-berry bg-berry font-semibold text-on-accent shadow-button;
   }
   .slot {
-    @apply inline-flex min-h-12 items-center justify-center gap-1 rounded-md border-1.5 border-line bg-canvas px-2 text-base font-medium text-ink transition-[color,background-color,border-color,transform] duration-fast hover:border-berry active:scale-[0.97];
+    @apply flex w-full min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border-1.5 border-line bg-canvas px-3 py-2.5 text-center text-base font-medium text-ink transition-[color,background-color,border-color,transform] duration-fast hover:border-berry active:scale-[0.97];
   }
   .slot[aria-pressed='true'] {
     @apply border-berry bg-blush font-semibold text-berry;

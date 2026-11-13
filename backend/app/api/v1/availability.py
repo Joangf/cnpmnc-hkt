@@ -49,6 +49,7 @@ async def get_doctor_availability(
                 version=s.version,
                 capacity=s.capacity,
                 remaining_places=s.remaining_places,
+                is_past=s.is_past,
             )
             for s in slots
         ],

@@ -15,12 +15,30 @@ const weekdayFmt = new Intl.DateTimeFormat('en-GB', { timeZone: CLINIC_TZ, weekd
 const dayMonthFmt = new Intl.DateTimeFormat('en-GB', { timeZone: CLINIC_TZ, day: '2-digit', month: 'short' })
 const isoDayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: CLINIC_TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
 
-export function formatDateTime(iso: string): string {
-  return dateTimeFmt.format(new Date(iso))
+export function clinicIsoDay(iso: string): string {
+  return isoDayFmt.format(new Date(iso))
 }
 
-export function formatTime(iso: string): string {
-  return timeFmt.format(new Date(iso))
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '-'
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return '-'
+    return dateTimeFmt.format(d)
+  } catch {
+    return '-'
+  }
+}
+
+export function formatTime(iso: string | null | undefined): string {
+  if (!iso) return '-'
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return '-'
+    return timeFmt.format(d)
+  } catch {
+    return '-'
+  }
 }
 
 /** Convert clinic wall-clock input independently of the browser's own timezone. */

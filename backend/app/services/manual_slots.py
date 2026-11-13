@@ -202,7 +202,9 @@ async def update(
     return present(slot, booked)
 
 
-async def offers(session: AsyncSession, doctor_id: int, day: date) -> list[Slot]:
+async def offers(
+    session: AsyncSession, doctor_id: int, day: date, *, include_past: bool = False
+) -> list[Slot]:
     earliest = datetime.now(UTC) + timedelta(minutes=settings.booking_min_lead_minutes)
     return [
         Slot(
@@ -211,13 +213,11 @@ async def offers(session: AsyncSession, doctor_id: int, day: date) -> list[Slot]
             slot.id,
             slot.version,
             slot.capacity,
-            slot.capacity - max(booked, slot.erp_booked_count),
+            max(0, slot.capacity - max(booked, slot.erp_booked_count)),
+            is_past=slot.start_time < earliest,
         )
         for slot, booked in await rows_for_day(session, doctor_id, day)
-        if slot.erp_id
-        and slot.is_open
-        and slot.start_time >= earliest
-        and max(booked, slot.erp_booked_count) < slot.capacity
+        if slot.erp_id and slot.is_open and (include_past or slot.start_time >= earliest)
     ]
 
 
@@ -264,7 +264,7 @@ async def reserve_position(
     ).all()
     if any(patient == patient_id for patient, _ in occupied):
         raise Conflict("You already have a reservation in this slot.", code="AlreadyBooked")
-    if len(occupied) >= slot.capacity:
+    if max(len(occupied), slot.erp_booked_count) >= slot.capacity:
         raise SlotTaken("This slot is full. Please choose another slot.", code="SlotFull")
     positions = {position for _, position in occupied}
     # At most len(occupied)+1 probes, even when the configured capacity is very large.

@@ -106,6 +106,9 @@ class StubErp:
             raise ErpUnavailableError("ERP down")
         self.cancelled.append(erp_booking_id)
 
+    async def get_booking(self, booking_reference: str) -> None:
+        return None
+
 
 @dataclass
 class Seed:
@@ -189,6 +192,8 @@ async def seed(session: AsyncSession) -> Seed:
     session.add_all([paid, free])
     tomorrow = datetime.now(availability.clinic_tz()).date() + timedelta(days=2)
     start = datetime.combine(tomorrow, time(8), tzinfo=availability.clinic_tz()).astimezone(UTC)
+    from app.models import DoctorSlot
+
     session.add(
         DoctorSchedule(
             doctor_id=doctor.id,
@@ -197,6 +202,21 @@ async def seed(session: AsyncSession) -> Seed:
             max_appointments=None,
         )
     )
+    for slot_idx in range(4):
+        s_start = start + timedelta(minutes=30 * slot_idx)
+        session.add(
+            DoctorSlot(
+                doctor_id=doctor.id,
+                erp_id=f"pay-slot-{slot_idx}-{suffix}",
+                start_time=s_start,
+                end_time=s_start + timedelta(minutes=20),
+                end_with_buffer=s_start + timedelta(minutes=20),
+                buffer_minutes=0,
+                capacity=1,
+                is_open=True,
+                version=1,
+            )
+        )
     await session.commit()
     return Seed(users[0].profile.id, users[0].id, users[1].id, doctor.id, paid.id, free.id, start)
 
@@ -241,11 +261,19 @@ async def make_appointment(
     """Insert an appointment directly (slot = index of a 30-minute slot in the schedule)."""
     start = ctx.ids.start + timedelta(minutes=30 * slot)
     async with ctx.sessions() as session:
+        from app.models import DoctorSlot
+
+        slot_id = await session.scalar(
+            select(DoctorSlot.id).where(
+                DoctorSlot.doctor_id == ctx.ids.doctor, DoctorSlot.start_time == start
+            )
+        )
         appointment = Appointment(
             booking_reference=generate_booking_reference(),
             patient_id=ctx.ids.patient,
             doctor_id=ctx.ids.doctor,
             appointment_type_id=ctx.ids.free_type if free else ctx.ids.paid_type,
+            slot_id=slot_id,
             start_time=start,
             end_time=start + timedelta(minutes=20),
             end_with_buffer=start + timedelta(minutes=30),
@@ -415,7 +443,7 @@ async def test_initiate_returns_qr_and_reuses_the_open_attempt(ctx):
     "kwargs,code",
     [
         ({"free": True}, "PaymentNotRequired"),
-        ({"status": AppointmentStatus.PENDING}, "PaymentNotAllowed"),
+        ({"status": AppointmentStatus.REJECTED}, "PaymentNotAllowed"),
         ({"status": AppointmentStatus.CANCELLED}, "PaymentNotAllowed"),
         ({"due_in": timedelta(seconds=-1)}, "PaymentWindowClosed"),
     ],
@@ -425,6 +453,12 @@ async def test_initiate_rejections(ctx, kwargs, code):
     response = await initiate(ctx, appointment_id)
     assert response.status_code == 409, response.text
     assert response.json()["error"]["code"] == code
+
+
+async def test_initiate_allowed_for_pending_hold(ctx):
+    appointment_id = await make_appointment(ctx, status=AppointmentStatus.PENDING)
+    response = await initiate(ctx, appointment_id)
+    assert response.status_code == 201, response.text
 
 
 async def test_initiate_and_read_are_owner_only(ctx):
@@ -584,9 +618,13 @@ async def test_expiry_cancels_unpaid_appointment_and_frees_the_slot(ctx):
         },
     )
     assert response.status_code == 200, response.text
-    starts = {datetime.fromisoformat(s["start_time"]) for s in response.json()["slots"]}
-    assert ctx.ids.start in starts  # released
-    assert ctx.ids.start + timedelta(minutes=30) not in starts  # still held (grace)
+    available_starts = {
+        datetime.fromisoformat(s["start_time"])
+        for s in response.json()["slots"]
+        if (s.get("remaining_places") or 0) > 0
+    }
+    assert ctx.ids.start in available_starts  # released
+    assert ctx.ids.start + timedelta(minutes=30) not in available_starts  # still held (grace)
 
 
 async def pay_code_unchecked(ctx: Ctx, appointment_id: int) -> dict:

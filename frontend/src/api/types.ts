@@ -209,6 +209,7 @@ export interface Slot {
   version?: number | null
   capacity?: number | null
   remaining_places?: number | null
+  is_past?: boolean
 }
 
 export interface Availability {

@@ -139,8 +139,22 @@ GIVEN_NAMES = [
 
 # (name, description, duration, buffer, fee_override, specialty name or None)
 APPOINTMENT_TYPES: list[tuple[str, str, int, int, Decimal | None, str | None]] = [
-    ("General Consultation", "Standard consultation fee.", 20, 0, Decimal("200000"), None),
+    ("General Consultation", "Standard consultation fee.", 60, 0, Decimal("200000"), None),
 ]
+
+SPECIALTY_HOURLY_SLOTS: dict[str, int] = {
+    "General Internal Medicine": 4,
+    "Pediatrics": 4,
+    "Dermatology": 4,
+    "Respiratory Medicine": 3,
+    "Gastroenterology": 3,
+    "Ophthalmology": 3,
+    "Otorhinolaryngology (ENT)": 3,
+    "Cardiology": 2,
+    "Orthopedics": 2,
+    "Rheumatology": 2,
+    "Neurology": 2,
+}
 
 # (name, keywords, [(specialty, weight)], red_flag_message)  -- PENDING CLINICAL REVIEW
 SYMPTOMS: list[tuple[str, str, list[tuple[str, float]], str | None]] = [
@@ -434,7 +448,7 @@ async def _seed_refund_test_appointments(session: AsyncSession, patient_id: int)
     # 1. Test case: Patient cancellation
     if "HK-REFUND-USR1" not in existing_refs:
         day1 = (datetime.now(clinic_tz()) + timedelta(days=3)).date()
-        start1 = datetime.combine(day1, time(9, 30), tzinfo=clinic_tz()).astimezone(UTC)
+        start1 = datetime.combine(day1, time(9, 0), tzinfo=clinic_tz()).astimezone(UTC)
         end1 = start1 + timedelta(minutes=appointment_type.duration_minutes)
 
         apt1 = Appointment(
@@ -564,37 +578,53 @@ async def _seed_loadtest_users(session: AsyncSession, count: int) -> None:
 
 
 async def _seed_manual_doctor_slots(session: AsyncSession) -> None:
-    """Seeds manual DoctorSlots for the next 14 days so admins and patients have slots ready without ERP."""
+    """Seeds 1-hour shared-capacity DoctorSlots for initial cutover to the hospital ERP."""
     existing = await session.scalar(select(func.count(DoctorSlot.id)))
     if existing and existing > 0:
         return
 
-    doctors = (await session.scalars(select(Doctor))).all()
-    if not doctors:
+    doctor_rows = (
+        await session.execute(
+            select(Doctor, Specialty.name)
+            .join(Department, Doctor.department_id == Department.id)
+            .join(Specialty, Department.specialty_id == Specialty.id)
+            .where(Doctor.is_active.is_(True))
+        )
+    ).all()
+    if not doctor_rows:
         return
 
     slots_to_add: list[DoctorSlot] = []
     today = (datetime.now(clinic_tz())).date()
-
-    slot_times = [
-        (time(8, 0), time(8, 30)),
-        (time(8, 30), time(9, 0)),
-        (time(9, 0), time(9, 30)),
-        (time(9, 30), time(10, 0)),
-        (time(10, 0), time(10, 30)),
-        (time(10, 30), time(11, 0)),
-        (time(13, 30), time(14, 0)),
-        (time(14, 0), time(14, 30)),
-        (time(14, 30), time(15, 0)),
-        (time(15, 0), time(15, 30)),
-        (time(15, 30), time(16, 0)),
-        (time(16, 0), time(16, 30)),
+    morning = [
+        (time(8, 0), time(9, 0)),
+        (time(9, 0), time(10, 0)),
+        (time(10, 0), time(11, 0)),
+        (time(11, 0), time(12, 0)),
     ]
+    afternoon = [
+        (time(13, 0), time(14, 0)),
+        (time(14, 0), time(15, 0)),
+        (time(15, 0), time(16, 0)),
+        (time(16, 0), time(17, 0)),
+    ]
+    slot_times = morning + afternoon
 
-    for day_offset in range(1, 15):
+    for day_offset in range(0, 15):
         day = today + timedelta(days=day_offset)
-        for doctor in doctors:
-            for start_t, end_t in slot_times:
+        if day.weekday() == 6:  # Sunday closed
+            continue
+        for doctor, spec_name in doctor_rows:
+            day_windows = slot_times
+            if (
+                day.weekday() == 5
+                and doctor.erp_doctor_id
+                and doctor.erp_doctor_id[-1:].isdigit()
+                and int(doctor.erp_doctor_id[-1]) % 2
+            ):
+                day_windows = morning
+            cap = SPECIALTY_HOURLY_SLOTS.get(spec_name, 3)
+            for start_t, end_t in day_windows:
                 start_dt = datetime.combine(day, start_t, tzinfo=clinic_tz()).astimezone(UTC)
                 end_dt = datetime.combine(day, end_t, tzinfo=clinic_tz()).astimezone(UTC)
                 slots_to_add.append(
@@ -604,7 +634,7 @@ async def _seed_manual_doctor_slots(session: AsyncSession) -> None:
                         end_time=end_dt,
                         end_with_buffer=end_dt,
                         buffer_minutes=0,
-                        capacity=1,
+                        capacity=cap,
                         is_open=True,
                         version=1,
                     )
@@ -612,7 +642,7 @@ async def _seed_manual_doctor_slots(session: AsyncSession) -> None:
 
     session.add_all(slots_to_add)
     await session.commit()
-    print(f"seeded {len(slots_to_add)} manual doctor slots across {len(doctors)} doctors")
+    print(f"seeded {len(slots_to_add)} doctor slots across {len(doctor_rows)} doctors")
 
 
 async def main(loadtest_users: int) -> None:
@@ -622,7 +652,7 @@ async def main(loadtest_users: int) -> None:
         state = await session.get(ErpSyncState, 1)
         if not state or not state.ready:
             await _seed_directory(session)
-        # ERP cutover/bootstrap owns all new schedule data.
+            await _seed_manual_doctor_slots(session)
         await _ensure_user(
             session, settings.admin_email, settings.admin_password, UserRole.ADMIN, None
         )

@@ -38,6 +38,7 @@ class Slot:
     version: int | None = None
     capacity: int | None = None
     remaining_places: int | None = None
+    is_past: bool = False
 
 
 def generate_slots(

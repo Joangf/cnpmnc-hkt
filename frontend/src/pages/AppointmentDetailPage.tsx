@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import type { AppointmentDetail } from '../api/types'
-import { IconArrowLeft, IconClock } from '../components/icons'
+import { BankTransferDetails } from '../components/PaymentTransferPanel'
+import { IconArrowLeft } from '../components/icons'
 import { RefundPanel } from '../components/RefundPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { Card, ErrorAlert, Field, Notice, Spinner, Stars } from '../components/ui'
-import { formatDateTime, formatMoney, humanize } from '../lib/format'
+import { formatDateTime, formatMoney, formatTime, humanize } from '../lib/format'
 import { reviewSchema } from '../lib/validation'
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -33,36 +34,44 @@ export default function AppointmentDetailPage() {
   const refresh = (data: AppointmentDetail) => {
     queryClient.setQueryData(['appointment', id], data)
     queryClient.invalidateQueries({ queryKey: ['appointments'] })
+    queryClient.invalidateQueries({ queryKey: ['availability'] })
   }
 
-  if (appointment.isLoading) return <Spinner />
+  if (appointment.isLoading || !appointment.data) return <Spinner />
   if (appointment.error) return <ErrorAlert error={appointment.error} />
-  const a = appointment.data!
+  const a = appointment.data
 
   const facts = [
     { label: 'Fee', value: formatMoney(a.fee_amount, a.currency) },
     ...(a.reason_for_visit ? [{ label: 'Reason for visit', value: a.reason_for_visit }] : []),
-    ...(a.can_cancel ? [{ label: 'Free cancellation until', value: formatDateTime(a.cancellation_deadline) }] : []),
+    ...(a.can_cancel && a.cancellation_deadline ? [{ label: 'Free cancellation until', value: formatDateTime(a.cancellation_deadline) }] : []),
   ]
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <Link to="/appointments" className="link inline-flex min-h-12 items-center gap-2">
-        <IconArrowLeft size={20} /> My appointments
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <Link to={a.doctor?.id ? `/doctors/${a.doctor.id}` : '/appointments'} className="link inline-flex min-h-12 items-center gap-2">
+          <IconArrowLeft size={20} /> Back to doctor
+        </Link>
+        <Link to="/appointments" className="link text-caption">
+          My appointments
+        </Link>
+      </div>
 
       <section className="panel overflow-hidden border border-line">
         <div className="flex flex-col md:flex-row">
           <div className="min-w-0 flex-1 space-y-2 p-6 sm:p-8">
-            <p className="eyebrow">{a.appointment_type.name}</p>
-            <h1 className="page-title">{formatDateTime(a.start_time)}</h1>
+            <p className="eyebrow">{a.appointment_type?.name}</p>
+            <h1 className="page-title">
+              {formatDateTime(a.start_time)}–{formatTime(a.end_time)}
+            </h1>
             <p>
-              <Link className="link" to={`/doctors/${a.doctor.id}`}>
-                {a.doctor.name}
+              <Link className="link" to={`/doctors/${a.doctor?.id}`}>
+                {a.doctor?.name}
               </Link>{' '}
-              · {a.department.name}
+              · {a.department?.name}
             </p>
-            <p className="caption">{a.hospital.name}</p>
+            <p className="caption">{a.hospital?.name}</p>
             {/* BR-07: three independent statuses */}
             <div className="flex flex-wrap gap-2 pt-3">
               <StatusBadge status={a.status} />
@@ -76,7 +85,7 @@ export default function AppointmentDetailPage() {
           {/* FR-CIN-01: reference to present at the hospital */}
           <div className="flex flex-col items-center justify-center gap-2 bg-blush p-6 text-center sm:p-8 md:w-72">
             <p className="eyebrow">Booking reference</p>
-            {a.status === 'CONFIRMED' && (
+            {a.status === 'CONFIRMED' && a.booking_reference && (
               // Check-in QR (encodes the booking reference) for reception to scan.
               <QRCodeSVG
                 value={a.booking_reference}
@@ -102,19 +111,32 @@ export default function AppointmentDetailPage() {
       </section>
 
       {a.status === 'PENDING' && (
-        <Notice tone="warning" title="Waiting for the hospital">
-          Your request has been sent and is awaiting confirmation. This page updates automatically.
+        <Notice tone="warning" title="Slot held for 15 minutes">
+          Your booking request is currently holding 1 slot in this time window for 15 minutes. If you navigate back or leave this page,
+          you can reopen it anytime from <strong>My appointments</strong> to continue payment or cancel before the deadline.
         </Notice>
       )}
 
-      {a.can_pay && <PaymentCard appointment={a} />}
-      {a.can_cancel && <CancelCard appointment={a} onDone={refresh} />}
+      {a.status === 'CONFIRMED' && (
+        <Notice tone="success" title="Appointment confirmed">
+          Your appointment is confirmed. Please show your booking reference at the reception desk when you arrive.
+        </Notice>
+      )}
+
+      {a.status === 'CANCELLED' && (
+        <Notice tone="danger" title="Appointment cancelled / released">
+          {a.status_reason || 'This appointment has been cancelled and the slot has been returned to the schedule.'}
+        </Notice>
+      )}
+
+      {a.can_pay && <PaymentCard appointment={a} onCancelled={refresh} />}
+      {a.can_cancel && !(a.can_pay && a.status === 'PENDING') && <CancelCard appointment={a} onDone={refresh} />}
       {/* Owned by S3-C (components/RefundPanel.tsx): renders nothing unless a refund applies. */}
       <RefundPanel appointment={a} onDone={() => appointment.refetch()} />
       {a.can_review && <ReviewCard appointmentId={a.id} onDone={() => appointment.refetch()} />}
       {a.has_review && <ReviewDisplayCard appointment={a} onRefresh={() => appointment.refetch()} />}
 
-      {a.payments.length > 0 && (
+      {(a.payments ?? []).length > 0 && (
         <Card>
           <h2 className="section-title mb-3">Payments</h2>
           <ul className="divide-y divide-line">
@@ -137,7 +159,7 @@ export default function AppointmentDetailPage() {
       <Card>
         <h2 className="section-title mb-3">History</h2>
         <ol className="divide-y divide-line">
-          {a.history.map((h, i) => (
+          {(a.history ?? []).map((h, i) => (
             <li key={i} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 first:pt-0 last:pb-0">
               <span className="font-semibold">
                 {h.field === 'status' ? 'Status' : h.field === 'check_in_status' ? 'Check-in' : 'Time'}:{' '}
@@ -155,35 +177,97 @@ export default function AppointmentDetailPage() {
   )
 }
 
-function PaymentCard({ appointment }: { appointment: AppointmentDetail }) {
-  const navigate = useNavigate()
-  // The backend hands back the open PENDING payment if there is one, so "continue" is the same call.
-  const pay = useMutation({
-    mutationFn: () => api.appointments.pay(appointment.id),
-    onSuccess: (res) => navigate(`/payments/${res.id}`),
+function PaymentCard({
+  appointment,
+  onCancelled,
+}: {
+  appointment: AppointmentDetail
+  onCancelled: (a: AppointmentDetail) => void
+}) {
+  const queryClient = useQueryClient()
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  // Automatically prepare (or reuse) the active VietQR transfer so users land straight on info + payment.
+  const payment = useQuery({
+    queryKey: ['appointment-payment', appointment.id],
+    queryFn: () => api.appointments.pay(appointment.id),
+    refetchInterval: (q) => (q.state.data?.status === 'PENDING' ? 3000 : false),
   })
-  const inProgress = appointment.payments.some(
-    (p) => p.status === 'PENDING' && (!p.expires_at || new Date(p.expires_at).getTime() > Date.now()),
-  )
+  const cancelHold = useMutation({
+    mutationFn: () => api.appointments.cancel(appointment.id, 'Cancelled by patient before payment'),
+    onSuccess: (updated) => {
+      setConfirmCancel(false)
+      onCancelled(updated)
+    },
+  })
+
+  const pStatus = payment.data?.status
+  useEffect(() => {
+    if (pStatus === 'PAID') {
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointment.id] })
+      queryClient.invalidateQueries({ queryKey: ['appointments'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    }
+  }, [pStatus, appointment.id, queryClient])
+
   return (
-    <Card className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <Card className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
         <div>
           <h2 className="section-title">Payment</h2>
           <p className="mt-1">
-            Amount due: <strong className="text-h2 font-semibold">{formatMoney(appointment.fee_amount, appointment.currency)}</strong>
+            Amount due:{' '}
+            <strong className="text-h2 font-semibold">{formatMoney(appointment.fee_amount, appointment.currency)}</strong>
           </p>
         </div>
-        <button className="btn-primary" disabled={pay.isPending} onClick={() => pay.mutate()}>
-          {pay.isPending ? 'Preparing…' : inProgress ? 'Continue payment' : 'Pay by bank transfer'}
-        </button>
+        {payment.data && (
+          <Link className="link text-caption" to={`/payments/${payment.data.id}`}>
+            Open full payment page
+          </Link>
+        )}
       </div>
-      {appointment.payment_due_at && (
-        <p className="flex items-center gap-2 font-semibold text-notice-strong">
-          <IconClock size={18} /> Pay before {formatDateTime(appointment.payment_due_at)} to keep your appointment.
-        </p>
+
+      {payment.isLoading && <Spinner />}
+      <ErrorAlert error={payment.error} />
+      {payment.data && payment.data.status === 'PENDING' && <BankTransferDetails payment={payment.data} />}
+      {payment.data && payment.data.status === 'EXPIRED' && (
+        <div className="space-y-3">
+          <Notice tone="warning">This payment code expired. Refresh to generate a new transfer code before the hold ends.</Notice>
+          <button type="button" className="btn-primary" onClick={() => payment.refetch()}>
+            Generate new transfer code
+          </button>
+        </div>
       )}
-      <ErrorAlert error={pay.error} />
+
+      {appointment.can_cancel && appointment.payment_status !== 'PAID' && (
+        <div className="border-t border-line pt-4">
+          <ErrorAlert error={cancelHold.error} />
+          {!confirmCancel ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="caption">Changed your mind? Cancelling now releases this slot immediately (no refund applies).</p>
+              <button type="button" className="btn-secondary text-danger" onClick={() => setConfirmCancel(true)}>
+                Cancel booking (no refund)
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
+              <p className="text-sm font-medium">Cancel this booking now and return the slot? No payment was made, so no refund is needed.</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn-danger btn-sm"
+                  disabled={cancelHold.isPending}
+                  onClick={() => cancelHold.mutate()}
+                >
+                  {cancelHold.isPending ? 'Cancelling…' : 'Confirm cancel & release slot'}
+                </button>
+                <button type="button" className="btn-secondary btn-sm" onClick={() => setConfirmCancel(false)}>
+                  Keep hold
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   )
 }
@@ -203,8 +287,10 @@ function CancelCard({ appointment, onDone }: { appointment: AppointmentDetail; o
   return (
     <Card className="space-y-5">
       <h2 className="section-title">Cancel this appointment?</h2>
-      {appointment.payment_status === 'PAID' && (
+      {appointment.payment_status === 'PAID' ? (
         <p>Cancelling does not refund your payment automatically. After cancelling you can send a refund request.</p>
+      ) : (
+        <p className="caption">No payment was completed for this booking. Cancelling returns the slot immediately without a refund.</p>
       )}
       <Field label="Why are you cancelling?">
         <textarea className="input" rows={2} maxLength={500} placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />

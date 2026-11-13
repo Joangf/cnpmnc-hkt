@@ -2440,6 +2440,8 @@ export interface components {
             capacity?: number | null;
             /** Remaining Places */
             remaining_places?: number | null;
+            /** Is Past */
+            is_past?: boolean;
         };
         /** SlotUpdate */
         SlotUpdate: {

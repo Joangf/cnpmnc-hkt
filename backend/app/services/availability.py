@@ -57,6 +57,7 @@ async def compute_slots(
     day: date,
     *,
     effective: EffectiveSettings | None = None,
+    include_past: bool = False,
 ) -> list[Slot]:
     """Authoritative-as-possible computation straight from the database (used for BR-03)."""
     doctor = await session.get(Doctor, doctor_id)
@@ -68,7 +69,7 @@ async def compute_slots(
     state = await session.get(ErpSyncState, 1)
     if not state or not state.ready:
         return []
-    return await offers(session, doctor_id, day)
+    return await offers(session, doctor_id, day, include_past=include_past)
 
 
 def _cache_key(doctor_id: int, day: date) -> str:
@@ -100,25 +101,32 @@ async def get_slots_cached(
         ]
     )
     key = _cache_key(doctor_id, day)
-    field = f"v2:{doctor.scheduling_mode}:{fingerprint}"
+    field = f"v4:{doctor.scheduling_mode}:{fingerprint}"
+    not_before = datetime.now(UTC) + timedelta(minutes=settings.booking_min_lead_minutes)
     try:
         cached = await redis.hget(key, field)  # type: ignore[misc]  # redis-py stub union
         if cached:
-            return [
-                Slot(
-                    datetime.fromisoformat(s["start"]),
-                    datetime.fromisoformat(s["end"]),
-                    s["slot_id"],
-                    s["version"],
-                    s["capacity"],
-                    s["remaining_places"],
+            slots_cached = []
+            for s in json.loads(cached):
+                s_start = datetime.fromisoformat(s["start"])
+                slots_cached.append(
+                    Slot(
+                        s_start,
+                        datetime.fromisoformat(s["end"]),
+                        s["slot_id"],
+                        s["version"],
+                        s["capacity"],
+                        s["remaining_places"],
+                        is_past=s_start < not_before,
+                    )
                 )
-                for s in json.loads(cached)
-            ]
+            return slots_cached
     except RedisError:
         logger.warning("availability_cache_read_failed")
 
-    slots = await compute_slots(session, doctor_id, appointment_type, day, effective=effective)
+    slots = await compute_slots(
+        session, doctor_id, appointment_type, day, effective=effective, include_past=True
+    )
     try:
         payload = json.dumps(
             [
