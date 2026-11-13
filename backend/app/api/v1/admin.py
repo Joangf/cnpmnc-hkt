@@ -3,7 +3,7 @@
 from datetime import date, datetime, time
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -582,6 +582,17 @@ async def moderate_review(
         session, admin, review_id, ReviewStatus(payload.status), payload.note
     )
     return presenters.admin_review(review)
+
+
+@router.delete(
+    "/reviews/{review_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="adminDeleteReview",
+    responses=error_responses(404),
+)
+async def delete_review(review_id: int, admin: AdminUser, session: SessionDep) -> Response:
+    await review_service.delete_review(session, admin, review_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # --- Appointments, reports, audit (FR-ADM-05/06, FR-RPT) ---------------------------------------

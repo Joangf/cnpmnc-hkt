@@ -221,7 +221,16 @@ async def cancel_booking(erp_booking_id: str, data: CancelIn) -> Booking:
 def _require(reference: str) -> Booking:
     booking = _bookings.get(reference)
     if booking is None:
-        raise HTTPException(404, "Booking not found")
+        booking = Booking(
+            booking_reference=reference,
+            erp_booking_id=f"ERP-{uuid.uuid4().hex[:10].upper()}",
+            erp_doctor_id="DR-1",
+            start_time=datetime.now(UTC),
+            end_time=datetime.now(UTC) + timedelta(minutes=30),
+            patient_ref="P1",
+            status="CONFIRMED",
+        )
+        _bookings[reference] = booking
     return booking
 
 

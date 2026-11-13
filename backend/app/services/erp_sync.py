@@ -97,11 +97,8 @@ async def handle_event(session: AsyncSession, redis: Redis, event: ErpEvent) -> 
     appointment = await appointment_repo.get_by_reference(session, event.booking_reference)
     if appointment is None:
         raise NotFound("Unknown booking reference.")
-    if appointment.slot_id is not None:
-        return "ignored"
     if event.erp_booking_id and appointment.erp_booking_id != event.erp_booking_id:
         appointment.erp_booking_id = event.erp_booking_id
-
     days = {availability.local_day(appointment.start_time)}
     if event.type == "APPOINTMENT_STATUS_CHANGED":
         new_status = booking.parse_status(event.status)
@@ -114,6 +111,8 @@ async def handle_event(session: AsyncSession, redis: Redis, event: ErpEvent) -> 
     elif event.type == "CHECK_IN_STATUS_CHANGED":
         changed = await _set_check_in_status(session, appointment, event.check_in_status)
     else:
+        if appointment.slot_id is not None:
+            return "ignored"
         changed = await _reschedule(session, appointment, event)
         days.add(availability.local_day(appointment.start_time))
 

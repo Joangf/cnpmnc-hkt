@@ -73,7 +73,7 @@ async def list_my_appointments(
     patient: CurrentPatient,
     session: SessionDep,
     paging: PageDep,
-    scope: Annotated[Literal["upcoming", "past", "all"], Query()] = "upcoming",
+    scope: Annotated[Literal["upcoming", "completed", "cancelled", "past", "all"], Query()] = "upcoming",
 ) -> Page[AppointmentSummary]:
     items, total = await appointment_repo.list_for_patient(
         session, patient.id, scope, datetime.now(UTC), paging.page, paging.page_size

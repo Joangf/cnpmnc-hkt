@@ -7,7 +7,7 @@ import { EmptyState, ErrorAlert, FilterChip, Pagination, Spinner, Stars } from '
 import { formatDateTime, humanize } from '../../lib/format'
 import { AdminNav } from './AdminNav'
 
-const FILTERS: (ReviewStatus | '')[] = ['', 'PUBLISHED', 'PENDING', 'HIDDEN', 'REMOVED']
+const FILTERS: (ReviewStatus | '')[] = ['', 'PUBLISHED', 'HIDDEN']
 
 export default function AdminReviewsPage() {
   const queryClient = useQueryClient()
@@ -20,6 +20,10 @@ export default function AdminReviewsPage() {
   })
   const moderate = useMutation({
     mutationFn: ({ id, next }: { id: number; next: 'PUBLISHED' | 'HIDDEN' | 'REMOVED' }) => api.admin.moderateReview(id, next),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'reviews'] }),
+  })
+  const remove = useMutation({
+    mutationFn: (id: number) => api.admin.deleteReview(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'reviews'] }),
   })
 
@@ -42,7 +46,7 @@ export default function AdminReviewsPage() {
         ))}
       </div>
       {reviews.isLoading && <Spinner />}
-      <ErrorAlert error={reviews.error ?? moderate.error} />
+      <ErrorAlert error={reviews.error ?? moderate.error ?? remove.error} />
       {reviews.data?.items.length === 0 && <EmptyState>No reviews.</EmptyState>}
       {!!reviews.data?.items.length && (
       <ul className="card divide-y divide-line p-0 sm:p-0">
@@ -62,21 +66,21 @@ export default function AdminReviewsPage() {
               <div className="flex flex-col items-end gap-2">
                 <StatusBadge status={r.status} />
                 <div className="flex flex-wrap gap-2">
-                  {r.status !== 'PUBLISHED' && (
+                  {r.status === 'PUBLISHED' ? (
+                    <button className="btn-secondary btn-sm" onClick={() => moderate.mutate({ id: r.id, next: 'HIDDEN' })}>
+                      Hide
+                    </button>
+                  ) : (
                     <button className="btn-secondary btn-sm" onClick={() => moderate.mutate({ id: r.id, next: 'PUBLISHED' })}>
                       Publish
                     </button>
                   )}
-                  {r.status !== 'HIDDEN' && (
-                    <button className="btn-secondary btn-sm" onClick={() => moderate.mutate({ id: r.id, next: 'HIDDEN' })}>
-                      Hide
-                    </button>
-                  )}
-                  {r.status !== 'REMOVED' && (
-                    <button className="btn-danger btn-sm" onClick={() => moderate.mutate({ id: r.id, next: 'REMOVED' })}>
-                      Remove
-                    </button>
-                  )}
+                  <button
+                    className="btn-danger btn-sm"
+                    onClick={() => remove.mutate(r.id)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>

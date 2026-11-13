@@ -268,6 +268,8 @@ export interface AppointmentSummary {
   currency: string
   /** Pay before this or the appointment is cancelled (set once CONFIRMED with a fee). */
   payment_due_at: string | null
+  has_review?: boolean
+  review_rating?: number | null
 }
 
 export interface AppointmentDetail extends AppointmentSummary {
@@ -279,6 +281,8 @@ export interface AppointmentDetail extends AppointmentSummary {
   can_request_refund: boolean
   can_review: boolean
   has_review: boolean
+  can_edit_review?: boolean
+  review?: Review | null
   cancellation_deadline: string
 }
 
@@ -341,6 +345,7 @@ export interface Review {
   rating: number
   comment: string | null
   status: ReviewStatus
+  is_edited?: boolean
   created_at: string
 }
 
@@ -349,6 +354,7 @@ export interface ReviewPublic {
   rating: number
   comment: string | null
   author: string
+  is_edited?: boolean
   created_at: string
 }
 

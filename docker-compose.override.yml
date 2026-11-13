@@ -25,5 +25,7 @@ services:
       - "${REDIS_PORT:-6380}:6379"
 
   mock-erp:
+    volumes:
+      - ./mock-erp:/app
     ports:
       - "8100:8100"
