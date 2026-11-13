@@ -23,7 +23,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import ErpUnavailable, InvalidState, NotFound, SlotTaken, ValidationFailed
+from app.core.errors import (
+    Conflict,
+    ErpUnavailable,
+    InvalidState,
+    NotFound,
+    SlotTaken,
+    ValidationFailed,
+)
 from app.core.metrics import BOOKINGS, PAYMENTS
 from app.core.security import generate_booking_reference
 from app.integrations.erp.base import (
@@ -108,6 +115,7 @@ async def transition(
     reason: str | None,
     source: StatusSource,
     actor_id: int | None = None,
+    set_payment_deadline: bool = True,
 ) -> bool:
     """Apply a status change with history, audit and patient notification. Caller commits."""
     if appointment.status == new_status:
@@ -127,7 +135,12 @@ async def transition(
     appointment.status_reason = reason[:500] if reason else None
     if new_status == AppointmentStatus.CANCELLED:
         appointment.cancelled_at = datetime.now(UTC)
-    if new_status == AppointmentStatus.CONFIRMED and appointment.fee_amount > 0:
+        appointment.payment_due_at = None
+    if (
+        new_status == AppointmentStatus.CONFIRMED
+        and appointment.fee_amount > 0
+        and set_payment_deadline
+    ):
         # D6: an unpaid confirmed appointment holds its slot only until this deadline.
         appointment.payment_due_at = datetime.now(UTC) + timedelta(
             minutes=settings.payment_hold_minutes
@@ -171,7 +184,11 @@ async def transition(
 
 
 async def apply_erp_result(
-    session: AsyncSession, appointment: Appointment, result: ErpBookingResult
+    session: AsyncSession,
+    appointment: Appointment,
+    result: ErpBookingResult,
+    *,
+    set_payment_deadline: bool = True,
 ) -> bool:
     if result.erp_booking_id and appointment.erp_booking_id != result.erp_booking_id:
         appointment.erp_booking_id = result.erp_booking_id
@@ -180,7 +197,12 @@ async def apply_erp_result(
         logger.warning("erp_unknown_status", appointment_id=appointment.id, status=result.status)
         return False
     return await transition(
-        session, appointment, new_status, reason=result.reason, source=StatusSource.ERP
+        session,
+        appointment,
+        new_status,
+        reason=result.reason,
+        source=StatusSource.ERP,
+        set_payment_deadline=set_payment_deadline,
     )
 
 
@@ -234,8 +256,11 @@ async def _create(
     selected_type = await select_type(session, candidate_doctor, payload.appointment_type_id)
     appointment_type_id = selected_type.id
 
-    # Consistent lock order: type (shared), then doctor (exclusive). Re-read after locking:
-    # authentication / previous queries may have populated this session's identity map.
+    # Consistent lock order: patient (serialize duplicate/overlap checks), type (shared), then
+    # doctor (exclusive). Re-read after locking: auth / previous queries may have populated the map.
+    await session.execute(
+        select(PatientProfile.id).where(PatientProfile.id == patient_id).with_for_update()
+    )
     appointment_type = await session.scalar(
         select(AppointmentType)
         .where(AppointmentType.id == appointment_type_id)
@@ -250,8 +275,40 @@ async def _create(
         raise ValidationFailed("This appointment type is not offered by the selected doctor.")
 
     start = payload.start_time.astimezone(UTC)
+    now = datetime.now(UTC)
     day = availability.local_day(start)
-    availability.check_booking_window(day)
+    availability.check_booking_window(day, now)
+    if start <= now:
+        raise ValidationFailed(
+            "This time window has already passed. Please choose a future time.",
+            code="TimeInPast",
+        )
+    if start < now + timedelta(minutes=settings.booking_min_lead_minutes):
+        raise ValidationFailed(
+            f"Appointments must be booked at least {settings.booking_min_lead_minutes} minutes in advance.",
+            code="LeadTimeTooShort",
+        )
+
+    day_start, day_end = availability.day_bounds(day)
+    existing_same_day = await session.scalar(
+        select(Appointment)
+        .where(
+            Appointment.patient_id == patient_id,
+            Appointment.doctor_id == doctor.id,
+            Appointment.status.in_(ACTIVE_APPOINTMENT_STATUSES),
+            Appointment.start_time >= day_start,
+            Appointment.start_time < day_end,
+        )
+        .order_by(Appointment.start_time.asc())
+        .limit(1)
+    )
+    if existing_same_day is not None:
+        raise Conflict(
+            "You already have an appointment with this doctor on this date "
+            f"({availability.format_local(existing_same_day.start_time)}). "
+            "Please cancel your existing appointment before booking a new one.",
+            code="AlreadyBookedSameDay",
+        )
 
     if payload.slot_id is None:
         raise ValidationFailed("Select a current ERP slot.")
@@ -259,6 +316,26 @@ async def _create(
         session, doctor, payload.slot_id, payload.slot_version, start, patient_id
     )
     end, reserved_end, slot_id = slot.end_time, slot.end_time, slot.id
+
+    overlapping_other = await session.scalar(
+        select(Appointment)
+        .where(
+            Appointment.patient_id == patient_id,
+            Appointment.doctor_id != doctor.id,
+            Appointment.status.in_(ACTIVE_APPOINTMENT_STATUSES),
+            Appointment.start_time < end,
+            Appointment.end_time > start,
+        )
+        .order_by(Appointment.start_time.asc())
+        .limit(1)
+    )
+    if overlapping_other is not None:
+        raise Conflict(
+            "You already have another appointment scheduled at "
+            f"{availability.format_local(overlapping_other.start_time)}. "
+            "Please cancel that appointment first or choose a different time.",
+            code="PatientTimeConflict",
+        )
 
     appointment = Appointment(
         booking_reference=generate_booking_reference(),
@@ -293,7 +370,7 @@ async def _create(
         "status",
         None,
         AppointmentStatus.PENDING,
-        "Booking request submitted",
+        "Booking request submitted (held for payment)",
         StatusSource.PATIENT,
     )
     audit.record(
@@ -309,14 +386,82 @@ async def _create(
         patient_id,
         NotificationType.BOOKING_SUBMITTED,
         "Booking submitted",
-        "Your booking is awaiting hospital confirmation.",
+        "Your booking is awaiting payment.",
         f"/appointments/{appointment.id}",
     )
+    if appointment.fee_amount > 0:
+        appointment.payment_due_at = datetime.now(UTC) + timedelta(
+            minutes=settings.payment_hold_minutes
+        )
     await session.commit()
     await availability.invalidate(redis, doctor_id, day)
 
-    await _submit_to_erp(session, erp, appointment, erp_doctor_id, patient_id)
+    if appointment.fee_amount > 0:
+        BOOKINGS.labels(result="held").inc()
+    else:
+        await _submit_to_erp(session, erp, appointment, erp_doctor_id, patient_id)
     return appointment.id
+
+
+async def confirm_paid_with_erp(
+    session: AsyncSession, erp: ErpAdapter, appointment: Appointment
+) -> None:
+    """Register/confirm a paid booking with the hospital ERP after bank transfer succeeds."""
+    if appointment.status != AppointmentStatus.PENDING:
+        appointment.payment_due_at = None
+        return
+
+    erp_doctor_id = await session.scalar(
+        select(Doctor.erp_doctor_id).where(Doctor.id == appointment.doctor_id)
+    )
+    if not erp_doctor_id or appointment.erp_booking_id:
+        appointment.payment_due_at = None
+        await transition(
+            session,
+            appointment,
+            AppointmentStatus.CONFIRMED,
+            reason="Payment received via bank transfer.",
+            source=StatusSource.PLATFORM,
+        )
+        return
+
+    from app.models import DoctorSlot
+    from app.services.erp_catalog import refresh_occupancy
+
+    slot = await session.get(DoctorSlot, appointment.slot_id) if appointment.slot_id else None
+    request = ErpBookingRequest(
+        booking_reference=appointment.booking_reference,
+        erp_doctor_id=erp_doctor_id,
+        start_time=appointment.start_time,
+        end_time=appointment.end_time,
+        patient_ref=f"P{appointment.patient_id}",
+        slot_id=slot.erp_id if slot else None,
+        slot_version=slot.version if slot else None,
+    )
+    try:
+        result = await erp.create_booking(request)
+    except ErpTimeoutError:
+        appointment.payment_due_at = None
+        logger.warning("erp_paid_booking_timeout", appointment_id=appointment.id)
+        return
+    except ErpUnavailableError:
+        appointment.payment_due_at = None
+        await transition(
+            session,
+            appointment,
+            AppointmentStatus.REJECTED,
+            reason=(
+                "Payment was received, but the hospital system was unavailable to confirm "
+                "this booking. You can request a full refund."
+            ),
+            source=StatusSource.SYSTEM,
+        )
+        return
+
+    appointment.payment_due_at = None
+    await apply_erp_result(session, appointment, result, set_payment_deadline=False)
+    appointment.payment_due_at = None
+    await refresh_occupancy(session, erp, appointment.slot_id)
 
 
 async def _submit_to_erp(
@@ -430,8 +575,16 @@ async def cancel(
     from app.services.erp_catalog import require_ready
 
     await require_ready(session)
-    if not appointment.erp_booking_id:
-        result = await erp.get_booking(appointment.booking_reference)
+    get_booking = getattr(erp, "get_booking", None)
+    if (
+        not appointment.erp_booking_id
+        and not (
+            appointment.status == AppointmentStatus.PENDING
+            and appointment.payment_due_at is not None
+        )
+        and callable(get_booking)
+    ):
+        result = await get_booking(appointment.booking_reference)
         if result is not None:
             appointment.erp_booking_id = result.erp_booking_id
     if appointment.erp_booking_id:

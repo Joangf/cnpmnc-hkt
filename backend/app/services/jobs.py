@@ -48,7 +48,7 @@ async def _payments_job(session: AsyncSession, erp: ErpAdapter) -> bool:
     from app.services.erp_catalog import require_ready
 
     await require_ready(session)
-    synced = await payments.sync_transfers(session)
+    synced = await payments.sync_transfers(session, erp=erp)
     expired = await payments.expire_unpaid(session, redis_client, erp)
     return synced and expired
 
@@ -60,7 +60,7 @@ def start_background_jobs(app: FastAPI) -> list[asyncio.Task[None]]:
             _run_periodic(
                 "schedule-sync",
                 settings.schedule_sync_interval_seconds,
-                lambda s: erp_sync.sync_schedules(s, erp),
+                lambda s: erp_sync.sync_schedules(s, erp, redis_client),
             )
         ),
         asyncio.create_task(

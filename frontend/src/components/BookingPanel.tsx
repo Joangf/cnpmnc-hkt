@@ -5,7 +5,7 @@ import { api } from '../api/endpoints'
 import { ApiError } from '../api/http'
 import type { DoctorDetail, Slot } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
-import { formatDateTime, formatMoney, formatTime, upcomingDays } from '../lib/format'
+import { clinicIsoDay, formatDateTime, formatMoney, formatTime, humanize, upcomingDays } from '../lib/format'
 import { newIdempotencyKey } from '../lib/ids'
 import { ErrorAlert, Field, Notice, Spinner } from './ui'
 
@@ -23,6 +23,12 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
   const [slot, setSlot] = useState<Slot | null>(null)
   const [reason, setReason] = useState('')
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 15_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   const types = useQuery({ queryKey: ['appointment-types', doctor.id], queryFn: () => api.directory.appointmentTypes(doctor.id) })
   const selectedType = types.data?.[0]
@@ -31,14 +37,51 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
     queryKey: ['availability', doctor.id, selectedType?.id, day],
     queryFn: () => api.directory.availability(doctor.id, day, selectedType?.id),
     enabled: !!selectedType,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   })
+  const myUpcoming = useQuery({
+    queryKey: ['appointments', 'upcoming', 'booking-check'],
+    queryFn: () => api.appointments.list('upcoming', 1),
+    enabled: user?.role === 'PATIENT',
+  })
+  const activeAppointments = useMemo(
+    () => (myUpcoming.data?.items ?? []).filter((a) => a.status === 'PENDING' || a.status === 'CONFIRMED'),
+    [myUpcoming.data],
+  )
+  const sameDayAppt = useMemo(
+    () => activeAppointments.find((a) => a.doctor.id === doctor.id && clinicIsoDay(a.start_time) === day) ?? null,
+    [activeAppointments, doctor.id, day],
+  )
+  const overlappingAppt = useMemo(() => {
+    if (!slot) return null
+    const sStart = Date.parse(slot.start_time)
+    const sEnd = Date.parse(slot.end_time)
+    return (
+      activeAppointments.find(
+        (a) => a.doctor.id !== doctor.id && Date.parse(a.start_time) < sEnd && Date.parse(a.end_time) > sStart,
+      ) ?? null
+    )
+  }, [activeAppointments, doctor.id, slot])
+
   const manual = availability.data?.source === 'erp-slots'
+  const leadCutMs = nowMs + 60 * 60_000
   useEffect(() => {
-    if (slot && availability.data && !availability.data.slots.some((offer) =>
-      offer.start_time === slot.start_time && offer.slot_id === slot.slot_id && offer.version === slot.version
-    )) setSlot(null)
-  }, [availability.data, slot])
+    if (
+      slot &&
+      availability.data &&
+      !availability.data.slots.some(
+        (offer) =>
+          offer.start_time === slot.start_time &&
+          offer.slot_id === slot.slot_id &&
+          offer.version === slot.version &&
+          !offer.is_past &&
+          Date.parse(offer.start_time) >= leadCutMs &&
+          (offer.remaining_places == null || offer.remaining_places > 0),
+      )
+    ) {
+      setSlot(null)
+    }
+  }, [availability.data, leadCutMs, slot])
 
   const groups = useMemo(() => {
     const morning: Slot[] = []
@@ -49,6 +92,14 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
       { label: 'Afternoon', slots: afternoon },
     ].filter((g) => g.slots.length > 0)
   }, [availability.data])
+
+  const openSlotsCount = useMemo(
+    () =>
+      (availability.data?.slots ?? []).filter(
+        (s) => !s.is_past && Date.parse(s.start_time) >= leadCutMs && (s.remaining_places == null || s.remaining_places > 0),
+      ).length,
+    [availability.data, leadCutMs],
+  )
 
   const book = useMutation({
     mutationFn: () =>
@@ -72,7 +123,11 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
     onError: (err) => {
       setIdempotencyKey(newIdempotencyKey())
       if (err instanceof ApiError && err.status === 409) {
-        setSlot(null)
+        if (err.code === 'AlreadyBookedSameDay' || err.code === 'PatientTimeConflict') {
+          queryClient.invalidateQueries({ queryKey: ['appointments'] })
+        } else {
+          setSlot(null)
+        }
         availability.refetch()
       }
     },
@@ -84,7 +139,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
     <section className="panel border border-line bg-canvas" aria-labelledby={headingId}>
       <div className="border-b border-line px-5 py-5 sm:px-6">
         <h2 id={headingId} className="text-h2 font-semibold">
-          Book an appointment
+          Request an appointment
         </h2>
       </div>
 
@@ -133,22 +188,57 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
           {availability.isLoading && <Spinner />}
           <ErrorAlert error={availability.error} />
           <ErrorAlert error={book.error} />
+          {sameDayAppt && (
+            <Notice tone="warning" title="Existing appointment on this day">
+              <p>
+                You already have an appointment with this doctor on this date ({formatTime(sameDayAppt.start_time)}–{formatTime(sameDayAppt.end_time)}, {humanize(sameDayAppt.status)}). Cancel your existing appointment before booking a new one.
+              </p>
+              <Link className="mt-2 inline-block font-semibold underline" to={`/appointments/${sameDayAppt.id}`}>
+                View or cancel existing appointment →
+              </Link>
+            </Notice>
+          )}
           {availability.data && availability.data.slots.length === 0 && (
             <p className="caption">No available times on this day. Try another date.</p>
           )}
           {groups.map((g) => (
             <div key={`${day}-${g.label}`} role="group" aria-label={g.label} className="animate-fade">
               <p className="text-caption font-semibold">{g.label}</p>
-              <div className={`mt-2 grid gap-2 ${manual ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-3 sm:grid-cols-4'}`}>
+              <div className="mt-2 grid grid-cols-2 gap-2.5">
                 {g.slots.map((s) => {
                   const selected = slot?.start_time === s.start_time
+                  const isFull = s.remaining_places !== null && s.remaining_places !== undefined && s.remaining_places <= 0
+                  const isPassed = Boolean(s.is_past) || Date.parse(s.start_time) < leadCutMs
+                  const isDisabled = isFull || isPassed
+                  const showRange = s.slot_id != null || s.capacity != null || (s.end_time && s.end_time !== s.start_time)
                   return (
-                    <button key={s.start_time} type="button" className={`slot ${manual ? 'min-w-0 flex-col px-3 py-3' : ''}`} aria-pressed={selected} onClick={() => setSlot(s)}>
-                      <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap">
-                        {selected && <span aria-hidden="true" className="check-pop">✓</span>}
-                        <span>{formatTime(s.start_time)}{s.slot_id != null && `–${formatTime(s.end_time)}`}</span>
+                    <button
+                      key={s.start_time}
+                      type="button"
+                      disabled={isDisabled}
+                      className={`slot ${
+                        isDisabled
+                          ? 'opacity-45 bg-mist/60 cursor-not-allowed border-dashed text-muted hover:border-line hover:bg-mist/60'
+                          : ''
+                      }`}
+                      aria-pressed={selected}
+                      onClick={() => !isDisabled && setSlot(s)}
+                    >
+                      <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-[0.9375rem] font-semibold leading-tight">
+                        {selected && <span aria-hidden="true" className="check-pop shrink-0">✓</span>}
+                        <span className={isDisabled ? 'line-through' : ''}>
+                          {formatTime(s.start_time)}{showRange && `–${formatTime(s.end_time)}`}
+                        </span>
                       </span>
-                      {s.remaining_places != null && <span className="mt-1 block text-caption">{s.remaining_places} {s.remaining_places === 1 ? 'place' : 'places'} left</span>}
+                      {(isPassed || s.remaining_places != null) && (
+                        <span className={`block max-w-full truncate text-xs leading-tight ${isDisabled ? 'text-muted font-normal' : 'text-ink-2'}`}>
+                          {isPassed
+                            ? 'Passed'
+                            : isFull
+                              ? '0 slots'
+                              : `${s.remaining_places} ${s.remaining_places === 1 ? 'slot' : 'slots'} left`}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
@@ -157,40 +247,54 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
           ))}
           {availability.data && availability.data.slots.length > 0 && (
             <p className="caption">
-              {availability.data.slots.length} {availability.data.slots.length === 1 ? 'time' : 'times'} available on this day
+              {openSlotsCount} {openSlotsCount === 1 ? 'time window' : 'time windows'} available on this day
             </p>
           )}
         </div>
 
         {slot && selectedType && (
           <div className="reveal space-y-5 border-t border-line pt-6">
+            {overlappingAppt && (
+              <Notice tone="warning" title="Overlapping appointment">
+                <p>
+                  You already have an appointment with {overlappingAppt.doctor.name} at {formatTime(overlappingAppt.start_time)}–{formatTime(overlappingAppt.end_time)}. Cancel it first or pick another time.
+                </p>
+                <Link className="mt-2 inline-block font-semibold underline" to={`/appointments/${overlappingAppt.id}`}>
+                  View or cancel overlapping appointment →
+                </Link>
+              </Notice>
+            )}
             <Field label="Reason for visit (optional)" hint="Helps the doctor prepare. Only the hospital sees it.">
               <textarea className="input" rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
             </Field>
             <dl className="divide-y divide-line overflow-hidden rounded-lg border border-line">
               <div className="flex justify-between gap-4 px-4 py-3">
                 <dt className="text-muted">When</dt>
-                <dd className="text-right">{formatDateTime(slot.start_time)}{manual && `–${formatTime(slot.end_time)}`}</dd>
+                <dd className="text-right">{formatDateTime(slot.start_time)}{slot.end_time && `–${formatTime(slot.end_time)}`}</dd>
               </div>
               <div className="flex justify-between gap-4 bg-surface px-4 py-3">
                 <dt className="font-semibold">Consultation fee</dt>
                 <dd className="text-right font-semibold">{formatMoney(fee, selectedType.currency)}</dd>
               </div>
             </dl>
-            <p className="caption">{manual
-              ? 'The hospital confirms your reservation when a place is available.'
+            <p className="caption">{fee && Number(fee) > 0
+              ? 'This appointment will be held for 15 minutes for you to complete payment. You will go straight to appointment details and payment.'
               : 'Your request goes to the hospital first. We confirm it as soon as they accept.'}</p>
             {/* Primary action sticks to the bottom on small screens. */}
             <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-canvas px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6 lg:static lg:m-0 lg:border-0 lg:p-0">
               {user?.role === 'PATIENT' ? (
-                <button className="btn-primary w-full" disabled={book.isPending} onClick={() => book.mutate()}>
-                  {book.isPending ? 'Submitting…' : manual ? 'Book appointment' : 'Request booking'}
+                <button
+                  className="btn-primary w-full"
+                  disabled={book.isPending || !!sameDayAppt || !!overlappingAppt}
+                  onClick={() => book.mutate()}
+                >
+                  {book.isPending ? 'Submitting…' : 'Request appointment'}
                 </button>
               ) : user ? (
                 <Notice>Only patient accounts can book appointments.</Notice>
               ) : (
                 <Link className="btn-primary w-full" to={`/login?next=${encodeURIComponent(`${location.pathname}#book`)}`}>
-                  Sign in to book
+                  Sign in to request
                 </Link>
               )}
             </div>

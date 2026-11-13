@@ -183,12 +183,17 @@ async def test_booking_uses_erp_and_receives_completion(catalog, sessions):
     ids, client, redis, erp, snapshot = catalog
     offer = (await offers(client, ids))[0]
     appointment_id = await reserve(sessions, ids, offer, erp, redis)
-    request = erp.create_booking.call_args.args[0]
-    assert request.slot_id == snapshot["slots"][0]["id"]
-    assert request.slot_version == 1
     async with sessions() as session:
         appt = await session.get(Appointment, appointment_id)
-        deadline = appt.payment_due_at
+        assert appt.status == AppointmentStatus.PENDING
+        assert appt.payment_due_at is not None
+        erp.create_booking.assert_not_awaited()
+        await booking.confirm_paid_with_erp(session, erp, appt)
+        await session.commit()
+        request = erp.create_booking.call_args.args[0]
+        assert request.slot_id == snapshot["slots"][0]["id"]
+        assert request.slot_version == 1
+        await session.refresh(appt)
         assert appt.status == AppointmentStatus.CONFIRMED
         event = ErpEvent(
             event_id=uuid.uuid4().hex,
@@ -209,7 +214,7 @@ async def test_booking_uses_erp_and_receives_completion(catalog, sessions):
         await erp_sync.handle_event(session, redis, event)
         await session.refresh(appt)
         assert appt.status == AppointmentStatus.COMPLETED
-        assert appt.payment_due_at == deadline
+        assert appt.payment_due_at is None
     response = await client.post(
         f"/api/v1/appointments/{appointment_id}/review",
         json={"rating": 5},
@@ -234,7 +239,8 @@ async def test_capacity_race_and_search_excludes_full_slot(catalog, sessions):
         *(reserve(sessions, ids, offer, erp, redis, p) for p in patients), return_exceptions=True
     )
     assert sum(isinstance(r, int) for r in results) == 5, results
-    assert await offers(client, ids) == []
+    full_offers = await offers(client, ids)
+    assert len(full_offers) == 1 and full_offers[0]["remaining_places"] == 0
     search = await client.get(
         "/api/v1/doctors",
         params={
@@ -267,6 +273,7 @@ async def test_timeout_keeps_shared_booking_pending_and_reconciles(catalog, sess
     identifier = await reserve(sessions, ids, offer, erp, redis)
     async with sessions() as session:
         row = await session.get(Appointment, identifier)
+        await booking.confirm_paid_with_erp(session, erp, row)
         assert row.status == AppointmentStatus.PENDING
         row.created_at = datetime.now(UTC) - timedelta(minutes=1)
         erp.get_booking.return_value = ErpBookingResult(
@@ -282,6 +289,10 @@ async def test_cancel_releases_capacity(catalog, sessions):
     ids, client, redis, erp, _ = catalog
     offer = (await offers(client, ids))[0]
     identifier = await reserve(sessions, ids, offer, erp, redis)
+    async with sessions() as session:
+        row = await session.get(Appointment, identifier)
+        await booking.confirm_paid_with_erp(session, erp, row)
+        await session.commit()
     response = await client.post(
         f"/api/v1/appointments/{identifier}/cancel", json={}, headers=ids.headers("PATIENT")
     )

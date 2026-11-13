@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import type { Payment } from '../api/types'
-import { IconArrowLeft, IconCheck, IconClock } from '../components/icons'
+import { BankTransferDetails } from '../components/PaymentTransferPanel'
+import { IconArrowLeft, IconCheck } from '../components/icons'
 import { StatusBadge } from '../components/StatusBadge'
 import { ErrorAlert, Notice, Spinner } from '../components/ui'
 import { formatDateTime, formatMoney } from '../lib/format'
@@ -64,7 +65,19 @@ export default function PaymentPage() {
 }
 
 function PendingTransfer({ payment: p }: { payment: Payment }) {
-  const left = useSecondsLeft(p.expires_at)
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const cancel = useMutation({
+    mutationFn: () => api.appointments.cancel(p.appointment_id, 'Cancelled by patient from payment page'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointment', p.appointment_id] })
+      queryClient.invalidateQueries({ queryKey: ['payment', p.id] })
+      queryClient.invalidateQueries({ queryKey: ['appointments'] })
+      queryClient.invalidateQueries({ queryKey: ['availability'] })
+      navigate(`/appointments/${p.appointment_id}`)
+    },
+  })
   return (
     <section className="panel overflow-hidden border border-line">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-6 sm:p-8">
@@ -75,50 +88,28 @@ function PendingTransfer({ payment: p }: { payment: Payment }) {
         <StatusBadge status={p.status} kind="payment" />
       </div>
 
-      <div className="grid gap-6 p-6 sm:p-8 md:grid-cols-[auto_1fr]">
-        <div className="flex flex-col items-center gap-3">
-          <img
-            src={p.qr_image_url}
-            alt={`VietQR code: transfer ${formatMoney(p.amount, p.currency)} with content ${p.payment_code}`}
-            className="h-64 w-64 rounded-md border border-line bg-white object-contain p-2"
-          />
-          <p className="caption text-center">Scan with your banking app</p>
+      <div className="space-y-5 p-6 sm:p-8">
+        <BankTransferDetails payment={p} />
+        <ErrorAlert error={cancel.error} />
+        <div className="border-t border-line pt-4">
+          {!confirmCancel ? (
+            <button type="button" className="btn-secondary btn-sm text-danger" onClick={() => setConfirmCancel(true)}>
+              Cancel booking &amp; release slot (no refund)
+            </button>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
+              <p className="text-sm font-medium">Cancel this booking and release the held slot? No payment was completed, so no refund is needed.</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-danger btn-sm" disabled={cancel.isPending} onClick={() => cancel.mutate()}>
+                  {cancel.isPending ? 'Releasing slot…' : 'Confirm cancel'}
+                </button>
+                <button type="button" className="btn-secondary btn-sm" onClick={() => setConfirmCancel(false)}>
+                  Keep hold
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-
-        <div className="min-w-0 space-y-4">
-          <dl className="divide-y divide-line rounded-md border border-line">
-            <CopyRow label="Bank" value={p.bank_code} />
-            <CopyRow label="Account number" value={p.account_number} />
-            <CopyRow label="Account name" value={p.account_name} />
-            <CopyRow label="Amount" display={formatMoney(p.amount, p.currency)} value={String(Number(p.amount))} />
-            <CopyRow label="Transfer content" value={p.payment_code} emphasis />
-          </dl>
-          <p className="caption">
-            Keep the transfer content exactly <strong className="font-mono">{p.payment_code}</strong>, otherwise we cannot match your payment.
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-4 border-t border-line p-6 sm:p-8">
-        {p.failure_reason && (
-          <Notice tone="danger" title="We received a transfer we could not accept">
-            {p.failure_reason}
-          </Notice>
-        )}
-        {left === null ? null : left > 0 ? (
-          <Notice tone="warning" title={`Time left: ${formatCountdown(left)}`}>
-            Pay before {formatDateTime(p.expires_at!)} to keep your appointment.
-          </Notice>
-        ) : (
-          <Notice tone="warning" title="Time is up">
-            If you have already transferred, the payment is still recorded when the bank reports it. Otherwise the appointment will be
-            released shortly.
-          </Notice>
-        )}
-        <p className="flex items-center gap-2 text-muted" role="status">
-          <IconClock size={18} /> Waiting for the bank. We confirm the payment only when the bank reports the money has arrived. This
-          page updates automatically.
-        </p>
       </div>
     </section>
   )
@@ -203,48 +194,4 @@ function Expired({ payment: p }: { payment: Payment }) {
       <ErrorAlert error={pay.error} />
     </section>
   )
-}
-
-function CopyRow({ label, value, display, emphasis }: { label: string; value: string; display?: string; emphasis?: boolean }) {
-  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
-  useEffect(() => {
-    if (state === 'idle') return
-    const t = setTimeout(() => setState('idle'), 2000)
-    return () => clearTimeout(t)
-  }, [state])
-  const copy = () =>
-    navigator.clipboard
-      .writeText(value)
-      .then(() => setState('copied'))
-      .catch(() => setState('failed'))
-
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0">
-        <dt className="label">{label}</dt>
-        <dd className={`break-all font-semibold ${emphasis ? 'font-mono text-h2 tracking-[0.1em] text-berry' : ''}`}>{display ?? value}</dd>
-      </div>
-      <button type="button" className="btn-secondary btn-sm shrink-0" onClick={copy} aria-label={`Copy ${label.toLowerCase()}`}>
-        {state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : 'Copy'}
-      </button>
-    </div>
-  )
-}
-
-/** Seconds until `iso`, ticking every second; null when there is no deadline. */
-function useSecondsLeft(iso: string | null): number | null {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!iso) return
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [iso])
-  if (!iso) return null
-  return Math.max(0, Math.floor((new Date(iso).getTime() - now) / 1000))
-}
-
-function formatCountdown(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${String(s).padStart(2, '0')}`
 }

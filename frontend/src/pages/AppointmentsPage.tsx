@@ -21,6 +21,7 @@ export default function AppointmentsPage() {
     queryKey: ['appointments', scope, page],
     queryFn: () => api.appointments.list(scope, page),
     placeholderData: keepPreviousData,
+    refetchInterval: 30_000,
   })
 
   return (
@@ -63,13 +64,15 @@ export default function AppointmentsPage() {
                   </div>
                   <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-h2 font-semibold">{when.time}</p>
+                      <p className="text-h2 font-semibold">{when.time}–{formatTime(a.end_time)}</p>
                       <p>
                         {a.doctor.name} · {a.department.name}
                       </p>
                       <p className="caption">{a.hospital.name}</p>
-                      {a.status === 'CONFIRMED' && a.payment_status !== 'PAID' && a.payment_due_at && (
-                        <p className="mt-1 font-semibold text-notice-strong">Payment needed before {formatTime(a.payment_due_at)}</p>
+                      {(a.status === 'PENDING' || a.status === 'CONFIRMED') && a.payment_status !== 'PAID' && a.payment_due_at && (
+                        <p className="mt-1 font-semibold text-notice-strong">
+                          Slot held · Pay before {formatTime(a.payment_due_at)} (tap to pay or cancel)
+                        </p>
                       )}
                     </div>
                     <div className="flex flex-col items-start gap-2 sm:items-end">

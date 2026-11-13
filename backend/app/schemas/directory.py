@@ -97,6 +97,7 @@ class SlotOut(BaseModel):
     version: int | None = None
     capacity: int | None = None
     remaining_places: int | None = None
+    is_past: bool = False
 
 
 class AvailabilityResponse(BaseModel):

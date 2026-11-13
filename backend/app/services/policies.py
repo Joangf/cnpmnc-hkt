@@ -53,9 +53,12 @@ def cancellation_deadline(start_time: datetime) -> datetime:
 def can_cancel(appointment: Appointment, now: datetime | None = None) -> bool:
     """BR-06: active appointments, up to the configured cut-off before start.
 
+    Pending bookings held for payment can always be cancelled to release the slot immediately.
     Once the patient has checked in, cancelling (and therefore refunding) is no longer allowed.
     """
     now = now or datetime.now(UTC)
+    if appointment.status == AppointmentStatus.PENDING:
+        return appointment.check_in_status != CheckInStatus.CHECKED_IN
     return (
         appointment.status in ACTIVE_APPOINTMENT_STATUSES
         and appointment.check_in_status != CheckInStatus.CHECKED_IN
@@ -74,12 +77,12 @@ def payment_status_of(payments: Sequence[Payment]) -> PaymentStatus:
 
 
 def can_pay(appointment: Appointment, now: datetime | None = None) -> bool:
-    """Pay only a confirmed appointment with a fee, not yet paid, inside its payment window
-    (docs/sprint3-sepay-plan.md D6/D8). `payment_due_at` is None for legacy rows: no deadline."""
+    """Pay an active (pending hold or confirmed) appointment with a fee, not yet paid, inside its
+    payment window. `payment_due_at` is None for legacy rows: no deadline."""
     now = now or datetime.now(UTC)
     return (
         appointment.fee_amount > 0
-        and appointment.status == AppointmentStatus.CONFIRMED
+        and appointment.status in (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED)
         and payment_status_of(appointment.payments)
         in (PaymentStatus.UNPAID, PaymentStatus.PENDING, PaymentStatus.EXPIRED)
         and (appointment.payment_due_at is None or now <= appointment.payment_due_at)

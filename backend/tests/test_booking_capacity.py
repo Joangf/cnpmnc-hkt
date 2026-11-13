@@ -31,6 +31,12 @@ async def test_closing_slot_preserves_confirmed_reservation(catalog,sessions):
     ids,client,redis,erp,snapshot=catalog
     offer=(await erp_tests.offers(client,ids))[0]
     identifier=await erp_tests.reserve(sessions,ids,offer,erp,redis)
+    async with sessions() as session:
+        from app.models import Appointment
+        from app.services import booking
+        appt = await session.get(Appointment, identifier)
+        await booking.confirm_paid_with_erp(session, erp, appt)
+        await session.commit()
     snapshot['slots'][0].update(is_open=False,version=2)
     async with sessions() as session:
         await erp_catalog.sync_catalog(session,erp)

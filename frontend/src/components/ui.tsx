@@ -57,11 +57,12 @@ export function ErrorAlert({ error }: { error: unknown }) {
   )
 }
 
-type Tone = 'info' | 'warning' | 'danger' | 'success'
+type Tone = 'info' | 'warning' | 'danger' | 'critical' | 'success'
 const NOTICE_TONES: Record<Tone, { className: string; iconClass: string; icon: IconComponent }> = {
   info: { className: 'border-info-line bg-mist text-info-strong', iconClass: 'text-info', icon: IconInfo },
   warning: { className: 'border-notice-line bg-notice-soft text-notice-strong', iconClass: 'text-notice', icon: IconClock },
   danger: { className: 'border-alert-line bg-alert-soft text-alert-strong', iconClass: 'text-alert', icon: IconAlert },
+  critical: { className: 'border-alert-line bg-alert-soft text-alert-strong', iconClass: 'text-alert', icon: IconAlert },
   success: { className: 'border-success-line bg-success-soft text-success-strong', iconClass: 'text-success', icon: IconCheck },
 }
 
@@ -77,7 +78,8 @@ export function Notice({
   children?: ReactNode
   className?: string
 }) {
-  const { className: toneClass, iconClass, icon: Icon } = NOTICE_TONES[tone]
+  const t = NOTICE_TONES[tone] ?? NOTICE_TONES.info
+  const { className: toneClass, iconClass, icon: Icon } = t
   return (
     <div className={`reveal flex gap-3 rounded-[14px] border px-5 py-4 text-base leading-normal shadow-card ${toneClass} ${className}`}>
       <Icon size={22} className={`mt-0.5 ${iconClass}`} />

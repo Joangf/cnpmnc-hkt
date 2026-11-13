@@ -64,9 +64,9 @@ async def initiate_payment(
         raise NotFound("Appointment not found.")
     if appointment.fee_amount <= 0:
         raise InvalidState("This appointment has no payable fee.", code="PaymentNotRequired")
-    if appointment.status != AppointmentStatus.CONFIRMED:
+    if appointment.status not in (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED):
         raise InvalidState(
-            "Payment becomes available once the hospital has confirmed the appointment.",
+            "Payment becomes available once the appointment is requested or confirmed.",
             code="PaymentNotAllowed",
         )
     if policies.payment_status_of(appointment.payments) in _SETTLED:
@@ -116,7 +116,10 @@ async def _reload(session: AsyncSession, payment_id: int) -> Payment:
 
 
 async def handle_webhook(
-    session: AsyncSession, payload: SepayWebhookIn, authorization: str | None
+    session: AsyncSession,
+    payload: SepayWebhookIn,
+    authorization: str | None,
+    erp: ErpAdapter | None = None,
 ) -> None:
     """Check `Authorization: Apikey <key>` (Unauthorized code InvalidApiKey), then apply an
     incoming transfer via apply_transfer. Never raises for unmatched transfers (D5, D10)."""
@@ -132,12 +135,14 @@ async def handle_webhook(
         code=payload.code,
         transaction_date=sepay.parse_local_time(payload.transactionDate),
     )
-    outcome = await apply_transfer(session, transfer)
+    outcome = await apply_transfer(session, transfer, erp=erp)
     if outcome == "unmatched":
         logger.warning("payment_unmatched_transfer", transfer_id=transfer.id)
 
 
-async def apply_transfer(session: AsyncSession, t: BankTransfer) -> str:
+async def apply_transfer(
+    session: AsyncSession, t: BankTransfer, *, erp: ErpAdapter | None = None
+) -> str:
     """Settle the payment named in a transfer's content (D10). Idempotent per transfer id.
 
     Returns: "paid", "amount_mismatch", "duplicate_transfer" (money for an appointment that is
@@ -217,9 +222,29 @@ async def apply_transfer(session: AsyncSession, t: BankTransfer) -> str:
         actor_type=ActorType.PAYMENT_GATEWAY,
         details={**details, "from": old_status, "to": PaymentStatus.PAID},
     )
+
+    appointment = payment.appointment
+    if appointment.status == AppointmentStatus.PENDING:
+        if erp is not None:
+            await booking.confirm_paid_with_erp(session, erp, appointment)
+        else:
+            await booking.transition(
+                session,
+                appointment,
+                AppointmentStatus.CONFIRMED,
+                reason="Payment received via bank transfer.",
+                source=StatusSource.PLATFORM,
+                actor_id=appointment.patient.user_id if appointment.patient else None,
+            )
+            appointment.payment_due_at = None
+    else:
+        appointment.payment_due_at = None
+
     content = f"We received your payment for appointment {appointment.booking_reference}."
-    if appointment.status != AppointmentStatus.CONFIRMED:
-        # Late money for an appointment that was already released (D10).
+    if appointment.status == AppointmentStatus.PENDING:
+        content += " Waiting for final confirmation from the hospital."
+    elif appointment.status != AppointmentStatus.CONFIRMED:
+        # Late money or hospital rejection after payment (D10): allow immediate refund.
         content += (
             " The appointment is no longer active, so you can request a full refund "
             "from the appointment page."
@@ -237,7 +262,7 @@ async def apply_transfer(session: AsyncSession, t: BankTransfer) -> str:
     return "paid"
 
 
-async def sync_transfers(session: AsyncSession) -> bool:
+async def sync_transfers(session: AsyncSession, erp: ErpAdapter | None = None) -> bool:
     """Background job: poll the SePay User API and apply new transfers (D5).
 
     No-op without `SEPAY_API_TOKEN` or when no payment is waiting for money.
@@ -256,7 +281,7 @@ async def sync_transfers(session: AsyncSession) -> bool:
         logger.warning("sepay_poll_failed", exc_info=True)
         return False
     for transfer in transfers:
-        await apply_transfer(session, transfer)
+        await apply_transfer(session, transfer, erp=erp)
     return True
 
 

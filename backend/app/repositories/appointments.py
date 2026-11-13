@@ -171,7 +171,7 @@ async def next_payment_overdue(
     stmt = (
         select(Appointment)
         .where(
-            Appointment.status == AppointmentStatus.CONFIRMED,
+            Appointment.status.in_((AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED)),
             Appointment.payment_due_at < before,
             not_(settled),
         )

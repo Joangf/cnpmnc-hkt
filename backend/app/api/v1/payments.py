@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header, status
 
 from app.api import presenters
-from app.api.deps import CurrentPatient, SessionDep
+from app.api.deps import CurrentPatient, ErpDep, SessionDep
 from app.schemas.common import error_responses
 from app.schemas.payments import PaymentOut, SepayWebhookAck, SepayWebhookIn
 from app.services import payments as payment_service
@@ -57,7 +57,8 @@ async def get_payment(payment_id: int, patient: CurrentPatient, session: Session
 async def sepay_webhook(
     payload: SepayWebhookIn,
     session: SessionDep,
+    erp: ErpDep,
     authorization: Annotated[str | None, Header()] = None,
 ) -> SepayWebhookAck:
-    await payment_service.handle_webhook(session, payload, authorization)
+    await payment_service.handle_webhook(session, payload, authorization, erp=erp)
     return SepayWebhookAck()
