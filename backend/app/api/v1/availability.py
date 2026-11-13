@@ -6,7 +6,6 @@ from fastapi import APIRouter, Query
 from app.api.deps import RedisDep, SessionDep
 from app.core.config import settings
 from app.core.errors import NotFound
-from app.models.enums import SchedulingMode
 from app.repositories import directory as directory_repo
 from app.schemas.common import error_responses
 from app.schemas.directory import AvailabilityResponse, SlotOut
@@ -42,9 +41,17 @@ async def get_doctor_availability(
         date=day,
         appointment_type_id=appointment_type.id,
         timezone=settings.clinic_timezone,
-        slots=[SlotOut(start_time=s.start, end_time=s.end, slot_id=s.slot_id, version=s.version,
-                       capacity=s.capacity, remaining_places=s.remaining_places) for s in slots],
+        slots=[
+            SlotOut(
+                start_time=s.start,
+                end_time=s.end,
+                slot_id=s.slot_id,
+                version=s.version,
+                capacity=s.capacity,
+                remaining_places=s.remaining_places,
+            )
+            for s in slots
+        ],
         generated_at=dt.datetime.now(dt.UTC),
-        source="manual-slots" if doctor.scheduling_mode == SchedulingMode.MANUAL
-        else "erp-schedule-cache",
+        source="erp-slots",
     )

@@ -54,8 +54,13 @@ services:
 
   mock-erp:
     build: ./mock-erp
+    volumes:
+      - mock-erp-data:/data
+    ports:
+      - "127.0.0.1:8100:8100"
     environment:
       CLINIC_TIMEZONE: Asia/Ho_Chi_Minh
+      ERP_DB_PATH: /data/erp.sqlite3
       MOCK_ERP_MODE: ${MOCK_ERP_MODE:-sync}
       MOCK_ERP_REJECT_RATE: ${MOCK_ERP_REJECT_RATE:-0.0}
       MOCK_ERP_LATENCY_MS: ${MOCK_ERP_LATENCY_MS:-50}
@@ -158,6 +163,7 @@ services:
       - prometheus
 
 volumes:
+  mock-erp-data:
   postgres-data:
   prometheus-data:
   loki-data:

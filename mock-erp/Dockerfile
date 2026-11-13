@@ -3,8 +3,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-COPY app.py .
-RUN useradd --create-home --uid 1000 app
+COPY app.py store.py catalog.py ./
+RUN useradd --create-home --uid 1000 app && mkdir /data && chown app:app /data
 USER app
 EXPOSE 8100
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8100"]

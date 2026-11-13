@@ -13,6 +13,7 @@ services:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
       - ./backend/tests:/app/tests
+      - ./mock-erp:/mock-erp:ro
     ports:
       - "8000:8000"
 
@@ -23,7 +24,3 @@ services:
   redis:
     ports:
       - "${REDIS_PORT:-6380}:6379"
-
-  mock-erp:
-    ports:
-      - "8100:8100"

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Numeric, func
+from sqlalchemy import DateTime, Numeric, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -22,3 +22,10 @@ class TimestampMixin:
     updated_at: Mapped[datetime] = mapped_column(
         default=utcnow, onupdate=utcnow, server_default=func.now()
     )
+
+
+class ErpMirrorMixin:
+    """Stable upstream identity; local primary keys never change during synchronization."""
+
+    erp_id: Mapped[str | None] = mapped_column(String(64), unique=True)
+    synced_at: Mapped[datetime | None]

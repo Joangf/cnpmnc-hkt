@@ -45,6 +45,9 @@ async def _run_periodic(name: str, interval: int, job: Job) -> None:
 async def _payments_job(session: AsyncSession, erp: ErpAdapter) -> bool:
     """Look for money first, then release unpaid appointments, so a transfer that arrived
     just before the deadline settles instead of losing the slot (plan 2a)."""
+    from app.services.erp_catalog import require_ready
+
+    await require_ready(session)
     synced = await payments.sync_transfers(session)
     expired = await payments.expire_unpaid(session, redis_client, erp)
     return synced and expired

@@ -83,3 +83,7 @@ def client_ip(request: Request) -> str:
     return request.headers.get("x-real-ip") or (
         request.client.host if request.client else "unknown"
     )
+
+
+async def deny_erp_write(admin: AdminUser) -> None:
+    raise Forbidden("This data is managed by the hospital ERP.", code="ErpOwnedData")

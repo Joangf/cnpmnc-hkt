@@ -25,7 +25,7 @@ beforeEach(() => {
   }])
   vi.spyOn(api.directory, 'availability').mockResolvedValue({
     doctor_id: 2, date: day, appointment_type_id: 5, timezone: 'Asia/Ho_Chi_Minh',
-    source: 'manual-slots', generated_at: new Date().toISOString(), slots: [offer],
+    source: 'erp-slots', generated_at: new Date().toISOString(), slots: [offer],
   })
 })
 afterEach(() => { cleanup(); queryClient.clear(); vi.restoreAllMocks() })
@@ -42,7 +42,7 @@ it('shows shared slot places and duration, and submits its identifier and versio
   show()
   fireEvent.click(await screen.findByRole('button', { name: /08:00–08:50.*3 places left/ }))
   expect(screen.getByText('50 min')).toBeInTheDocument()
-  expect(screen.getByText(/CareBook confirms this reservation immediately/)).toBeInTheDocument()
+  expect(screen.getByText(/The hospital confirms your reservation/)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Book appointment' }))
   await waitFor(() => expect(create).toHaveBeenCalledWith({
     doctor_id: 2, appointment_type_id: 5, start_time: offer.start_time,
@@ -57,7 +57,7 @@ it('clears a stale selection and refreshes remaining places on conflict', async 
   fireEvent.click(await screen.findByRole('button', { name: /08:00–08:50.*3 places left/ }))
   vi.mocked(api.directory.availability).mockResolvedValue({
     doctor_id: 2, date: day, appointment_type_id: 5, timezone: 'Asia/Ho_Chi_Minh',
-    source: 'manual-slots', generated_at: new Date().toISOString(), slots: [],
+    source: 'erp-slots', generated_at: new Date().toISOString(), slots: [],
   })
   fireEvent.click(screen.getByRole('button', { name: 'Book appointment' }))
   expect(await screen.findByText(/No available times on this day/)).toBeInTheDocument()

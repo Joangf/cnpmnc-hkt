@@ -94,6 +94,8 @@ class HttpErpAdapter(ErpAdapter):
                 "start_time": request.start_time.isoformat(),
                 "end_time": request.end_time.isoformat(),
                 "patient_ref": request.patient_ref,
+                "slot_id": request.slot_id,
+                "slot_version": request.slot_version,
             },
         )
         if response.status_code not in (200, 201):
@@ -120,6 +122,12 @@ class HttpErpAdapter(ErpAdapter):
             raise ErpRejectedError(str(detail))
         if response.status_code != 200:
             raise ErpUnavailableError(f"Unexpected ERP response {response.status_code}")
+
+    async def get_catalog(self) -> dict:
+        response = await self._request("get_catalog", "GET", "/catalog")
+        if response.status_code != 200:
+            raise ErpUnavailableError("ERP catalog unavailable")
+        return response.json()
 
     async def aclose(self) -> None:
         await self._client.aclose()

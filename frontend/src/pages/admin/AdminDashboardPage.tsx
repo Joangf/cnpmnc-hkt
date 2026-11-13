@@ -61,9 +61,9 @@ export default function AdminDashboardPage() {
 
       <Card className="mt-8 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="section-title">ERP schedule sync</h2>
+          <h2 className="section-title">ERP data sync</h2>
           <button className="btn-secondary btn-sm" disabled={sync.isPending} onClick={() => sync.mutate()}>
-            {sync.isPending ? 'Syncing…' : 'Sync schedules now'}
+            {sync.isPending ? 'Syncing…' : 'Sync ERP data now'}
           </button>
         </div>
         <ErrorAlert error={sync.error} />

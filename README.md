@@ -7,6 +7,7 @@ A patient-facing discovery, booking and payment platform. It implements the requ
 ```bash
 cp .env.example .env        # optional; every value has a dev default
 docker compose up -d --build
+docker compose run --rm backend python -m app.commands.erp_cutover --apply  # bootstrap ERP catalog & open booking gate
 make seed-loadtest          # optional: 200 load-test patients for k6
 ```
 
@@ -16,16 +17,16 @@ make seed-loadtest          # optional: 200 load-test patients for k6
 | http://localhost:8080/api/docs | OpenAPI (Swagger) |
 | http://localhost:3000 | Grafana (admin / admin), folder *Healthcare* |
 | http://localhost:9090 | Prometheus |
-| http://localhost:8100/docs | Mock ERP: simulate confirm / check-in / complete (dev only) |
+| http://localhost:8100/docs | Mock ERP: manage catalog/slots & simulate confirm / check-in / complete (dev only) |
 
 Seeded accounts: `admin@example.com` / `Admin12345!` and `patient@example.com` / `Patient12345!`. The demo patient has one completed appointment, so you can try the review flow straight away.
 
 ## Try the main flow
 
-1. Sign in as the demo patient, open **Doctors**, pick a doctor, then choose a type, a date and a time.
-2. Reserve an open admin-managed slot. CareBook confirms it immediately and shows the booking reference (with a check-in QR code) and separate appointment, payment and check-in statuses.
-3. Click **Pay by bank transfer** (the fee is the consultation fee set in Admin -> Directory -> Appointment types). The payment page shows a VietQR code and the transfer content (payment code, `CB` + 8 characters). Without a real transfer, simulate the bank notification with `python scripts/sepay_fake_transfer.py <payment_code> <amount>`; the page turns to **Paid** within a few seconds. An unpaid confirmed booking is released `PAYMENT_HOLD_MINUTES` (15) after confirmation.
-4. Open the demo patient's seeded completed appointment to try the review flow. Manual check-in/completion controls are outside this version.
+1. Sign in as the demo patient, open **Doctors**, pick a doctor, then choose a date and an open ERP-managed slot.
+2. Reserve a place in the slot. CareBook holds a temporary reservation, submits the slot ID/version and booking reference to the hospital ERP, and confirms the booking once the ERP accepts (showing the booking reference with a check-in QR code and separate appointment, payment and check-in statuses).
+3. Click **Pay by bank transfer** (the fee is the consultation fee synced from the hospital ERP). The payment page shows a VietQR code and the transfer content (payment code, `CB` + 8 characters). Without a real transfer, simulate the bank notification with `python scripts/sepay_fake_transfer.py <payment_code> <amount>`; the page turns to **Paid** within a few seconds. An unpaid confirmed booking is released `PAYMENT_HOLD_MINUTES` (15) after confirmation.
+4. Open the demo patient's seeded completed appointment to try the review flow, or use Mock ERP Swagger (`http://localhost:8100/docs`) to simulate check-in and completion on a newly confirmed booking.
 
 ## Layout
 
@@ -35,7 +36,7 @@ backend/            FastAPI app: api/ (routers) -> services/ (logic) -> reposito
                     alembic/ (migrations), tests/
 frontend/           React + TS + Vite SPA, served by nginx, which also proxies /api
                     src/ (pages, components, api client), e2e/ (Playwright)
-mock-erp/           Simulated hospital ERP/HIS (schedules, bookings, signed status webhooks)
+mock-erp/           Simulated hospital ERP/HIS (SQLite-backed catalog, shared slots, bookings, signed webhooks)
 k6/                 Load scenarios (browse, symptoms, booking, contention, admin, mixed)
 monitoring/         Prometheus, Loki, Alloy, Grafana provisioning + dashboards
 postgres/init/      SQL run on first start (creates the healthcare_test database)
@@ -51,10 +52,10 @@ docker-compose.yml  Full stack; docker-compose.override.yml adds dev hot reload 
 
 ## Key design points
 
-- **Capacity protection.** Availability is revalidated under doctor/slot locks. PostgreSQL prevents overlapping slot intervals and protects each reservation position; shared slots permit reservations up to their configured capacity.
-- **Immediate confirmation.** New reservations use admin-managed slots and are confirmed locally in the booking transaction. Historic ERP appointments retain their existing lifecycle and references.
+- **Capacity protection.** Availability is revalidated under doctor/slot locks and verified by the ERP inside an SQLite transaction. PostgreSQL prevents overlapping slot intervals and protects each reservation position; shared slots permit reservations up to their ERP-configured capacity.
+- **ERP-authoritative confirmation.** Bookings start as `PENDING` locally and transition to `CONFIRMED` only when the ERP accepts. Timeouts stay `PENDING` for background reconciliation; rejections or cancellations release capacity immediately.
 - **Separate statuses** (BR-07). Appointment status, payment status and check-in status are tracked separately. Check-in status is written only by the ERP (BR-11).
-- **Configurable scheduling.** Admins create dated slots with their own start/end, buffer and capacity. Appointment types supply service and fee metadata.
+- **ERP-managed directory and scheduling.** Hospital directory, consultation types/fees and dated shared-capacity slots are managed in the hospital ERP (`mock-erp`) and synchronized into CareBook. Admin Directory and Schedules pages are read-only, while mutation endpoints enforce `403 ErpOwnedData`.
 - **Observability.** Each request gets an `X-Request-ID`. Logs are JSON with PII redacted, and you can filter the Grafana log panel by request ID. The business counters are `bookings_total`, `payments_total` and `erp_call_duration_seconds`.
 
 ## Common tasks
@@ -73,56 +74,13 @@ make migration m="..."    # autogenerate an Alembic migration
 
 Frontend dev with hot reload: `cd frontend && npm install && npm run dev` (http://localhost:5173, proxies to the dev-exposed backend on :8000).
 
-## Scheduling constraints (SCRUM-21)
+## ERP-owned scheduling
 
-All new availability comes from admin-managed slots. In **Administration → Schedules**, select a
-doctor and date, then configure start/end times, a buffer, and a positive integer capacity.
-Duration is 5–480 whole minutes and buffer is 0–120 whole minutes. The default slot capacity is
-**1**, and the default slot buffer is **0**. There is no ERP scheduling selector or work-window
-capacity control in the admin interface. Missing slots never imply unlimited capacity.
+Hospital directory, consultation types/fees and shared-capacity slots come from the hospital ERP.
+Admins can view synchronized records, manage users/reviews/refunds and inspect audit logs.
+Only the ERP may change doctor information or schedules; the backend rejects admin writes.
 
-Appointment types retain service/fee metadata and scope validation. The seeded standard
-consultation remains 20 minutes with a 10-minute buffer; manual slots supply the actual reserved
-duration and buffer. Missing or invalid applicable appointment types produce no bookable offers.
-
-Changes apply to subsequent offers and new bookings. Existing appointment times, buffers and
-statuses are preserved. Lowering capacity below existing bookings stops further offers without
-cancelling those bookings. Browsing uses a short-lived cache keyed by persisted settings; booking
-always rechecks the database under a doctor lock. A displayed slot is not a reservation.
-Failed saves roll back settings and their audit record together and report an error.
-
-Apply `alembic upgrade head` before starting the updated backend. Scheduling integration tests
-use `TEST_DATABASE_URL`; point it only at a disposable database, since the existing overlap test
-resets its schema.
-
-## Manual shared slots
-
-Open **Administration → Schedules**, select a doctor and date, and create a slot with start/end
-times, a buffer, and capacity. For example, 08:00–08:30 with capacity 5 permits five different
-patients to reserve that exact interval. Times use the configured clinic timezone; slots and their
-buffers must fit within one clinic day and cannot overlap, including closed slots.
-
-Every doctor uses admin-managed slots automatically. Only open manual slots are offered to
-patients, with each slot's remaining capacity. Appointment types continue to supply service/fee
-metadata; manual slot times and buffers define the reservation interval. ERP schedules do not
-supply new availability.
-
-Manual reservations are confirmed immediately in CareBook. They do not call the ERP, and ERP
-sync, reconciliation and webhooks cannot alter them. Existing cancellation/payment/refund rules
-still apply. Manual check-in/completion controls and recurring/bulk schedules are not included.
-
-The admin list shows booked and remaining places. Booked slots retain their start/end/buffer;
-capacity and open/closed state can change. Lowering capacity below occupancy preserves existing
-appointments and stops new offers. One patient can hold only one active reservation per slot.
-Cancelling releases a place. Availability is a short-lived offer, rechecked under database locks
-when booking; stale slot versions return a conflict and the patient is prompted to select again.
-
-Migration `0007_manual_doctor_slots` preserves existing appointments at reservation position 1
-and adds per-slot positions for shared bookings. Its downgrade refuses overlapping active shared
-reservations rather than deleting appointments. Apply migrations before starting the new backend.
-
-Migration `0009_manual_only_scheduling` switches existing doctors to manual scheduling, changes
-the database default to Manual, and records each conversion in the audit log in one transaction.
-It preserves all existing appointment snapshots, statuses, ERP references, and prepared slots.
-Doctor create/update APIs reject ERP scheduling. Legacy ERP appointment handling remains for
-previously accepted reservations; new manual reservations never call it.
+Before starting the updated backend against an existing database, follow the
+[ERP cutover guide](docs/erp-cutover.md). The migration preserves existing data and requires an explicit,
+verified cutover before new reservations are enabled. Mock ERP Swagger is available at
+http://localhost:8100/docs; no separate hospital UI is needed for the demo.

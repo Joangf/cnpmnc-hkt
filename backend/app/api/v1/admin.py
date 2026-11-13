@@ -3,14 +3,14 @@
 from datetime import date, datetime, time
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import presenters
-from app.api.deps import AdminUser, ErpDep, PageDep, SessionDep
+from app.api.deps import AdminUser, ErpDep, PageDep, SessionDep, deny_erp_write
 from app.core.errors import Conflict, InvalidState, NotFound, ValidationFailed
 from app.models import AppointmentType, AuditLog, Base, Department, Doctor, Hospital, Specialty
 from app.models.enums import AccountStatus, AppointmentStatus, ReviewStatus, UserRole
@@ -31,6 +31,7 @@ from app.schemas.admin import (
     DepartmentUpdate,
     DoctorCreate,
     DoctorUpdate,
+    ErpStatusOut,
     HospitalCreate,
     HospitalUpdate,
     ReportSummary,
@@ -202,6 +203,7 @@ async def admin_list_specialties(admin: AdminUser, session: SessionDep) -> list[
 
 @router.post(
     "/specialties",
+    dependencies=[Depends(deny_erp_write)],
     status_code=status.HTTP_201_CREATED,
     response_model=SpecialtyOut,
     operation_id="adminCreateSpecialty",
@@ -226,6 +228,7 @@ async def create_specialty(
 
 @router.patch(
     "/specialties/{specialty_id}",
+    dependencies=[Depends(deny_erp_write)],
     response_model=SpecialtyOut,
     operation_id="adminUpdateSpecialty",
     responses=error_responses(404, 409, 422),
@@ -264,6 +267,7 @@ async def admin_list_hospitals(admin: AdminUser, session: SessionDep) -> list[Ho
 
 @router.post(
     "/hospitals",
+    dependencies=[Depends(deny_erp_write)],
     status_code=status.HTTP_201_CREATED,
     response_model=HospitalDetail,
     operation_id="adminCreateHospital",
@@ -284,6 +288,7 @@ async def create_hospital(
 
 @router.patch(
     "/hospitals/{hospital_id}",
+    dependencies=[Depends(deny_erp_write)],
     response_model=HospitalDetail,
     operation_id="adminUpdateHospital",
     responses=error_responses(404, 422),
@@ -324,6 +329,7 @@ async def admin_list_departments(
 
 @router.post(
     "/departments",
+    dependencies=[Depends(deny_erp_write)],
     status_code=status.HTTP_201_CREATED,
     response_model=DepartmentAdminOut,
     operation_id="adminCreateDepartment",
@@ -346,6 +352,7 @@ async def create_department(
 
 @router.patch(
     "/departments/{department_id}",
+    dependencies=[Depends(deny_erp_write)],
     response_model=DepartmentAdminOut,
     operation_id="adminUpdateDepartment",
     responses=error_responses(404, 409, 422),
@@ -388,6 +395,7 @@ async def admin_list_doctors(
 
 @router.post(
     "/doctors",
+    dependencies=[Depends(deny_erp_write)],
     status_code=status.HTTP_201_CREATED,
     response_model=AdminDoctorDetail,
     operation_id="adminCreateDoctor",
@@ -415,6 +423,7 @@ async def create_doctor(
 
 @router.patch(
     "/doctors/{doctor_id}",
+    dependencies=[Depends(deny_erp_write)],
     response_model=AdminDoctorDetail,
     operation_id="adminUpdateDoctor",
     responses=error_responses(404, 409, 422),
@@ -465,8 +474,11 @@ async def admin_list_appointment_types(
 
 
 async def _validate_type_scope(
-    session: AsyncSession, specialty_id: int | None, doctor_id: int | None,
-    *, require_active: bool = True,
+    session: AsyncSession,
+    specialty_id: int | None,
+    doctor_id: int | None,
+    *,
+    require_active: bool = True,
 ) -> None:
     if specialty_id is not None:
         specialty = await _require_ref(session, Specialty, specialty_id, "Specialty")
@@ -485,6 +497,7 @@ async def _validate_type_scope(
 
 @router.post(
     "/appointment-types",
+    dependencies=[Depends(deny_erp_write)],
     status_code=status.HTTP_201_CREATED,
     response_model=AppointmentTypeAdminOut,
     operation_id="adminCreateAppointmentType",
@@ -510,6 +523,7 @@ async def create_appointment_type(
 
 @router.patch(
     "/appointment-types/{type_id}",
+    dependencies=[Depends(deny_erp_write)],
     response_model=AppointmentTypeAdminOut,
     operation_id="adminUpdateAppointmentType",
     responses=error_responses(404, 409, 422),
@@ -518,8 +532,10 @@ async def update_appointment_type(
     type_id: int, payload: AppointmentTypeUpdate, admin: AdminUser, session: SessionDep
 ) -> AppointmentTypeAdminOut:
     appointment_type = await session.scalar(
-        select(AppointmentType).where(AppointmentType.id == type_id)
-        .with_for_update().execution_options(populate_existing=True)
+        select(AppointmentType)
+        .where(AppointmentType.id == type_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if appointment_type is None:
         raise NotFound("Appointment type not found.")
@@ -666,3 +682,18 @@ async def sync_schedules(admin: AdminUser, session: SessionDep, erp: ErpDep) -> 
     )
     await session.commit()
     return ScheduleSyncResult(doctors_synced=synced, success=failed == 0)
+
+
+@router.get(
+    "/integrations/erp/status",
+    response_model=ErpStatusOut,
+    operation_id="adminErpStatus",
+)
+async def erp_status(admin: AdminUser, session: SessionDep) -> ErpStatusOut:
+    from app.models import ErpSyncState
+
+    state = await session.get(ErpSyncState, 1)
+    return ErpStatusOut(
+        ready=bool(state and state.ready),
+        synced_at=state.synced_at if state else None,
+    )
