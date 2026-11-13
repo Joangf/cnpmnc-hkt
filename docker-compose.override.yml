@@ -27,5 +27,3 @@ services:
   mock-erp:
     volumes:
       - ./mock-erp:/app
-    ports:
-      - "8100:8100"
