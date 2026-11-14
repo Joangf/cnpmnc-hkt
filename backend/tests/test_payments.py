@@ -290,7 +290,6 @@ async def make_appointment(
             patient_id=ctx.ids.patient,
             doctor_id=ctx.ids.doctor,
             appointment_type_id=ctx.ids.free_type if free else ctx.ids.paid_type,
-            slot_id=slot_id,
             start_time=start,
             end_time=start + timedelta(minutes=20),
             end_with_buffer=start + timedelta(minutes=30),
