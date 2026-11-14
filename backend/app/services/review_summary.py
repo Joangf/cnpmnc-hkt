@@ -31,7 +31,7 @@ _SYSTEM = (
     "given. Write a 1-2 sentence neutral overview, then 2-4 short points about what patients "
     "repeatedly praise or criticise (manner, explanations, waiting time, ...). Every point must "
     "list the ids of the reviews it comes from. Do not invent facts, do not give medical advice, "
-    "do not mention patient names or personal details. Write in the language most reviews use. "
+    "do not mention patient names or personal details. Always write in English, even if some reviews are in another language. "
     'Return JSON: {"summary": "...", "points": [{"text": "...", "review_ids": [1, 2]}]}'
 )
 

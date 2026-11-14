@@ -217,20 +217,20 @@ DEMO_REVIEWS: list[tuple[str, list[tuple[int, str]]]] = [
     (
         "Cardiology",
         [
-            (5, "Bác sĩ giải thích rất kỹ kết quả điện tim, dễ hiểu."),
-            (5, "Rất tận tâm, hỏi kỹ tiền sử và dặn dò cẩn thận."),
-            (3, "Bác sĩ giỏi nhưng phải chờ gần 1 tiếng mới được khám."),
-            (4, "Khám kỹ, nhưng phòng chờ hơi đông."),
-            (2, "Chờ quá lâu, khám hơi vội vì đông bệnh nhân."),
+            (5, "The doctor explained my ECG results very carefully and clearly."),
+            (5, "Very dedicated: asked about my history in detail and gave careful advice."),
+            (3, "A good doctor, but I had to wait almost an hour to be seen."),
+            (4, "Thorough examination, but the waiting room was rather crowded."),
+            (2, "The wait was far too long and the consultation felt rushed because of the number of patients."),
         ],
     ),
     (
         "Dermatology",
         [
-            (5, "Trị mụn rất hiệu quả, sau 1 tháng da đỡ hẳn."),
-            (4, "Bác sĩ nhẹ nhàng, tư vấn chăm sóc da chi tiết."),
-            (5, "Kê thuốc vừa đủ, không lạm dụng thuốc mạnh."),
-            (3, "Hiệu quả nhưng chi phí thuốc hơi cao."),
+            (5, "Very effective acne treatment; my skin improved a lot after a month."),
+            (4, "Gentle doctor who gave detailed skin-care advice."),
+            (5, "Prescribed only what was needed without overusing strong medication."),
+            (3, "Effective, but the cost of the medication was a bit high."),
         ],
     ),
     (
