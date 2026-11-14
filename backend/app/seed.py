@@ -9,6 +9,7 @@ signs are placeholders and MUST be reviewed by a qualified clinician (FRD 4.7.1,
 
 import argparse
 import asyncio
+import random
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from typing import NotRequired, TypedDict
@@ -139,22 +140,12 @@ GIVEN_NAMES = [
 
 # (name, description, duration, buffer, fee_override, specialty name or None)
 APPOINTMENT_TYPES: list[tuple[str, str, int, int, Decimal | None, str | None]] = [
-    ("General Consultation", "Standard consultation fee.", 60, 0, Decimal("200000"), None),
+    ("General Consultation", "Standard consultation fee.", 60, 0, Decimal("2000"), None),
 ]
 
-SPECIALTY_HOURLY_SLOTS: dict[str, int] = {
-    "General Internal Medicine": 4,
-    "Pediatrics": 4,
-    "Dermatology": 4,
-    "Respiratory Medicine": 3,
-    "Gastroenterology": 3,
-    "Ophthalmology": 3,
-    "Otorhinolaryngology (ENT)": 3,
-    "Cardiology": 2,
-    "Orthopedics": 2,
-    "Rheumatology": 2,
-    "Neurology": 2,
-}
+SEED_SLOT_DAYS = 45  # how many days ahead of today the seed keeps slots for
+
+MIN_SLOT_CAPACITY, MAX_SLOT_CAPACITY = 1, 3  # patients per hourly slot (random per slot)
 
 # (name, keywords, [(specialty, weight)], red_flag_message)  -- PENDING CLINICAL REVIEW
 SYMPTOMS: list[tuple[str, str, list[tuple[str, float]], str | None]] = [
@@ -386,7 +377,7 @@ async def _seed_demo_history(session: AsyncSession, patient_id: int) -> None:
         status=AppointmentStatus.COMPLETED,
         check_in_status=CheckInStatus.CHECKED_IN,
         reason_for_visit="Demo appointment",
-        fee_amount=appointment_type.fee_override or Decimal("200000"),
+        fee_amount=appointment_type.fee_override or Decimal("2000"),
         currency=settings.currency,
         erp_booking_id="ERP-DEMO-0001",
     )
@@ -443,7 +434,7 @@ async def _seed_refund_test_appointments(session: AsyncSession, patient_id: int)
     if appointment_type is None:
         return
 
-    fee = appointment_type.fee_override or Decimal("200000")
+    fee = appointment_type.fee_override or Decimal("2000")
 
     # 1. Test case: Patient cancellation
     if "HK-REFUND-USR1" not in existing_refs:
@@ -577,69 +568,115 @@ async def _seed_loadtest_users(session: AsyncSession, count: int) -> None:
     print(f"created {created} load-test users ({len(existing)} already existed)")
 
 
-async def _seed_manual_doctor_slots(session: AsyncSession) -> None:
-    """Seeds 1-hour shared-capacity DoctorSlots for initial cutover to the hospital ERP."""
-    existing = await session.scalar(select(func.count(DoctorSlot.id)))
-    if existing and existing > 0:
-        return
+_MORNING = [(time(h, 0), time(h + 1, 0)) for h in (8, 9, 10, 11)]
+_AFTERNOON = [(time(h, 0), time(h + 1, 0)) for h in (13, 14, 15, 16)]
 
-    doctor_rows = (
-        await session.execute(
-            select(Doctor, Specialty.name)
-            .join(Department, Doctor.department_id == Department.id)
-            .join(Specialty, Department.specialty_id == Specialty.id)
-            .where(Doctor.is_active.is_(True))
-        )
-    ).all()
-    if not doctor_rows:
-        return
 
-    slots_to_add: list[DoctorSlot] = []
-    today = (datetime.now(clinic_tz())).date()
-    morning = [
-        (time(8, 0), time(9, 0)),
-        (time(9, 0), time(10, 0)),
-        (time(10, 0), time(11, 0)),
-        (time(11, 0), time(12, 0)),
-    ]
-    afternoon = [
-        (time(13, 0), time(14, 0)),
-        (time(14, 0), time(15, 0)),
-        (time(15, 0), time(16, 0)),
-        (time(16, 0), time(17, 0)),
-    ]
-    slot_times = morning + afternoon
-
-    for day_offset in range(0, 15):
+def _candidate_slots(
+    erp_doctor_id: str | None,
+) -> list[tuple[datetime, datetime, int]]:
+    """Hourly (start, end, capacity) windows for the next SEED_SLOT_DAYS days, in UTC."""
+    today = datetime.now(clinic_tz()).date()
+    result: list[tuple[datetime, datetime, int]] = []
+    for day_offset in range(SEED_SLOT_DAYS):
         day = today + timedelta(days=day_offset)
         if day.weekday() == 6:  # Sunday closed
             continue
-        for doctor, spec_name in doctor_rows:
-            day_windows = slot_times
-            if (
-                day.weekday() == 5
-                and doctor.erp_doctor_id
-                and doctor.erp_doctor_id[-1:].isdigit()
-                and int(doctor.erp_doctor_id[-1]) % 2
-            ):
-                day_windows = morning
-            cap = SPECIALTY_HOURLY_SLOTS.get(spec_name, 3)
-            for start_t, end_t in day_windows:
-                start_dt = datetime.combine(day, start_t, tzinfo=clinic_tz()).astimezone(UTC)
-                end_dt = datetime.combine(day, end_t, tzinfo=clinic_tz()).astimezone(UTC)
-                slots_to_add.append(
-                    DoctorSlot(
-                        doctor_id=doctor.id,
-                        start_time=start_dt,
-                        end_time=end_dt,
-                        end_with_buffer=end_dt,
-                        buffer_minutes=0,
-                        capacity=cap,
-                        is_open=True,
-                        version=1,
-                    )
+        windows = _MORNING + _AFTERNOON
+        # Variety: doctors with an odd number don't work Saturday afternoons.
+        if (
+            day.weekday() == 5
+            and erp_doctor_id
+            and erp_doctor_id[-1:].isdigit()
+            and int(erp_doctor_id[-1]) % 2
+        ):
+            windows = _MORNING
+        for start_t, end_t in windows:
+            result.append(
+                (
+                    datetime.combine(day, start_t, tzinfo=clinic_tz()).astimezone(UTC),
+                    datetime.combine(day, end_t, tzinfo=clinic_tz()).astimezone(UTC),
+                    random.randint(MIN_SLOT_CAPACITY, MAX_SLOT_CAPACITY),
                 )
+            )
+    return result
 
+
+async def _seed_erp_slots() -> int:
+    """After cutover the hospital ERP owns schedules: add missing slots through its API
+    (never directly in the local DB, or slot versions/capacity drift from the ERP)."""
+    import httpx
+
+    now = datetime.now(UTC)
+    added = 0
+    async with httpx.AsyncClient(base_url=settings.erp_base_url, timeout=30) as client:
+        response = await client.get("/catalog")
+        response.raise_for_status()
+        catalog = response.json()
+        taken: dict[str, list[tuple[datetime, datetime]]] = {}
+        for slot in catalog["slots"]:
+            taken.setdefault(slot["doctor_id"], []).append(
+                (datetime.fromisoformat(slot["start_time"]), datetime.fromisoformat(slot["end_time"]))
+            )
+        for doctor in catalog["doctors"]:
+            if not doctor["data"].get("is_active", True):
+                continue
+            doctor_id = doctor["id"]
+            for start, end, capacity in _candidate_slots(doctor_id):
+                if start <= now or any(start < e and s0 < end for s0, e in taken.get(doctor_id, ())):
+                    continue
+                slot_id = f"seed-{doctor_id}-{start:%Y%m%dT%H%M}"[:64]
+                put = await client.put(
+                    f"/slots/{slot_id}",
+                    json={
+                        "id": slot_id,
+                        "doctor_id": doctor_id,
+                        "start_time": start.isoformat(),
+                        "end_time": end.isoformat(),
+                        "capacity": capacity,
+                        "is_open": True,
+                        "version": 1,
+                    },
+                )
+                put.raise_for_status()
+                taken.setdefault(doctor_id, []).append((start, end))
+                added += 1
+    print(f"seeded {added} ERP slots via the ERP API")
+    return added
+
+
+async def _seed_manual_doctor_slots(session: AsyncSession) -> None:
+    """Before ERP cutover: seed hourly slots locally (cutover pushes them to the ERP)."""
+    doctor_rows = (
+        await session.scalars(select(Doctor).where(Doctor.is_active.is_(True)))
+    ).all()
+    if not doctor_rows:
+        return
+    # Idempotent top-up: skip candidates overlapping an existing slot.
+    existing: dict[int, list[tuple[datetime, datetime]]] = {}
+    for doctor_id, start, end in (
+        await session.execute(
+            select(DoctorSlot.doctor_id, DoctorSlot.start_time, DoctorSlot.end_with_buffer).where(
+                DoctorSlot.end_with_buffer >= datetime.now(UTC) - timedelta(days=1)
+            )
+        )
+    ).all():
+        existing.setdefault(doctor_id, []).append((start, end))
+    slots_to_add = [
+        DoctorSlot(
+            doctor_id=doctor.id,
+            start_time=start,
+            end_time=end,
+            end_with_buffer=end,
+            buffer_minutes=0,
+            capacity=capacity,
+            is_open=True,
+            version=1,
+        )
+        for doctor in doctor_rows
+        for start, end, capacity in _candidate_slots(doctor.erp_doctor_id)
+        if not any(start < e and s0 < end for s0, e in existing.get(doctor.id, ()))
+    ]
     session.add_all(slots_to_add)
     await session.commit()
     print(f"seeded {len(slots_to_add)} doctor slots across {len(doctor_rows)} doctors")
@@ -653,6 +690,15 @@ async def main(loadtest_users: int) -> None:
         if not state or not state.ready:
             await _seed_directory(session)
             await _seed_manual_doctor_slots(session)
+        elif await _seed_erp_slots():
+            from app.integrations import build_erp_adapter
+            from app.services import erp_sync
+
+            erp = build_erp_adapter()
+            try:
+                await erp_sync.sync_schedules(session, erp)  # pull the new slots back
+            finally:
+                await erp.aclose()
         await _ensure_user(
             session, settings.admin_email, settings.admin_password, UserRole.ADMIN, None
         )

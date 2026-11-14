@@ -1,10 +1,11 @@
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import ColumnElement, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
+from app.core.config import settings
 from app.models import (
     Appointment,
     AppointmentType,
@@ -258,6 +259,10 @@ async def list_doctors(
             occupancy < DoctorSlot.capacity,
             DoctorSlot.erp_booked_count < DoctorSlot.capacity,
         ]
+        # Free capacity in the past (or inside the booking lead time) is not bookable,
+        # so it never counts towards an availability filter.
+        earliest = datetime.now(UTC) + timedelta(minutes=settings.booking_min_lead_minutes)
+        manual.append(DoctorSlot.start_time >= earliest)
         if available_from:
             manual.append(DoctorSlot.end_time > available_from)
         if available_to:

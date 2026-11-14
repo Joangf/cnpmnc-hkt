@@ -1,8 +1,8 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../../api/endpoints'
 import { StatusBadge } from '../../components/StatusBadge'
-import { Card, ErrorAlert, Notice, Spinner } from '../../components/ui'
+import { Card, ErrorAlert, Spinner } from '../../components/ui'
 import { formatDateTime, formatMoney, humanize } from '../../lib/format'
 import { AdminNav } from './AdminNav'
 
@@ -10,7 +10,6 @@ export default function AdminDashboardPage() {
   const summary = useQuery({ queryKey: ['admin', 'summary'], queryFn: api.admin.summary, refetchInterval: 30_000 })
   const appointments = useQuery({ queryKey: ['admin', 'appointments'], queryFn: () => api.admin.appointments({}) })
   const audit = useQuery({ queryKey: ['admin', 'audit'], queryFn: () => api.admin.auditLogs() })
-  const sync = useMutation({ mutationFn: api.admin.syncSchedules })
 
   return (
     <div>
@@ -59,21 +58,6 @@ export default function AdminDashboardPage() {
           </section>
         </div>
       )}
-
-      <Card className="mt-8 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="section-title">ERP data sync</h2>
-          <button className="btn-secondary btn-sm" disabled={sync.isPending} onClick={() => sync.mutate()}>
-            {sync.isPending ? 'Syncing…' : 'Sync ERP data now'}
-          </button>
-        </div>
-        <ErrorAlert error={sync.error} />
-        {sync.data && (
-          <Notice tone={sync.data.success ? 'success' : 'warning'}>
-            Synced {sync.data.doctors_synced} doctors{sync.data.success ? '.' : ' (some failed - see logs).'}
-          </Notice>
-        )}
-      </Card>
 
       <Card className="mt-8 overflow-x-auto">
         <h2 className="section-title mb-3">Recent appointments</h2>
