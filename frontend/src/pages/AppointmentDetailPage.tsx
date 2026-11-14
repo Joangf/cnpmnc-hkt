@@ -135,6 +135,16 @@ export default function AppointmentDetailPage() {
       <RefundPanel appointment={a} onDone={() => appointment.refetch()} />
       {a.can_review && <ReviewCard appointmentId={a.id} onDone={() => appointment.refetch()} />}
       {a.has_review && <ReviewDisplayCard appointment={a} onRefresh={() => appointment.refetch()} />}
+      {/* SCRUM-44: say why there is no review form instead of silently hiding it. */}
+      {!a.can_review && !a.has_review && (
+        <p className="caption">
+          {a.status === 'CANCELLED' || a.status === 'REJECTED' || a.status === 'NO_SHOW'
+            ? 'This appointment did not take place, so it cannot be reviewed.'
+            : a.status === 'COMPLETED'
+              ? 'Reviews open once the hospital has confirmed your check-in for this visit.'
+              : 'You can review your doctor after you have checked in and the visit is completed.'}
+        </p>
+      )}
 
       {(a.payments ?? []).length > 0 && (
         <Card>
@@ -393,6 +403,12 @@ function ReviewDisplayCard({
             Submitted {formatDateTime(r.created_at)}
             {r.is_edited && <span className="ml-1 font-semibold text-muted italic">(Edited)</span>}
           </p>
+          {/* SCRUM-45: the real moderation status, never an invented approval */}
+          {r.status !== 'PUBLISHED' && (
+            <p className="caption mt-0.5">
+              {r.status === 'PENDING' ? 'Waiting for moderation before it is published.' : 'Not shown publicly after moderation.'}
+            </p>
+          )}
         </div>
         {appointment.can_edit_review && !editing && (
           <button

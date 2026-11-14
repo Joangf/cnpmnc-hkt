@@ -373,9 +373,11 @@ def audit_log(log: AuditLog) -> AuditLogOut:
     return out
 
 
-def admin_review(review: Review) -> AdminReviewOut:
+def admin_review(review: Review, report_reasons: list[str] | None = None) -> AdminReviewOut:
     """Needs: review.doctor."""
     return AdminReviewOut(
+        open_reports=len(report_reasons or []),
+        report_reasons=sorted(set(report_reasons or [])),
         id=review.id,
         appointment_id=review.appointment_id,
         doctor_id=review.doctor_id,

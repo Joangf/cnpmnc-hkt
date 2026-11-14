@@ -51,6 +51,9 @@ export const api = {
       /** Clinic-local `YYYY-MM-DDTHH:mm`; keeps doctors with an open schedule window in range. */
       available_from?: string
       available_to?: string
+      /** SCRUM-48: rated doctors at or above this average (1-5). */
+      min_rating?: number
+      sort?: 'name' | 'rating'
       page?: number
       page_size?: number
     }) => request<T.Page<T.DoctorSummary>>('GET', '/doctors', { query }),
@@ -60,14 +63,19 @@ export const api = {
       request<T.Availability>('GET', `/doctors/${doctorId}/availability`, {
         query: { date, appointment_type_id: appointmentTypeId },
       }),
+    doctorReviewSummary: (doctorId: number) => request<T.ReviewSummary>('GET', `/doctors/${doctorId}/review-summary`),
+    reportReasons: () => request<string[]>('GET', '/review-report-reasons'),
+    reportReview: (reviewId: number, body: { reason: string; details?: string }) =>
+      request<T.ReviewReport>('POST', `/reviews/${reviewId}/reports`, { body }),
     doctorReviews: (doctorId: number, page = 1) =>
       request<T.Page<T.ReviewPublic>>('GET', `/doctors/${doctorId}/reviews`, { query: { page, page_size: 10 } }),
   },
 
   symptoms: {
     list: () => request<T.Symptom[]>('GET', '/symptoms'),
-    recommend: (body: { symptom_ids: number[]; free_text?: string }) =>
+    recommend: (body: { symptom_ids: number[]; free_text?: string; context_text?: string; explain?: boolean }) =>
       request<T.Recommendation>('POST', '/symptoms/recommendations', { body }),
+    interpret: (text: string) => request<T.Interpretation>('POST', '/symptoms/interpret', { body: { text } }),
   },
 
   appointments: {
@@ -100,6 +108,15 @@ export const api = {
   },
 
   admin: {
+    symptoms: () => request<T.AdminSymptom[]>('GET', '/admin/symptoms'),
+    createSymptom: (body: T.AdminSymptomPayload & { name: string }) =>
+      request<T.AdminSymptom>('POST', '/admin/symptoms', { body }),
+    updateSymptom: (id: number, body: T.AdminSymptomPayload) =>
+      request<T.AdminSymptom>('PATCH', `/admin/symptoms/${id}`, { body }),
+    createSymptomRule: (symptomId: number, body: { specialty_id: number; weight: number }) =>
+      request<T.AdminSymptom>('POST', `/admin/symptoms/${symptomId}/rules`, { body }),
+    updateSymptomRule: (ruleId: number, body: { weight?: number; is_active?: boolean }) =>
+      request<T.AdminSymptom>('PATCH', `/admin/symptom-rules/${ruleId}`, { body }),
     erpStatus: () => request<T.ErpStatus>('GET', '/admin/integrations/erp/status'),
     slots: (doctorId: number, date: string) =>
       request<T.AdminSlotList>('GET', `/admin/doctors/${doctorId}/slots`, { query: { date } }),
@@ -111,8 +128,9 @@ export const api = {
     users: (query: { q?: string; page?: number }) => request<T.Page<T.AdminUser>>('GET', '/admin/users', { query }),
     setUserStatus: (id: number, account_status: T.AccountStatus) =>
       request<T.AdminUser>('PATCH', `/admin/users/${id}`, { body: { account_status } }),
-    reviews: (query: { review_status?: string; page?: number }) =>
+    reviews: (query: { review_status?: string; reported?: boolean; page?: number }) =>
       request<T.Page<T.AdminReview>>('GET', '/admin/reviews', { query }),
+    recomputeRatings: () => request<{ doctors: number }>('POST', '/admin/reviews/recompute-ratings'),
     moderateReview: (id: number, status: 'PUBLISHED' | 'HIDDEN' | 'REMOVED', note?: string) =>
       request<T.AdminReview>('PATCH', `/admin/reviews/${id}`, { body: { status, note } }),
     deleteReview: (id: number) => request<void>('DELETE', `/admin/reviews/${id}`),

@@ -107,8 +107,13 @@ def can_request_refund(appointment: Appointment) -> bool:
 
 
 def can_review(appointment: Appointment) -> bool:
-    """BR-08 / BR-09. Requires `appointment.review` to be loaded."""
-    return appointment.status == AppointmentStatus.COMPLETED and appointment.review is None
+    """BR-08 / BR-09 / SCRUM-44: ERP-confirmed check-in AND completion, no review yet.
+    Requires `appointment.review` to be loaded."""
+    return (
+        appointment.status == AppointmentStatus.COMPLETED
+        and appointment.check_in_status == CheckInStatus.CHECKED_IN
+        and appointment.review is None
+    )
 
 
 def can_edit_review(appointment: Appointment, now: datetime | None = None) -> bool:

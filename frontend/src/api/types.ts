@@ -382,7 +382,56 @@ export interface Recommendation {
   }[]
   urgent_warning: string | null
   disclaimer: string
+  mode: 'rules' | 'ai' | 'rule_fallback'
+  doctors: DoctorRecommendation[]
+  explanation: string | null
+  specialty_explanations: { specialty_id: number; reason: string }[]
+  trace: TraceStep[]
 }
+
+/** One step of the AI pipeline, for the "How we got this" panel. */
+export interface TraceStep {
+  key: string
+  title: string
+  summary: string
+  rows: Record<string, unknown>[]
+  skipped: boolean
+}
+
+export interface DoctorRecommendation {
+  doctor_id: number
+  full_name: string
+  title: string | null
+  specialty_id: number
+  department_id: number
+  department_name: string
+  hospital_id: number
+  hospital_name: string
+  rating_avg: number
+  rating_count: number
+  next_available: string | null
+  score: number
+  score_relevance: number | null
+  score_rating: number
+  score_availability: number
+}
+
+export interface InterpretedSymptom {
+  id: number
+  name: string
+  score: number | null
+  matched_phrase: string | null
+  via: 'text' | 'rephrase' | 'rules'
+}
+
+export interface Interpretation {
+  mode: 'ai' | 'rule_fallback'
+  symptoms: InterpretedSymptom[]
+  urgent_warning: string | null
+  disclaimer: string
+  trace: TraceStep[]
+}
+
 
 export interface Notification {
   id: number
@@ -415,6 +464,18 @@ export interface AdminReview extends Review {
   doctor_name: string
   patient_id: number
   moderation_note: string | null
+  open_reports: number
+  report_reasons: string[]
+}
+
+/** SCRUM-50: a patient's report of a review. */
+export interface ReviewReport {
+  id: number
+  review_id: number
+  reason: string
+  status: string
+  created_at: string
+  already_reported: boolean
 }
 
 export interface AdminAppointment extends AppointmentSummary {
@@ -447,4 +508,45 @@ export interface AuditLog {
   details: Record<string, unknown> | null
   request_id: string | null
   created_at: string
+}
+
+/** AI summary of a doctor's published reviews; each point cites its review ids. */
+export interface ReviewSummary {
+  status: 'ready' | 'insufficient' | 'generating' | 'unavailable'
+  summary: string | null
+  points: { text: string; review_ids: number[] }[]
+  review_count: number
+  min_reviews: number
+  generated_at: string | null
+  stale: boolean
+}
+
+// --- admin: symptom catalog and rules (SCRUM-43) ---
+export interface AdminSymptomRule {
+  id: number
+  symptom_id: number
+  specialty_id: number
+  specialty_name: string
+  weight: number
+  is_active: boolean
+}
+
+export interface AdminSymptom {
+  id: number
+  name: string
+  keywords: string | null
+  description: string | null
+  is_red_flag: boolean
+  red_flag_message: string | null
+  is_active: boolean
+  rules: AdminSymptomRule[]
+}
+
+export interface AdminSymptomPayload {
+  name?: string
+  keywords?: string | null
+  description?: string | null
+  is_red_flag?: boolean
+  red_flag_message?: string | null
+  is_active?: boolean
 }

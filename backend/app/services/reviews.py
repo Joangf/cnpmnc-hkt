@@ -2,16 +2,18 @@
 
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import Conflict, InvalidState, NotFound
-from app.models import PatientProfile, Review, User
-from app.models.enums import AppointmentStatus, ReviewStatus
+from app.core.errors import Conflict, InvalidState, NotFound, ValidationFailed
+from app.models import PatientProfile, Review, ReviewReport, User
+from app.models.base import utcnow
+from app.models.enums import AppointmentStatus, CheckInStatus, ReviewStatus
 from app.repositories import appointments as appointment_repo
 from app.repositories import reviews as review_repo
-from app.schemas.reviews import ReviewCreate, ReviewUpdate
+from app.schemas.reviews import ReportCreate, ReviewCreate, ReviewUpdate
 from app.services import audit
 
 
@@ -24,6 +26,12 @@ async def create_review(
     if appointment.status != AppointmentStatus.COMPLETED:
         raise InvalidState(
             "Reviews can only be submitted after a completed appointment.", code="ReviewNotEligible"
+        )
+    if appointment.check_in_status != CheckInStatus.CHECKED_IN:
+        # SCRUM-44: the hospital must have confirmed the visit (ERP check-in), not just completion.
+        raise InvalidState(
+            "Reviews need a visit the hospital confirmed you checked in to.",
+            code="ReviewNotEligible",
         )
     if appointment.review is not None:
         raise Conflict("You have already reviewed this appointment.", code="DuplicateReview")
@@ -72,6 +80,20 @@ async def moderate(
     review.moderation_note = note
     await session.flush()
     await review_repo.recompute_doctor_rating(session, review.doctor_id)
+    # The decision closes the queue for this review: PUBLISHED = reports dismissed.
+    resolved = await session.execute(
+        update(ReviewReport)
+        .where(ReviewReport.review_id == review.id, ReviewReport.status == "OPEN")
+        .values(status="RESOLVED", resolution=status, resolved_by=admin.id, resolved_at=utcnow())
+    )
+    audit.record(
+        session,
+        "review.moderated",
+        "review",
+        review.id,
+        actor_id=admin.id,
+        details={"from": old_status, "to": status, "reports_resolved": resolved.rowcount},
+    )
     await session.commit()
     return review
 
@@ -81,6 +103,8 @@ async def delete_review(session: AsyncSession, admin: User, review_id: int) -> N
     if review is None:
         raise NotFound("Review not found.")
     doctor_id = review.doctor_id
+    # Reports of a deleted review have nothing left to decide (and would block the delete).
+    await session.execute(delete(ReviewReport).where(ReviewReport.review_id == review_id))
     await session.delete(review)
     await session.flush()
     await review_repo.recompute_doctor_rating(session, doctor_id)
@@ -137,3 +161,57 @@ async def update_review(
     )
     await session.commit()
     return review
+
+
+async def report_review(
+    session: AsyncSession, reporter: PatientProfile, review_id: int, payload: ReportCreate
+) -> tuple[ReviewReport, bool]:
+    """SCRUM-50. Returns (report, created). A second report of the same review by the same
+    patient while one is open returns the open one instead of piling up duplicates."""
+    review = await review_repo.get(session, review_id)
+    if review is None or review.status != ReviewStatus.PUBLISHED:
+        # Hidden/removed/unknown look the same: nothing about them is revealed.
+        raise NotFound("Review not found.")
+    if payload.reason not in settings.review_report_reasons:
+        raise ValidationFailed("Choose one of the listed reasons.")
+    existing = await session.scalar(
+        select(ReviewReport).where(
+            ReviewReport.review_id == review_id,
+            ReviewReport.reporter_user_id == reporter.user_id,
+            ReviewReport.status == "OPEN",
+        )
+    )
+    if existing is not None:
+        return existing, False
+    report = ReviewReport(
+        review_id=review_id,
+        reporter_user_id=reporter.user_id,
+        reason=payload.reason,
+        details=payload.details or None,
+        status="OPEN",
+    )
+    session.add(report)
+    try:
+        await session.flush()
+    except IntegrityError:  # a concurrent duplicate: return the one that won
+        await session.rollback()
+        existing = await session.scalar(
+            select(ReviewReport).where(
+                ReviewReport.review_id == review_id,
+                ReviewReport.reporter_user_id == reporter.user_id,
+                ReviewReport.status == "OPEN",
+            )
+        )
+        if existing is None:
+            raise
+        return existing, False
+    audit.record(
+        session,
+        "review.reported",
+        "review",
+        review_id,
+        actor_id=reporter.user_id,
+        details={"report_id": report.id, "reason": payload.reason},
+    )
+    await session.commit()
+    return report, True

@@ -1,7 +1,7 @@
 """Public discovery endpoints (FRD 4.3, 4.6). No authentication required."""
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
@@ -22,8 +22,8 @@ from app.schemas.directory import (
     HospitalSummary,
     SpecialtyOut,
 )
-from app.schemas.reviews import ReviewPublic
-from app.services import policies
+from app.schemas.reviews import ReviewPublic, ReviewSummaryOut
+from app.services import policies, review_summary
 from app.services.availability import clinic_tz
 
 router = APIRouter(tags=["directory"])
@@ -135,7 +135,11 @@ async def list_doctors(
     specialty_id: int | None = None,
     available_from: datetime | None = None,
     available_to: datetime | None = None,
+    min_rating: Annotated[float | None, Query(ge=1, le=5)] = None,
+    sort: Literal["name", "rating"] = "name",
 ) -> Page[DoctorSummary]:
+    """SCRUM-48: `min_rating` keeps rated doctors at or above it; `sort=rating` puts the
+    highest rated first. Combine with `available_from`/`available_to` for free slots."""
     items, total = await directory_repo.list_doctors(
         session,
         q=q,
@@ -144,6 +148,8 @@ async def list_doctors(
         specialty_id=specialty_id,
         available_from=_as_clinic_time(available_from),
         available_to=_as_clinic_time(available_to),
+        min_rating=min_rating,
+        sort=sort,
         page=paging.page,
         page_size=paging.page_size,
     )
@@ -202,3 +208,21 @@ async def list_doctor_reviews(
         page=paging.page,
         page_size=paging.page_size,
     )
+
+
+@router.get(
+    "/doctors/{doctor_id}/review-summary",
+    response_model=ReviewSummaryOut,
+    operation_id="getDoctorReviewSummary",
+    tags=["reviews"],
+    responses=error_responses(404),
+    description=(
+        "AI summary of the doctor's published reviews; every point cites the review ids it "
+        "comes from. Made again only when the set of published reviews changes."
+    ),
+)
+async def get_doctor_review_summary(doctor_id: int, session: SessionDep) -> ReviewSummaryOut:
+    doctor = await directory_repo.get_doctor(session, doctor_id)
+    if doctor is None or not policies.doctor_is_published(doctor):
+        raise NotFound("Doctor not found.")
+    return await review_summary.get_summary(session, doctor_id)

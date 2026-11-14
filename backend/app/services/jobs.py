@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.db import SessionLocal
 from app.core.redis import redis_client
 from app.integrations.erp.base import ErpAdapter
-from app.services import erp_sync, payments
+from app.services import erp_sync, payments, search_index
 
 logger = structlog.get_logger(__name__)
 
@@ -72,5 +72,10 @@ def start_background_jobs(app: FastAPI) -> list[asyncio.Task[None]]:
         ),
         asyncio.create_task(
             _run_periodic("payments", settings.sepay_poll_seconds, lambda s: _payments_job(s, erp))
+        ),
+        asyncio.create_task(
+            _run_periodic(
+                "search-index", settings.search_index_interval_seconds, search_index.sync_index
+            )
         ),
     ]

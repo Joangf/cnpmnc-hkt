@@ -16,6 +16,7 @@ from typing import NotRequired, TypedDict
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.core.config import settings
 from app.core.db import SessionLocal, engine
@@ -30,6 +31,7 @@ from app.models import (
     Hospital,
     PatientProfile,
     Payment,
+    Review,
     Specialty,
     Symptom,
     SymptomSpecialtyRule,
@@ -41,10 +43,12 @@ from app.models.enums import (
     CheckInStatus,
     FacilityType,
     PaymentStatus,
+    ReviewStatus,
     SchedulingMode,
     StatusSource,
     UserRole,
 )
+from app.repositories import reviews as review_repo
 from app.services.availability import clinic_tz
 
 SPECIALTIES = [
@@ -138,6 +142,108 @@ GIVEN_NAMES = [
     "Hai Yen",
 ]
 
+# Each doctor's main focus, by specialty (fictional; bilingual so Vietnamese searches match).
+# The n-th doctor of a department gets the n-th entry.
+DOCTOR_FOCUS: dict[str, list[str]] = {
+    "General Internal Medicine": [
+        "fever, fatigue and general check-ups (sốt, mệt mỏi, khám tổng quát)",
+        "high blood pressure and diabetes follow-up (huyết áp cao, tiểu đường)",
+        "unexplained weight loss and long-lasting tiredness (sụt cân, mệt mỏi kéo dài)",
+    ],
+    "Respiratory Medicine": [
+        "asthma and chronic cough (hen suyễn, ho kéo dài)",
+        "shortness of breath and COPD (khó thở, phổi tắc nghẽn mạn tính)",
+        "lung infections and pneumonia follow-up (viêm phổi, nhiễm trùng hô hấp)",
+    ],
+    "Cardiology": [
+        "chest pain and coronary artery disease (đau ngực, bệnh mạch vành)",
+        "palpitations and heart rhythm disorders (hồi hộp, rối loạn nhịp tim)",
+        "heart failure and high blood pressure (suy tim, tăng huyết áp)",
+    ],
+    "Gastroenterology": [
+        "acid reflux, heartburn and stomach pain (trào ngược, ợ nóng, đau dạ dày)",
+        "diarrhoea, bloating and irritable bowel (tiêu chảy, đầy bụng, đại tràng kích thích)",
+        "endoscopy and liver disease (nội soi tiêu hoá, bệnh gan)",
+    ],
+    "Dermatology": [
+        "acne and skin care for teenagers (mụn trứng cá, chăm sóc da)",
+        "rashes, hives and eczema (phát ban, mề đay, chàm, ngứa da)",
+        "hair loss and nail problems (rụng tóc, bệnh móng)",
+    ],
+    "Ophthalmology": [
+        "blurred vision and glasses prescriptions (mờ mắt, cận thị, đo kính)",
+        "red, painful or irritated eyes (đau mắt đỏ, viêm kết mạc)",
+        "cataract and glaucoma (đục thuỷ tinh thể, tăng nhãn áp)",
+    ],
+    "Orthopedics": [
+        "knee and joint pain, sports injuries (đau khớp gối, chấn thương thể thao)",
+        "back and neck pain, spine problems (đau lưng, đau cổ, cột sống)",
+        "fractures and bone health (gãy xương, loãng xương)",
+    ],
+    "Rheumatology": [
+        "rheumatoid arthritis and morning joint stiffness (viêm khớp dạng thấp, cứng khớp)",
+        "gout and swollen joints (bệnh gút, sưng khớp)",
+        "lupus and other autoimmune conditions (lupus, bệnh tự miễn)",
+    ],
+    "Otorhinolaryngology (ENT)": [
+        "sore throat and tonsillitis (đau họng, viêm amidan)",
+        "ear pain, ear infections and hearing (đau tai, viêm tai, nghe kém)",
+        "sinusitis and blocked nose (viêm xoang, nghẹt mũi)",
+    ],
+    "Neurology": [
+        "headache and migraine (đau đầu, đau nửa đầu)",
+        "stroke prevention and numbness (phòng đột quỵ, tê yếu tay chân)",
+        "dizziness, sleep problems and memory (chóng mặt, mất ngủ, trí nhớ)",
+    ],
+    "Pediatrics": [
+        "fever and common infections in children (trẻ sốt, nhiễm trùng thường gặp)",
+        "child growth, nutrition and vaccination (dinh dưỡng, tiêm chủng cho trẻ)",
+        "coughs, colds and asthma in children (trẻ ho, cảm lạnh, hen ở trẻ)",
+    ],
+}
+_OLD_INTRO_END = "focused on clear explanations and shared decisions."
+
+
+def doctor_introduction(specialty: str, hospital: str, position: int) -> str:
+    focus = DOCTOR_FOCUS.get(specialty) or ["general consultations"]
+    return (
+        f"Fictional {specialty.lower()} specialist at {hospital}. "
+        f"Main focus: {focus[position % len(focus)]}."
+    )
+
+
+# Fictional demo reviews: (specialty of the doctor, [(rating, comment)]) - for the AI summary.
+DEMO_REVIEWS: list[tuple[str, list[tuple[int, str]]]] = [
+    (
+        "Cardiology",
+        [
+            (5, "Bác sĩ giải thích rất kỹ kết quả điện tim, dễ hiểu."),
+            (5, "Rất tận tâm, hỏi kỹ tiền sử và dặn dò cẩn thận."),
+            (3, "Bác sĩ giỏi nhưng phải chờ gần 1 tiếng mới được khám."),
+            (4, "Khám kỹ, nhưng phòng chờ hơi đông."),
+            (2, "Chờ quá lâu, khám hơi vội vì đông bệnh nhân."),
+        ],
+    ),
+    (
+        "Dermatology",
+        [
+            (5, "Trị mụn rất hiệu quả, sau 1 tháng da đỡ hẳn."),
+            (4, "Bác sĩ nhẹ nhàng, tư vấn chăm sóc da chi tiết."),
+            (5, "Kê thuốc vừa đủ, không lạm dụng thuốc mạnh."),
+            (3, "Hiệu quả nhưng chi phí thuốc hơi cao."),
+        ],
+    ),
+    (
+        "Respiratory Medicine",
+        [
+            (5, "Very patient, explained my asthma inhaler step by step."),
+            (4, "Good doctor, the follow-up plan for my cough was clear."),
+            (2, "The appointment started 40 minutes late."),
+            (5, "Kind and thorough, answered all my questions."),
+        ],
+    ),
+]
+
 # (name, description, duration, buffer, fee_override, specialty name or None)
 APPOINTMENT_TYPES: list[tuple[str, str, int, int, Decimal | None, str | None]] = [
     ("General Consultation", "Standard consultation fee.", 60, 0, Decimal("2000"), None),
@@ -151,67 +257,129 @@ MIN_SLOT_CAPACITY, MAX_SLOT_CAPACITY = 1, 3  # patients per hourly slot (random 
 SYMPTOMS: list[tuple[str, str, list[tuple[str, float]], str | None]] = [
     (
         "Persistent cough",
-        "cough,coughing",
+        "cough,coughing,ho,ho khan,ho có đờm,ho kéo dài,ho dai dẳng",
         [("Respiratory Medicine", 1.0), ("General Internal Medicine", 0.3)],
         None,
     ),
     (
         "Shortness of breath",
-        "breathless,short of breath,difficulty breathing",
+        "breathless,short of breath,difficulty breathing,"
+        "khó thở,hụt hơi,thở gấp,thở dốc,hơi thở ngắn",
         [("Respiratory Medicine", 1.0), ("Cardiology", 0.6)],
         "Severe or sudden difficulty breathing needs urgent medical attention.",
     ),
     (
         "Chest pain",
-        "chest tightness,chest pressure",
+        "chest tightness,chest pressure,đau ngực,tức ngực,nặng ngực,đau thắt ngực",
         [("Cardiology", 1.0), ("General Internal Medicine", 0.3)],
         "Chest pain can be a sign of a serious heart problem.",
     ),
-    ("Palpitations", "racing heart,irregular heartbeat", [("Cardiology", 1.0)], None),
-    ("Skin rash", "rash,hives", [("Dermatology", 1.0)], None),
-    ("Itching", "itchy,itch", [("Dermatology", 0.8)], None),
-    ("Acne", "pimples,breakouts", [("Dermatology", 1.0)], None),
+    (
+        "Palpitations",
+        "racing heart,irregular heartbeat,hồi hộp,tim đập nhanh,đánh trống ngực,tim đập không đều",
+        [("Cardiology", 1.0)],
+        None,
+    ),
+    (
+        "Skin rash",
+        "rash,hives,phát ban,nổi mẩn,nổi mề đay,mẩn đỏ,nổi mụn nước",
+        [("Dermatology", 1.0)],
+        None,
+    ),
+    ("Itching", "itchy,itch,ngứa,ngứa ngáy,ngứa da", [("Dermatology", 0.8)], None),
+    ("Acne", "pimples,breakouts,mụn,mụn trứng cá,nổi mụn", [("Dermatology", 1.0)], None),
     (
         "Joint pain",
-        "knee pain,arthritis,painful joints",
+        "knee pain,arthritis,painful joints,đau khớp,đau khớp gối,đau đầu gối,viêm khớp,nhức khớp",
         [("Orthopedics", 0.8), ("Rheumatology", 0.8)],
         None,
     ),
-    ("Morning joint stiffness", "stiff joints", [("Rheumatology", 1.0)], None),
-    ("Back pain", "lower back pain,backache", [("Orthopedics", 1.0)], None),
-    ("Eye discomfort", "eye pain,red eye,eye irritation", [("Ophthalmology", 1.0)], None),
-    ("Blurred vision", "blurry vision,blurred", [("Ophthalmology", 1.0)], None),
+    (
+        "Morning joint stiffness",
+        "stiff joints,cứng khớp buổi sáng,cứng khớp",
+        [("Rheumatology", 1.0)],
+        None,
+    ),
+    (
+        "Back pain",
+        "lower back pain,backache,đau lưng,đau thắt lưng,mỏi lưng",
+        [("Orthopedics", 1.0)],
+        None,
+    ),
+    (
+        "Eye discomfort",
+        "eye pain,red eye,eye irritation,đau mắt,đỏ mắt,cộm mắt,ngứa mắt,khó chịu ở mắt",
+        [("Ophthalmology", 1.0)],
+        None,
+    ),
+    (
+        "Blurred vision",
+        "blurry vision,blurred,mờ mắt,mắt mờ,nhìn mờ,nhìn không rõ",
+        [("Ophthalmology", 1.0)],
+        None,
+    ),
     (
         "Sudden loss of vision",
-        "vision loss,cannot see",
+        "vision loss,cannot see,mất thị lực đột ngột,đột nhiên không nhìn thấy,mù đột ngột",
         [("Ophthalmology", 1.0), ("Neurology", 0.6)],
         "Sudden loss of vision is a medical emergency.",
     ),
     (
         "Stomach pain",
-        "abdominal pain,stomach ache,stomachache",
+        "abdominal pain,stomach ache,stomachache,đau bụng,đau dạ dày,đau bao tử,đau thượng vị",
         [("Gastroenterology", 1.0), ("General Internal Medicine", 0.3)],
         None,
     ),
-    ("Heartburn", "acid reflux,indigestion", [("Gastroenterology", 1.0)], None),
-    ("Diarrhea", "loose stools", [("Gastroenterology", 1.0)], None),
+    (
+        "Heartburn",
+        "acid reflux,indigestion,ợ nóng,ợ chua,trào ngược dạ dày,khó tiêu,đầy bụng,chướng bụng",
+        [("Gastroenterology", 1.0)],
+        None,
+    ),
+    (
+        "Diarrhea",
+        "loose stools,tiêu chảy,đi ngoài,phân lỏng,đi cầu nhiều lần",
+        [("Gastroenterology", 1.0)],
+        None,
+    ),
     (
         "Sore throat",
-        "throat pain",
+        "throat pain,đau họng,viêm họng,rát họng",
         [("Otorhinolaryngology (ENT)", 1.0), ("General Internal Medicine", 0.3)],
         None,
     ),
-    ("Ear pain", "earache", [("Otorhinolaryngology (ENT)", 1.0)], None),
-    ("Headache", "migraine", [("Neurology", 0.8), ("General Internal Medicine", 0.5)], None),
+    ("Ear pain", "earache,đau tai,nhức tai,ù tai", [("Otorhinolaryngology (ENT)", 1.0)], None),
+    (
+        "Headache",
+        "migraine,đau đầu,nhức đầu,đau nửa đầu,choáng đầu",
+        [("Neurology", 0.8), ("General Internal Medicine", 0.5)],
+        None,
+    ),
     (
         "Sudden weakness or numbness on one side",
-        "numbness,slurred speech,facial drooping",
+        "numbness,slurred speech,facial drooping,"
+        "yếu nửa người,tê nửa người,méo miệng,nói ngọng đột ngột,đột quỵ",
         [("Neurology", 1.0)],
         "Sudden one-sided weakness, numbness or difficulty speaking can be signs of a stroke.",
     ),
-    ("Fever", "high temperature", [("General Internal Medicine", 1.0), ("Pediatrics", 0.3)], None),
-    ("Fever in a child", "child fever,baby fever", [("Pediatrics", 1.0)], None),
-    ("Fatigue", "tired,tiredness,exhaustion", [("General Internal Medicine", 1.0)], None),
+    (
+        "Fever",
+        "high temperature,sốt,sốt cao,nóng sốt,ớn lạnh",
+        [("General Internal Medicine", 1.0), ("Pediatrics", 0.3)],
+        None,
+    ),
+    (
+        "Fever in a child",
+        "child fever,baby fever,trẻ bị sốt,bé bị sốt,con bị sốt,sốt ở trẻ em",
+        [("Pediatrics", 1.0)],
+        None,
+    ),
+    (
+        "Fatigue",
+        "tired,tiredness,exhaustion,mệt mỏi,uể oải,kiệt sức,mệt",
+        [("General Internal Medicine", 1.0)],
+        None,
+    ),
 ]
 
 
@@ -230,6 +398,7 @@ async def _seed_directory(session: AsyncSession) -> None:
             print("backfilled hospital avatars and descriptions")
         else:
             print("directory already seeded")
+        await _backfill_doctor_focus(session)
         return
 
     specialties = {name: Specialty(name=name, description=desc) for name, desc in SPECIALTIES}
@@ -270,7 +439,7 @@ async def _seed_directory(session: AsyncSession) -> None:
                 )
                 else 2
             )
-            for _ in range(doctor_count):
+            for position in range(doctor_count):
                 index += 1
                 family = FAMILY_NAMES[index % len(FAMILY_NAMES)]
                 given = GIVEN_NAMES[(index * 3) % len(GIVEN_NAMES)]
@@ -285,10 +454,7 @@ async def _seed_directory(session: AsyncSession) -> None:
                             f"Doctor of Medicine; specialist training in {specialty_name}."
                         ),
                         experience_years=5 + (index * 7) % 20,
-                        introduction=(
-                            f"Fictional {specialty_name.lower()} specialist at {hospital.name}, "
-                            "focused on clear explanations and shared decisions."
-                        ),
+                        introduction=doctor_introduction(specialty_name, hospital.name, position),
                         erp_doctor_id=f"ERP-D{index:04d}",
                         scheduling_mode=SchedulingMode.MANUAL,
                     )
@@ -326,6 +492,98 @@ async def _seed_directory(session: AsyncSession) -> None:
 
     await session.commit()
     print(f"seeded {len(SPECIALTIES)} specialties, {len(HOSPITALS)} facilities, {index} doctors")
+
+
+async def _backfill_doctor_focus(session: AsyncSession) -> None:
+    """Older seeds gave every doctor the same introduction; give each a main focus."""
+    doctors = (
+        (
+            await session.scalars(
+                select(Doctor)
+                .where(Doctor.introduction.like(f"%{_OLD_INTRO_END}"))
+                .options(
+                    joinedload(Doctor.hospital),
+                    joinedload(Doctor.department).joinedload(Department.specialty),
+                )
+                .order_by(Doctor.department_id, Doctor.id)
+            )
+        )
+        .unique()
+        .all()
+    )
+    positions: dict[int, int] = {}
+    for doctor in doctors:
+        position = positions.get(doctor.department_id, 0)
+        positions[doctor.department_id] = position + 1
+        doctor.introduction = doctor_introduction(
+            doctor.department.specialty.name, doctor.hospital.name, position
+        )
+    if doctors:
+        await session.commit()
+        print(f"backfilled the main focus of {len(doctors)} doctors")
+
+
+async def _seed_demo_reviews(session: AsyncSession, patient_id: int) -> None:
+    """Completed past visits with fictional reviews, so the AI review summary has material."""
+    if await session.scalar(
+        select(func.count(Appointment.id)).where(Appointment.erp_booking_id.like("ERP-DEMO-R%"))
+    ):
+        return
+    appointment_type = await session.scalar(
+        select(AppointmentType)
+        .where(AppointmentType.specialty_id.is_(None))
+        .order_by(AppointmentType.id)
+    )
+    if appointment_type is None:
+        return
+    count = 0
+    for specialty_name, reviews in DEMO_REVIEWS:
+        doctor = await session.scalar(
+            select(Doctor)
+            .join(Department, Department.id == Doctor.department_id)
+            .join(Specialty, Specialty.id == Department.specialty_id)
+            .where(Specialty.name == specialty_name, Doctor.is_active.is_(True))
+            .order_by(Doctor.id)
+            .limit(1)
+        )
+        if doctor is None:
+            continue
+        for days_ago, (rating, comment) in enumerate(reviews, start=10):
+            count += 1
+            day = (datetime.now(clinic_tz()) - timedelta(days=days_ago)).date()
+            start = datetime.combine(day, time(10, 0), tzinfo=clinic_tz()).astimezone(UTC)
+            end = start + timedelta(minutes=appointment_type.duration_minutes)
+            appointment = Appointment(
+                booking_reference=generate_booking_reference(),
+                patient_id=patient_id,
+                doctor_id=doctor.id,
+                appointment_type_id=appointment_type.id,
+                start_time=start,
+                end_time=end,
+                end_with_buffer=end,
+                status=AppointmentStatus.COMPLETED,
+                check_in_status=CheckInStatus.CHECKED_IN,
+                reason_for_visit="Demo appointment",
+                fee_amount=appointment_type.fee_override or Decimal("200000"),
+                currency=settings.currency,
+                erp_booking_id=f"ERP-DEMO-R{count:03d}",
+            )
+            session.add(appointment)
+            await session.flush()
+            session.add(
+                Review(
+                    appointment_id=appointment.id,
+                    patient_id=patient_id,
+                    doctor_id=doctor.id,
+                    rating=rating,
+                    comment=comment,
+                    status=ReviewStatus.PUBLISHED,
+                )
+            )
+        await session.flush()
+        await review_repo.recompute_doctor_rating(session, doctor.id)
+    await session.commit()
+    print(f"seeded {count} demo reviews")
 
 
 async def _ensure_user(
@@ -719,6 +977,7 @@ async def main(loadtest_users: int) -> None:
         if profile_id:
             await _seed_demo_history(session, profile_id)
             await _seed_refund_test_appointments(session, profile_id)
+            await _seed_demo_reviews(session, profile_id)
         if loadtest_users:
             await _seed_loadtest_users(session, loadtest_users)
     await engine.dispose()

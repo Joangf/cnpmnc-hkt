@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     admin,
     admin_slots,
+    admin_symptoms,
     appointments,
     auth,
     availability,
@@ -31,5 +32,6 @@ for module in (
     integrations,
     admin,
     admin_slots,
+    admin_symptoms,
 ):
     api_router.include_router(module.router)
