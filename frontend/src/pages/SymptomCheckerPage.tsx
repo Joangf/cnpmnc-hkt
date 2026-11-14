@@ -8,9 +8,9 @@ import { EMERGENCY_NUMBER, ErrorAlert, Field, FilterChip, Notice, Spinner, Stars
 
 // Plain-language steps (design board 03: one task per step, progress shown).
 const HOW_IT_WORKS = [
-  { title: 'Tell us how you feel', text: 'Describe it in your own words, in English or Vietnamese, or pick from the list.' },
-  { title: 'Check what we understood', text: 'We show the symptoms we found. Remove anything wrong, add anything missing.' },
-  { title: 'See who can help', text: 'We suggest specialties from clinician-reviewed rules, then doctors you can book.' },
+  { title: 'Describe how you feel', text: 'Optionally describe your symptoms in English or Vietnamese, then choose “Find my symptoms”. You can also go straight to the symptom list.' },
+  { title: 'Review or select symptoms', text: 'Remove any incorrect matches or add symptoms from the list. It starts with all symptoms; filter by department or search to narrow it down. Your picks stay when you switch departments.' },
+  { title: 'Get suggestions and choose a doctor', text: 'Choose “Suggest specialties and doctors” to see your results. If symptoms are flagged as severe, read the urgent alert first. Then explore the suggested specialties and doctors.' },
 ]
 
 // Mirrors the warning signs the checker flags as urgent (FR-REC-06), shown before anyone types.
@@ -27,6 +27,7 @@ const DISCLAIMER =
 type Chip = { id: number; name: string; detail?: InterpretedSymptom }
 
 export default function SymptomCheckerPage() {
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1)
   const [text, setText] = useState('')
   const [chips, setChips] = useState<Chip[]>([])
   const [showCatalog, setShowCatalog] = useState(false)
@@ -61,6 +62,7 @@ export default function SymptomCheckerPage() {
   const interpret = useMutation({
     mutationFn: api.symptoms.interpret,
     onSuccess: (data, sentText) => {
+      setActiveStep(2)
       setSevereWarning(data.urgent_warning)
       setInterpretedText(sentText)
       // Detected symptoms replace earlier detections; symptoms picked by hand stay.
@@ -74,7 +76,12 @@ export default function SymptomCheckerPage() {
   })
   const recommend = useMutation({
     mutationFn: api.symptoms.recommend,
-    onSuccess: (data) => setSevereWarning(data.urgent_warning),
+    onMutate: () => setActiveStep(3),
+    onError: () => setActiveStep(2),
+    onSuccess: (data) => {
+      setActiveStep(3)
+      setSevereWarning(data.urgent_warning)
+    },
   })
   const labelId = useId()
 
@@ -113,13 +120,14 @@ export default function SymptomCheckerPage() {
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="min-w-0 space-y-8 lg:col-span-2">
           <section className="card space-y-6">
-            <Field label="1. Describe how you feel" hint="e.g. “dạo này tôi hay tức ngực, khó thở” or “itchy rash on my arms”">
+            <Field label="1. Describe how you feel" hint="Optional — e.g. “dạo này tôi hay tức ngực, khó thở” or “itchy rash on my arms”. You can also select symptoms from the list below.">
               <textarea
                 className="input"
                 rows={3}
                 maxLength={500}
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onFocus={() => setActiveStep(1)}
+                onChange={(e) => { setActiveStep(1); setText(e.target.value) }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && text.trim().length >= 2) interpret.mutate(text.trim())
                 }}
@@ -149,10 +157,10 @@ export default function SymptomCheckerPage() {
               <p className="caption">AI search is unavailable right now, so we matched your words exactly.</p>
             )}
 
-            <div>
+            <div onFocusCapture={() => setActiveStep(2)} onClickCapture={() => setActiveStep(2)}>
               <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-2">
                 <p id={labelId} className="label">
-                  2. Check the symptoms we'll use
+                  2. Review or select symptoms
                 </p>
                 {chips.length > 0 && (
                   <p className="caption flex items-center" aria-live="polite">
@@ -299,17 +307,22 @@ export default function SymptomCheckerPage() {
             <h2 className="section-title mb-5">How it works</h2>
             <ol className="space-y-5">
               {HOW_IT_WORKS.map((step, i) => (
-                <li key={step.title} className="flex gap-4">
+                <li
+                  key={step.title}
+                  aria-current={activeStep === i + 1 ? 'step' : undefined}
+                  className={`flex gap-4 rounded-lg p-3 ${activeStep === i + 1 ? 'bg-blush' : ''}`}
+                >
                   <span
                     aria-hidden="true"
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold ${
-                      i === 0 ? 'bg-berry text-on-accent' : 'bg-blush text-berry'
+                      activeStep === i + 1 ? 'bg-berry text-on-accent' : 'bg-blush text-berry'
                     }`}
                   >
                     {i + 1}
                   </span>
                   <div>
-                    <p className="font-semibold">{step.title}</p>
+                    <p className={`font-semibold ${activeStep === i + 1 ? 'text-berry' : ''}`}>{step.title}</p>
+                    {activeStep === i + 1 && <span className="caption font-semibold text-berry">Current step</span>}
                     <p className="caption mt-1">{step.text}</p>
                   </div>
                 </li>

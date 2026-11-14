@@ -96,10 +96,7 @@ export default function HomePage() {
             <Link to="/doctors" className="btn-primary shadow-button hover:shadow-button-hover font-semibold px-6 py-3">
               Booking now
             </Link>
-            <Link to="/departments" className="btn-secondary font-semibold px-5 py-3">
-              Browse specialties
-            </Link>
-            <Link to="/symptoms" className="inline-flex items-center gap-1.5 text-sm font-semibold text-berry hover:underline px-3 py-2">
+            <Link to="/symptoms" className="btn-secondary font-semibold px-5 py-3">
               Check symptoms
             </Link>
           </div>
