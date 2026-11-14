@@ -72,7 +72,7 @@ export const api = {
   },
 
   symptoms: {
-    list: () => request<T.Symptom[]>('GET', '/symptoms'),
+    list: (departmentId?: number) => request<T.Symptom[]>('GET', '/symptoms', { query: { department_id: departmentId } }),
     recommend: (body: { symptom_ids: number[]; free_text?: string; context_text?: string; explain?: boolean }) =>
       request<T.Recommendation>('POST', '/symptoms/recommendations', { body }),
     interpret: (text: string) => request<T.Interpretation>('POST', '/symptoms/interpret', { body: { text } }),

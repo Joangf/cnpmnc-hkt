@@ -36,6 +36,7 @@ from app.models import (
     Department,
     Doctor,
     DoctorSchedule,
+    DoctorSlot,
     Hospital,
     Notification,
     PatientProfile,
@@ -100,6 +101,12 @@ class StubErp:
     def __init__(self) -> None:
         self.down = False
         self.cancelled: list[str] = []
+
+    async def get_booking(self, booking_reference):
+        return None
+
+    async def get_catalog(self):
+        return {"slots": []}
 
     async def cancel_booking(self, erp_booking_id: str, reason: str | None) -> None:
         if self.down:
@@ -268,7 +275,17 @@ async def make_appointment(
                 DoctorSlot.doctor_id == ctx.ids.doctor, DoctorSlot.start_time == start
             )
         )
+        shared_slot = await session.scalar(select(DoctorSlot).where(
+            DoctorSlot.doctor_id == ctx.ids.doctor, DoctorSlot.start_time == start))
+        if shared_slot is None:
+            shared_slot = DoctorSlot(doctor_id=ctx.ids.doctor, erp_id=f"payment-slot-{uuid.uuid4().hex}",
+                start_time=start, end_time=start+timedelta(minutes=20),
+                end_with_buffer=start+timedelta(minutes=30), buffer_minutes=10,
+                capacity=1, is_open=True, version=1)
+            session.add(shared_slot)
+            await session.flush()
         appointment = Appointment(
+            slot_id=shared_slot.id,
             booking_reference=generate_booking_reference(),
             patient_id=ctx.ids.patient,
             doctor_id=ctx.ids.doctor,

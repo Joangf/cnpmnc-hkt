@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from sqlalchemy import select
 
 from app.api.deps import RedisDep, SessionDep, client_ip
 from app.core.config import settings
 from app.core.errors import TooManyRequests, ValidationFailed
-from app.models import Symptom
+from app.models import Department, Hospital, Specialty, Symptom, SymptomSpecialtyRule
+from app.models.enums import DepartmentVisibility
 from app.schemas.common import error_responses
 from app.schemas.symptoms import (
     InterpretRequest,
@@ -29,10 +30,28 @@ async def _rate_limit(redis: RedisDep, request: Request, bucket: str) -> None:
 
 
 @router.get("", response_model=list[SymptomOut], operation_id="listSymptoms")
-async def list_symptoms(session: SessionDep) -> list[SymptomOut]:
-    rows = await session.scalars(
-        select(Symptom).where(Symptom.is_active.is_(True)).order_by(Symptom.name)
-    )
+async def list_symptoms(
+    session: SessionDep, department_id: int | None = Query(default=None, gt=0)
+) -> list[SymptomOut]:
+    stmt = select(Symptom).where(Symptom.is_active.is_(True)).order_by(Symptom.name)
+    if department_id is not None:
+        # Reuse the clinician-managed specialty rules; a symptom can appear in multiple departments.
+        mapped = (
+            select(SymptomSpecialtyRule.symptom_id)
+            .join(Department, Department.specialty_id == SymptomSpecialtyRule.specialty_id)
+            .join(Hospital, Hospital.id == Department.hospital_id)
+            .join(Specialty, Specialty.id == Department.specialty_id)
+            .where(
+                Department.id == department_id,
+                Department.is_active.is_(True),
+                Department.visibility == DepartmentVisibility.PUBLIC,
+                Hospital.is_active.is_(True),
+                Specialty.is_active.is_(True),
+                SymptomSpecialtyRule.is_active.is_(True),
+            )
+        )
+        stmt = stmt.where(Symptom.id.in_(mapped))
+    rows = await session.scalars(stmt)
     return [SymptomOut.model_validate(s) for s in rows.all()]
 
 
