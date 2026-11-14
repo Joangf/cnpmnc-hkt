@@ -60,7 +60,7 @@ def start_background_jobs(app: FastAPI) -> list[asyncio.Task[None]]:
             _run_periodic(
                 "schedule-sync",
                 settings.schedule_sync_interval_seconds,
-                lambda s: erp_sync.sync_schedules(s, erp, redis_client),
+                lambda s: erp_sync.sync_schedules(s, erp),
             )
         ),
         asyncio.create_task(

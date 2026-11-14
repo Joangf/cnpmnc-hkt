@@ -139,8 +139,6 @@ export const api = {
       request<T.AdminRefund>('POST', `/admin/refunds/${paymentId}/complete`, { body: { note } }),
     rejectRefund: (paymentId: number, reason: string) =>
       request<T.AdminRefund>('POST', `/admin/refunds/${paymentId}/reject`, { body: { reason } }),
-    syncSchedules: () =>
-      request<{ doctors_synced: number; success: boolean }>('POST', '/admin/integrations/erp/sync-schedules'),
 
     // Directory management: list / create / update for each entity.
     list: <R>(entity: AdminEntity) => request<R[]>('GET', `/admin/${entity}`),
