@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/endpoints'
 import type { DoctorRecommendation, InterpretedSymptom, Recommendation } from '../api/types'
@@ -8,9 +8,9 @@ import { EMERGENCY_NUMBER, ErrorAlert, Field, FilterChip, Notice, Spinner, Stars
 
 // Plain-language steps (design board 03: one task per step, progress shown).
 const HOW_IT_WORKS = [
-  { title: 'Tell us how you feel', text: 'Describe it in your own words, in English or Vietnamese, or pick from the list.' },
-  { title: 'Check what we understood', text: 'We show the symptoms we found. Remove anything wrong, add anything missing.' },
-  { title: 'See who can help', text: 'We suggest specialties from clinician-reviewed rules, then doctors you can book.' },
+  { title: 'Describe how you feel', text: 'Optionally describe your symptoms in English or Vietnamese, then choose “Find my symptoms”. You can also go straight to the symptom list.' },
+  { title: 'Review or select symptoms', text: 'Remove any incorrect matches or add symptoms from the list. It starts with all symptoms; filter by department or search to narrow it down. Your picks stay when you switch departments.' },
+  { title: 'Get suggestions and choose a doctor', text: 'Choose “Suggest specialties and doctors” to see your results. If symptoms are flagged as severe, read the urgent alert first. Then explore the suggested specialties and doctors.' },
 ]
 
 // Mirrors the warning signs the checker flags as urgent (FR-REC-06), shown before anyone types.
@@ -27,14 +27,43 @@ const DISCLAIMER =
 type Chip = { id: number; name: string; detail?: InterpretedSymptom }
 
 export default function SymptomCheckerPage() {
-  const symptoms = useQuery({ queryKey: ['symptoms'], queryFn: api.symptoms.list })
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1)
   const [text, setText] = useState('')
   const [chips, setChips] = useState<Chip[]>([])
   const [showCatalog, setShowCatalog] = useState(false)
+  const [departmentId, setDepartmentId] = useState('all')
+  const [symptomSearch, setSymptomSearch] = useState('')
+  const departments = useQuery({
+    queryKey: ['symptom-picker-departments'],
+    enabled: showCatalog,
+    queryFn: async () => {
+      const first = await api.directory.departments({ page: 1, page_size: 100 })
+      const items = [...first.items]
+      for (let page = 2; items.length < first.total; page++) {
+        const next = await api.directory.departments({ page, page_size: 100 })
+        items.push(...next.items)
+        if (next.items.length === 0) break
+      }
+      return items
+    },
+  })
+  const symptoms = useQuery({
+    queryKey: ['symptoms', departmentId],
+    queryFn: () => api.symptoms.list(departmentId === 'all' ? undefined : Number(departmentId)),
+    enabled: showCatalog && departmentId !== '',
+  })
+  const visibleSymptoms = symptoms.data?.filter((symptom) =>
+    symptom.name.toLocaleLowerCase().includes(symptomSearch.trim().toLocaleLowerCase()),
+  )
+
+  const resultsRef = useRef<HTMLDivElement>(null)
+  const [severeWarning, setSevereWarning] = useState<string | null>(null)
   const [interpretedText, setInterpretedText] = useState<string | null>(null)
   const interpret = useMutation({
     mutationFn: api.symptoms.interpret,
     onSuccess: (data, sentText) => {
+      setActiveStep(2)
+      setSevereWarning(data.urgent_warning)
       setInterpretedText(sentText)
       // Detected symptoms replace earlier detections; symptoms picked by hand stay.
       setChips((prev) => {
@@ -45,7 +74,15 @@ export default function SymptomCheckerPage() {
       recommend.reset()
     },
   })
-  const recommend = useMutation({ mutationFn: api.symptoms.recommend })
+  const recommend = useMutation({
+    mutationFn: api.symptoms.recommend,
+    onMutate: () => setActiveStep(3),
+    onError: () => setActiveStep(2),
+    onSuccess: (data) => {
+      setActiveStep(3)
+      setSevereWarning(data.urgent_warning)
+    },
+  })
   const labelId = useId()
 
   const selectedIds = chips.map((c) => c.id)
@@ -60,8 +97,20 @@ export default function SymptomCheckerPage() {
   const result = recommend.data
   const urgent = result?.urgent_warning ?? interpret.data?.urgent_warning ?? null
 
+  useEffect(() => {
+    // Let the urgent alert take priority; reveal suggestions once it is dismissed.
+    if (!result || severeWarning) return
+    const results = resultsRef.current
+    results?.focus({ preventScroll: true })
+    results?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    })
+  }, [result, severeWarning])
+
   return (
     <div className="space-y-8">
+      {severeWarning && <SevereSymptomAlert message={severeWarning} onDismiss={() => setSevereWarning(null)} />}
       <div className="space-y-5">
         <h1 className="page-title">Symptom checker</h1>
         {/* FR-REC-05 / BR-10 */}
@@ -71,13 +120,14 @@ export default function SymptomCheckerPage() {
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="min-w-0 space-y-8 lg:col-span-2">
           <section className="card space-y-6">
-            <Field label="1. Describe how you feel" hint="e.g. “dạo này tôi hay tức ngực, khó thở” or “itchy rash on my arms”">
+            <Field label="1. Describe how you feel" hint="Optional — e.g. “dạo này tôi hay tức ngực, khó thở” or “itchy rash on my arms”. You can also select symptoms from the list below.">
               <textarea
                 className="input"
                 rows={3}
                 maxLength={500}
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onFocus={() => setActiveStep(1)}
+                onChange={(e) => { setActiveStep(1); setText(e.target.value) }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && text.trim().length >= 2) interpret.mutate(text.trim())
                 }}
@@ -107,10 +157,10 @@ export default function SymptomCheckerPage() {
               <p className="caption">AI search is unavailable right now, so we matched your words exactly.</p>
             )}
 
-            <div>
+            <div onFocusCapture={() => setActiveStep(2)} onClickCapture={() => setActiveStep(2)}>
               <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-2">
                 <p id={labelId} className="label">
-                  2. Check the symptoms we'll use
+                  2. Review or select symptoms
                 </p>
                 {chips.length > 0 && (
                   <p className="caption flex items-center" aria-live="polite">
@@ -149,21 +199,64 @@ export default function SymptomCheckerPage() {
                   ))}
                 </ul>
               )}
-              <button type="button" className="link mt-3 inline-flex min-h-12 items-center" onClick={() => setShowCatalog((v) => !v)}>
+              <button type="button" className="link mt-3 inline-flex min-h-12 items-center" aria-expanded={showCatalog} aria-controls="symptom-catalog" onClick={() => setShowCatalog((v) => !v)}>
                 {showCatalog ? 'Hide the symptom list' : 'Add from the symptom list'}
               </button>
               {showCatalog && (
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {symptoms.isLoading && <Spinner />}
-                  {symptoms.data?.map((s) => (
-                    <FilterChip key={s.id} pressed={selectedIds.includes(s.id)} onClick={() => toggleCatalog(s.id, s.name)}>
-                      {s.name}
-                    </FilterChip>
-                  ))}
+                <div id="symptom-catalog" className="mt-2 space-y-4">
+                  <Field label="Choose a department" hint="Pick symptoms from one or more departments. Your selections stay when you switch.">
+                    <select
+                      className="input"
+                      value={departmentId}
+                      onChange={(event) => {
+                        setDepartmentId(event.target.value)
+                        setSymptomSearch('')
+                      }}
+                    >
+                      <option value="all">All symptoms</option>
+                      {departments.data?.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.name} · {department.hospital.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {departments.isLoading && <Spinner />}
+                  <ErrorAlert error={departments.error} />
+                  {departments.isError && (
+                    <button type="button" className="link" onClick={() => departments.refetch()}>Retry loading departments</button>
+                  )}
+                  {departmentId && (
+                    <>
+                      <Field label="Search symptoms">
+                        <input className="input" type="search" value={symptomSearch} onChange={(event) => setSymptomSearch(event.target.value)} />
+                      </Field>
+                      {symptoms.isLoading && <Spinner />}
+                      <ErrorAlert error={symptoms.error} />
+                      {symptoms.isError && (
+                        <button type="button" className="link" onClick={() => symptoms.refetch()}>Retry loading symptoms</button>
+                      )}
+                      {symptoms.isSuccess && (
+                        <>
+                          <p className="caption" role="status">
+                            {visibleSymptoms?.length === 0
+                              ? (symptomSearch.trim() ? 'No symptoms match your search.' : 'No symptoms are listed for this department yet. Try another department or browse all symptoms.')
+                              : `${visibleSymptoms?.length} symptoms available`}
+                          </p>
+                          <div className="flex max-h-72 flex-wrap gap-3 overflow-y-auto p-1" role="group" aria-label="Available symptoms">
+                            {visibleSymptoms?.map((symptom) => (
+                              <FilterChip key={symptom.id} pressed={selectedIds.includes(symptom.id)} onClick={() => toggleCatalog(symptom.id, symptom.name)}>
+                                {symptom.name}
+                              </FilterChip>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>
-
             <ErrorAlert error={recommend.error} />
             {/* SCRUM-39: a description alone, selected symptoms alone, or both. */}
             <button
@@ -201,7 +294,11 @@ export default function SymptomCheckerPage() {
             </Notice>
           )}
 
-          {result && <Results result={result} />}
+          {result && (
+            <div ref={resultsRef} tabIndex={-1} role="region" aria-label="Suggested specialties and doctors" className="scroll-mt-40 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-berry">
+              <Results result={result} />
+            </div>
+          )}
 
         </div>
 
@@ -210,17 +307,22 @@ export default function SymptomCheckerPage() {
             <h2 className="section-title mb-5">How it works</h2>
             <ol className="space-y-5">
               {HOW_IT_WORKS.map((step, i) => (
-                <li key={step.title} className="flex gap-4">
+                <li
+                  key={step.title}
+                  aria-current={activeStep === i + 1 ? 'step' : undefined}
+                  className={`flex gap-4 rounded-lg p-3 ${activeStep === i + 1 ? 'bg-blush' : ''}`}
+                >
                   <span
                     aria-hidden="true"
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold ${
-                      i === 0 ? 'bg-berry text-on-accent' : 'bg-blush text-berry'
+                      activeStep === i + 1 ? 'bg-berry text-on-accent' : 'bg-blush text-berry'
                     }`}
                   >
                     {i + 1}
                   </span>
                   <div>
-                    <p className="font-semibold">{step.title}</p>
+                    <p className={`font-semibold ${activeStep === i + 1 ? 'text-berry' : ''}`}>{step.title}</p>
+                    {activeStep === i + 1 && <span className="caption font-semibold text-berry">Current step</span>}
                     <p className="caption mt-1">{step.text}</p>
                   </div>
                 </li>
@@ -258,6 +360,46 @@ export default function SymptomCheckerPage() {
         </aside>
       </div>
     </div>
+  )
+}
+
+function SevereSymptomAlert({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const dismissRef = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
+  const messageId = useId()
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    const previousOverflow = document.body.style.overflow
+    dialog?.showModal()
+    dismissRef.current?.focus()
+    document.body.style.overflow = 'hidden'
+    return () => {
+      dialog?.close()
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
+  return (
+    <dialog
+      ref={dialogRef}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={messageId}
+      onCancel={(event) => { event.preventDefault(); onDismiss() }}
+      className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-lg border border-alert-line bg-surface p-6 text-ink shadow-card backdrop:bg-ink/50"
+    >
+      <h2 id={titleId} className="section-title flex items-center gap-2 text-alert-strong">
+        <IconAlert size={24} /> Seek urgent medical care
+      </h2>
+      <p id={messageId} className="mt-4">{message}</p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <a href={`tel:${EMERGENCY_NUMBER}`} className="btn-danger">Call {EMERGENCY_NUMBER}</a>
+        <button type="button" ref={dismissRef} className="btn-secondary" onClick={onDismiss}>I understand</button>
+      </div>
+    </dialog>
   )
 }
 

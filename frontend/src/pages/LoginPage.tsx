@@ -44,10 +44,10 @@ export default function LoginPage() {
             }
           }}
         >
-          <Field label="Email">
+          <Field label="Email" required>
             <input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Field label="Password">
+          <Field label="Password" required>
             <input className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           <ErrorAlert error={error} />

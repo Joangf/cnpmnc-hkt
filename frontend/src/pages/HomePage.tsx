@@ -44,13 +44,16 @@ export default function HomePage() {
     queryKey: ['hospitals', 'all'],
     queryFn: () => api.directory.hospitals({ page_size: 100 }),
   })
-  const doctorCount = useQuery({
-    queryKey: ['doctors', 'count'],
-    queryFn: () => api.directory.doctors({ page_size: 1 }),
-  })
-  const departmentCount = useQuery({
-    queryKey: ['departments', 'count'],
-    queryFn: () => api.directory.departments({ page_size: 1 }),
+  // The public directory totals are the same numbers shown on /doctors and /departments.
+  const directoryCounts = useQuery({
+    queryKey: ['directory', 'counts'],
+    queryFn: async () => {
+      const [doctors, departments] = await Promise.all([
+        api.directory.doctors({ page_size: 1 }),
+        api.directory.departments({ page_size: 1 }),
+      ])
+      return { doctors: doctors.total, departments: departments.total }
+    },
   })
   const [imgError, setImgError] = useState(false)
 
@@ -93,10 +96,7 @@ export default function HomePage() {
             <Link to="/doctors" className="btn-primary shadow-button hover:shadow-button-hover font-semibold px-6 py-3">
               Booking now
             </Link>
-            <Link to="/departments" className="btn-secondary font-semibold px-5 py-3">
-              Browse specialties
-            </Link>
-            <Link to="/symptoms" className="inline-flex items-center gap-1.5 text-sm font-semibold text-berry hover:underline px-3 py-2">
+            <Link to="/symptoms" className="btn-secondary font-semibold px-5 py-3">
               Check symptoms
             </Link>
           </div>
@@ -104,11 +104,11 @@ export default function HomePage() {
           {/* Quick stats banner */}
           <div className="grid grid-cols-3 gap-4 border-t border-line/80 pt-6 mt-2">
             <div>
-              <div className="text-2xl font-extrabold text-ink">{doctorCount.data?.total ?? '—'}</div>
+              <div className="text-2xl font-extrabold text-ink">{directoryCounts.data?.doctors ?? '—'}</div>
               <div className="text-xs text-muted font-medium">Specialist doctors</div>
             </div>
             <div>
-              <div className="text-2xl font-extrabold text-ink">{departmentCount.data?.total ?? '—'}</div>
+              <div className="text-2xl font-extrabold text-ink">{directoryCounts.data?.departments ?? '—'}</div>
               <div className="text-xs text-muted font-medium">Departments</div>
             </div>
             <div>
