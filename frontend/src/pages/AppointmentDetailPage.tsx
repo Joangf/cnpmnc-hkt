@@ -8,7 +8,7 @@ import { BankTransferDetails } from '../components/PaymentTransferPanel'
 import { IconArrowLeft } from '../components/icons'
 import { RefundPanel } from '../components/RefundPanel'
 import { StatusBadge } from '../components/StatusBadge'
-import { Card, ErrorAlert, Field, Notice, Spinner, Stars } from '../components/ui'
+import { Card, ErrorAlert, Field, Notice, RequiredMark, Spinner, Stars } from '../components/ui'
 import { formatDateTime, formatMoney, formatTime, humanize } from '../lib/format'
 import { reviewSchema } from '../lib/validation'
 
@@ -50,8 +50,8 @@ export default function AppointmentDetailPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <Link to={a.doctor?.id ? `/doctors/${a.doctor.id}` : '/appointments'} className="link inline-flex min-h-12 items-center gap-2">
-          <IconArrowLeft size={20} /> Back to doctor
+        <Link to={a.doctor?.id ? `/doctors/${a.doctor.id}#book` : '/appointments'} className="link inline-flex min-h-12 items-center gap-2">
+          <IconArrowLeft size={20} /> Back to booking
         </Link>
         <Link to="/appointments" className="link text-caption">
           My appointments
@@ -303,7 +303,7 @@ function CancelCard({ appointment, onDone }: { appointment: AppointmentDetail; o
         <p className="caption">No payment was completed for this booking. Cancelling returns the slot immediately without a refund.</p>
       )}
       <Field label="Why are you cancelling?">
-        <textarea className="input" rows={2} maxLength={500} placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <textarea className="input" rows={2} maxLength={500} placeholder="Add a short note" value={reason} onChange={(e) => setReason(e.target.value)} />
       </Field>
       <ErrorAlert error={cancel.error} />
       <div className="flex flex-wrap gap-3">
@@ -330,22 +330,28 @@ function ReviewCard({ appointmentId, onDone }: { appointmentId: number; onDone: 
   return (
     <Card className="space-y-5">
       <h2 className="section-title">Review your doctor</h2>
-      <div className="flex gap-2" role="radiogroup" aria-label="Rating">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            role="radio"
-            aria-checked={rating === n}
-            aria-label={`${n} star${n > 1 ? 's' : ''}`}
-            className={`flex h-12 w-12 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-canvas text-muted hover:border-berry'}`}
-            onClick={() => setRating(n)}
-          >
-            {n <= rating ? '★' : '☆'}
-          </button>
-        ))}
+      <div>
+        <p className="label">
+          Rating
+          <RequiredMark />
+        </p>
+        <div className="mt-2 flex gap-2" role="radiogroup" aria-label="Rating">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={rating === n}
+              aria-label={`${n} star${n > 1 ? 's' : ''}`}
+              className={`flex h-12 w-12 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-canvas text-muted hover:border-berry'}`}
+              onClick={() => setRating(n)}
+            >
+              {n <= rating ? '★' : '☆'}
+            </button>
+          ))}
+        </div>
       </div>
-      <Field label="Your experience (optional)">
+      <Field label="Your experience">
         <textarea className="input" rows={3} maxLength={2000} placeholder="Share your experience" value={comment} onChange={(e) => setComment(e.target.value)} />
       </Field>
       {validation && <p className="field-error">{validation}</p>}
@@ -427,24 +433,30 @@ function ReviewDisplayCard({
 
       {editing ? (
         <div className="space-y-4 pt-1">
-          <div className="flex gap-2" role="radiogroup" aria-label="Rating">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                role="radio"
-                aria-checked={rating === n}
-                aria-label={`${n} star${n > 1 ? 's' : ''}`}
-                className={`flex h-11 w-11 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${
-                  n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-canvas text-muted hover:border-berry'
-                }`}
-                onClick={() => setRating(n)}
-              >
-                {n <= rating ? '★' : '☆'}
-              </button>
-            ))}
+          <div>
+            <p className="label">
+              Rating
+              <RequiredMark />
+            </p>
+            <div className="mt-2 flex gap-2" role="radiogroup" aria-label="Rating">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  role="radio"
+                  aria-checked={rating === n}
+                  aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                  className={`flex h-11 w-11 items-center justify-center rounded-md border-1.5 text-2xl transition-colors ${
+                    n <= rating ? 'border-berry bg-blush text-berry' : 'border-line bg-canvas text-muted hover:border-berry'
+                  }`}
+                  onClick={() => setRating(n)}
+                >
+                  {n <= rating ? '★' : '☆'}
+                </button>
+              ))}
+            </div>
           </div>
-          <Field label="Your experience (optional)">
+          <Field label="Your experience">
             <textarea
               className="input"
               rows={3}

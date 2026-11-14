@@ -6,13 +6,12 @@ import { AdminNav } from './AdminNav'
 import { formatDateTime } from '../../lib/format'
 
 const entities: { key: AdminEntity; label: string }[] = [
-  { key: 'hospitals', label: 'Hospitals' }, { key: 'specialties', label: 'Specialties' },
-  { key: 'departments', label: 'Departments' }, { key: 'doctors', label: 'Doctors' },
+  { key: 'specialties', label: 'Specialties' }, { key: 'doctors', label: 'Doctors' },
   { key: 'appointment-types', label: 'Appointment types' },
 ]
 type RecordRow = { id: number; name?: string; full_name?: string; description?: string; introduction?: string; is_active: boolean; department?: { name: string }; specialty?: { name: string }; address?: string; fee_override?: string | null }
 export default function AdminDirectoryPage() {
-  const [entity, setEntity] = useState<AdminEntity>('hospitals')
+  const [entity, setEntity] = useState<AdminEntity>('specialties')
   const [page, setPage] = useState(1)
   const records = useQuery({ queryKey: ['admin', entity], queryFn: () => api.admin.list<RecordRow>(entity) })
   const sync = useQuery({ queryKey: ['admin', 'erp-status'], queryFn: api.admin.erpStatus })

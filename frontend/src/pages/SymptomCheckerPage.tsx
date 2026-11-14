@@ -249,7 +249,6 @@ export default function SymptomCheckerPage() {
                 </div>
               )}
             </div>
-
             <ErrorAlert error={recommend.error} />
             {/* SCRUM-39: a description alone, selected symptoms alone, or both. */}
             <button

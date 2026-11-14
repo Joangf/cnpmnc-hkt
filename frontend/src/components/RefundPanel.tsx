@@ -217,10 +217,10 @@ function RefundForm({
         <Spinner label="Loading banks…" />
       ) : manual ? (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Bank name" error={errors.bank} hint={banks.isError ? 'The bank list could not be loaded; type it in.' : undefined}>
+          <Field label="Bank name" error={errors.bank} hint={banks.isError ? 'The bank list could not be loaded; type it in.' : undefined} required>
             <input className="input" maxLength={64} value={manualName} onChange={(e) => setManualName(e.target.value)} />
           </Field>
-          <Field label="Bank BIN" error={errors.bin} hint="6 digits, shown in your banking app">
+          <Field label="Bank BIN" error={errors.bin} hint="6 digits, shown in your banking app" required>
             <input className="input" inputMode="numeric" maxLength={6} value={manualBin} onChange={(e) => setManualBin(e.target.value)} />
           </Field>
           {!banks.isError && (
@@ -230,7 +230,7 @@ function RefundForm({
           )}
         </div>
       ) : (
-        <Field label="Bank" error={errors.bank}>
+        <Field label="Bank" error={errors.bank} required>
           <BankCombobox
             banks={banks.data ?? []}
             selectedBin={selected}
@@ -240,7 +240,7 @@ function RefundForm({
         </Field>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Account number" error={errors.account_number}>
+        <Field label="Account number" error={errors.account_number} required>
           <input
             className="input"
             inputMode="numeric"
@@ -250,7 +250,7 @@ function RefundForm({
             onChange={(e) => setAccountNumber(e.target.value.replace(/\s/g, ''))}
           />
         </Field>
-        <Field label="Account holder name" error={errors.account_name} hint="Without accents, as your bank shows it">
+        <Field label="Account holder name" error={errors.account_name} hint="Without accents, as your bank shows it" required>
           <input
             className="input uppercase"
             autoComplete="off"
@@ -260,7 +260,7 @@ function RefundForm({
           />
         </Field>
       </div>
-      <Field label="Reason (optional)">
+      <Field label="Reason">
         <textarea className="input" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
       </Field>
       <ErrorAlert error={submit.error} />

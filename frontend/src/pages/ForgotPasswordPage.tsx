@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
             requestReset.mutate()
           }}
         >
-          <Field label="Email" hint="We send reset instructions to this address">
+          <Field label="Email" hint="We send reset instructions to this address" required>
             <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           <ErrorAlert error={requestReset.error} />
@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
               if (check.success) confirmReset.mutate()
             }}
           >
-            <Field label="New password" hint="At least 8 characters, with a letter and a number" error={passwordError}>
+            <Field label="New password" hint="At least 8 characters, with a letter and a number" error={passwordError} required>
               <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </Field>
             <ErrorAlert error={confirmReset.error} />
