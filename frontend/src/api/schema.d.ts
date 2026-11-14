@@ -273,7 +273,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Doctors */
+        /**
+         * List Doctors
+         * @description SCRUM-48: `min_rating` keeps rated doctors at or above it; `sort=rating` puts the
+         *     highest rated first. Combine with `available_from`/`available_to` for free slots.
+         */
         get: operations["listDoctors"];
         put?: never;
         post?: never;
@@ -334,6 +338,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doctors/{doctor_id}/review-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Doctor Review Summary
+         * @description AI summary of the doctor's published reviews; every point cites the review ids it comes from. Made again only when the set of published reviews changes.
+         */
+        get: operations["getDoctorReviewSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/doctors/{doctor_id}/availability": {
         parameters: {
             query?: never;
@@ -368,6 +392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/symptoms/interpret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interpret Symptoms
+         * @description Find catalog symptoms in the patient's own words (AI search: hybrid retrieval, ColBERT rerank, relevance gate, one verified AI rephrasing). Returns symptoms for the patient to confirm, warning signs and a step-by-step trace. Falls back to word matching when AI is unavailable. Available to guests; the text is not stored.
+         */
+        post: operations["interpretSymptoms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/symptoms/recommendations": {
         parameters: {
             query?: never;
@@ -379,7 +423,7 @@ export interface paths {
         put?: never;
         /**
          * Recommend Specialties
-         * @description Rule-based specialty suggestions for navigation only - not a diagnosis (BR-10). Available to guests; no symptom data is stored.
+         * @description Rule-based specialty suggestions for navigation only - not a diagnosis (BR-10). With `context_text` or `explain`, also ranks published doctors of those specialties (profile relevance, rating, next free slot) and adds an AI explanation; symptom ids must then all be active catalog symptoms. Available to guests; no symptom data is stored.
          */
         post: operations["recommendSpecialties"];
         delete?: never;
@@ -523,6 +567,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/{payment_id}/cancel-refund-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Refund Request
+         * @description Cancels an open refund request while REQUESTED, allowing the patient to resubmit with new bank details.
+         */
+        post: operations["cancelRefundRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/refunds": {
         parameters: {
             query?: never;
@@ -588,6 +652,44 @@ export interface paths {
         put?: never;
         /** Create Review */
         post: operations["createReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Review */
+        patch: operations["updateReview"];
+        trace?: never;
+    };
+    "/api/v1/review-report-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Report Reasons */
+        get: operations["listReviewReportReasons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/{review_id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Review
+         * @description Report a public review as inappropriate (SCRUM-50). Does not hide the review or change the rating; a moderator decides. Reporting again while a report is open returns it (200).
+         */
+        post: operations["reportReview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -901,11 +1003,32 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Review */
+        delete: operations["adminDeleteReview"];
         options?: never;
         head?: never;
         /** Moderate Review */
         patch: operations["adminModerateReview"];
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/recompute-ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recompute Ratings
+         * @description Reconciliation (SCRUM-49): rebuild every doctor's rating from the reviews.
+         */
+        post: operations["adminRecomputeRatings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/appointments": {
@@ -1028,6 +1151,75 @@ export interface paths {
         patch: operations["adminUpdateDoctorSlot"];
         trace?: never;
     };
+    "/api/v1/admin/symptoms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin List Symptoms */
+        get: operations["adminListSymptoms"];
+        put?: never;
+        /** Admin Create Symptom */
+        post: operations["adminCreateSymptom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/symptoms/{symptom_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Admin Update Symptom */
+        patch: operations["adminUpdateSymptom"];
+        trace?: never;
+    };
+    "/api/v1/admin/symptoms/{symptom_id}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Create Rule */
+        post: operations["adminCreateSymptomRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/symptom-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Admin Update Rule */
+        patch: operations["adminUpdateSymptomRule"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1073,6 +1265,13 @@ export interface components {
             currency: string;
             /** Payment Due At */
             payment_due_at: string | null;
+            /**
+             * Has Review
+             * @default false
+             */
+            has_review: boolean;
+            /** Review Rating */
+            review_rating?: number | null;
             /** Patient Id */
             patient_id: number;
         };
@@ -1190,6 +1389,11 @@ export interface components {
             comment: string | null;
             status: components["schemas"]["ReviewStatus"];
             /**
+             * Is Edited
+             * @default false
+             */
+            is_edited: boolean;
+            /**
              * Created At
              * Format: date-time
              */
@@ -1200,6 +1404,45 @@ export interface components {
             patient_id: number;
             /** Moderation Note */
             moderation_note: string | null;
+            /**
+             * Open Reports
+             * @default 0
+             */
+            open_reports: number;
+            /** Report Reasons */
+            report_reasons: string[];
+        };
+        /** AdminRuleCreate */
+        AdminRuleCreate: {
+            /** Specialty Id */
+            specialty_id: number;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /** AdminRuleOut */
+        AdminRuleOut: {
+            /** Id */
+            id: number;
+            /** Symptom Id */
+            symptom_id: number;
+            /** Specialty Id */
+            specialty_id: number;
+            /** Specialty Name */
+            specialty_name: string;
+            /** Weight */
+            weight: number;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** AdminRuleUpdate */
+        AdminRuleUpdate: {
+            /** Weight */
+            weight?: number | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** AdminSlotList */
         AdminSlotList: {
@@ -1238,6 +1481,61 @@ export interface components {
             booked_count: number;
             /** Remaining Places */
             remaining_places: number;
+        };
+        /** AdminSymptomCreate */
+        AdminSymptomCreate: {
+            /** Name */
+            name: string;
+            /** Keywords */
+            keywords?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Red Flag
+             * @default false
+             */
+            is_red_flag: boolean;
+            /** Red Flag Message */
+            red_flag_message?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+        };
+        /** AdminSymptomOut */
+        AdminSymptomOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Keywords */
+            keywords: string | null;
+            /** Description */
+            description: string | null;
+            /** Is Red Flag */
+            is_red_flag: boolean;
+            /** Red Flag Message */
+            red_flag_message: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Rules */
+            rules: components["schemas"]["AdminRuleOut"][];
+        };
+        /** AdminSymptomUpdate */
+        AdminSymptomUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Keywords */
+            keywords?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Is Red Flag */
+            is_red_flag?: boolean | null;
+            /** Red Flag Message */
+            red_flag_message?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** AdminUserOut */
         AdminUserOut: {
@@ -1306,6 +1604,10 @@ export interface components {
             currency: string;
             /** Payment Due At */
             payment_due_at: string | null;
+            /** Has Review */
+            has_review: boolean;
+            /** Review Rating */
+            review_rating?: number | null;
             /** Reason For Visit */
             reason_for_visit: string | null;
             /** History */
@@ -1320,8 +1622,12 @@ export interface components {
             can_request_refund: boolean;
             /** Can Review */
             can_review: boolean;
-            /** Has Review */
-            has_review: boolean;
+            /**
+             * Can Edit Review
+             * @default false
+             */
+            can_edit_review: boolean;
+            review?: components["schemas"]["ReviewOut"] | null;
             /**
              * Cancellation Deadline
              * Format: date-time
@@ -1364,6 +1670,13 @@ export interface components {
             currency: string;
             /** Payment Due At */
             payment_due_at: string | null;
+            /**
+             * Has Review
+             * @default false
+             */
+            has_review: boolean;
+            /** Review Rating */
+            review_rating?: number | null;
         };
         /** AppointmentTypeAdminOut */
         AppointmentTypeAdminOut: {
@@ -1676,6 +1989,39 @@ export interface components {
             /** Erp Doctor Id */
             erp_doctor_id: string | null;
         };
+        /** DoctorRecommendation */
+        DoctorRecommendation: {
+            /** Doctor Id */
+            doctor_id: number;
+            /** Full Name */
+            full_name: string;
+            /** Title */
+            title: string | null;
+            /** Specialty Id */
+            specialty_id: number;
+            /** Department Id */
+            department_id: number;
+            /** Department Name */
+            department_name: string;
+            /** Hospital Id */
+            hospital_id: number;
+            /** Hospital Name */
+            hospital_name: string;
+            /** Rating Avg */
+            rating_avg: number;
+            /** Rating Count */
+            rating_count: number;
+            /** Next Available */
+            next_available: string | null;
+            /** Score */
+            score: number;
+            /** Score Relevance */
+            score_relevance: number | null;
+            /** Score Rating */
+            score_rating: number;
+            /** Score Availability */
+            score_availability: number;
+        };
         /** DoctorSummary */
         DoctorSummary: {
             /** Id */
@@ -1849,6 +2195,43 @@ export interface components {
             description?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** InterpretRequest */
+        InterpretRequest: {
+            /** Text */
+            text: string;
+        };
+        /** InterpretResponse */
+        InterpretResponse: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ai" | "rule_fallback";
+            /** Symptoms */
+            symptoms: components["schemas"]["InterpretedSymptom"][];
+            /** Urgent Warning */
+            urgent_warning: string | null;
+            /** Disclaimer */
+            disclaimer: string;
+            /** Trace */
+            trace: components["schemas"]["TraceStep"][];
+        };
+        /** InterpretedSymptom */
+        InterpretedSymptom: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Score */
+            score: number | null;
+            /** Matched Phrase */
+            matched_phrase: string | null;
+            /**
+             * Via
+             * @enum {string}
+             */
+            via: "text" | "rephrase" | "rules";
         };
         /** LoginRequest */
         LoginRequest: {
@@ -2159,6 +2542,13 @@ export interface components {
             symptom_ids?: number[];
             /** Free Text */
             free_text?: string | null;
+            /** Context Text */
+            context_text?: string | null;
+            /**
+             * Explain
+             * @default false
+             */
+            explain: boolean;
         };
         /** RecommendationResponse */
         RecommendationResponse: {
@@ -2172,6 +2562,20 @@ export interface components {
             urgent_warning: string | null;
             /** Disclaimer */
             disclaimer: string;
+            /**
+             * Mode
+             * @default rules
+             * @enum {string}
+             */
+            mode: "rules" | "ai" | "rule_fallback";
+            /** Doctors */
+            doctors: components["schemas"]["DoctorRecommendation"][];
+            /** Explanation */
+            explanation: string | null;
+            /** Specialty Explanations */
+            specialty_explanations: components["schemas"]["SpecialtyExplanation"][];
+            /** Trace */
+            trace: components["schemas"]["TraceStep"][];
         };
         /** RecommendedDepartment */
         RecommendedDepartment: {
@@ -2253,6 +2657,31 @@ export interface components {
             /** Dev Otp */
             dev_otp?: string | null;
         };
+        /** ReportCreate */
+        ReportCreate: {
+            /** Reason */
+            reason: string;
+            /** Details */
+            details?: string | null;
+        };
+        /** ReportOut */
+        ReportOut: {
+            /** Id */
+            id: number;
+            /** Review Id */
+            review_id: number;
+            /** Reason */
+            reason: string;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Already Reported */
+            already_reported: boolean;
+        };
         /** ReportSummary */
         ReportSummary: {
             /** Appointments By Status */
@@ -2310,6 +2739,11 @@ export interface components {
             comment: string | null;
             status: components["schemas"]["ReviewStatus"];
             /**
+             * Is Edited
+             * @default false
+             */
+            is_edited: boolean;
+            /**
              * Created At
              * Format: date-time
              */
@@ -2329,6 +2763,11 @@ export interface components {
              */
             author: string;
             /**
+             * Is Edited
+             * @default false
+             */
+            is_edited: boolean;
+            /**
              * Created At
              * Format: date-time
              */
@@ -2339,6 +2778,49 @@ export interface components {
          * @enum {string}
          */
         ReviewStatus: "PENDING" | "PUBLISHED" | "HIDDEN" | "REMOVED";
+        /**
+         * ReviewSummaryOut
+         * @description AI summary of a doctor's published reviews (SCRUM-46).
+         *
+         *     status: ready | insufficient (fewer than `min_reviews` commented reviews) |
+         *     generating (another request is writing it) | unavailable (AI off or failing).
+         */
+        ReviewSummaryOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "insufficient" | "generating" | "unavailable";
+            /** Summary */
+            summary: string | null;
+            /** Points */
+            points: components["schemas"]["ReviewSummaryPoint"][];
+            /** Review Count */
+            review_count: number;
+            /** Min Reviews */
+            min_reviews: number;
+            /** Generated At */
+            generated_at: string | null;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+        };
+        /** ReviewSummaryPoint */
+        ReviewSummaryPoint: {
+            /** Text */
+            text: string;
+            /** Review Ids */
+            review_ids: number[];
+        };
+        /** ReviewUpdate */
+        ReviewUpdate: {
+            /** Rating */
+            rating: number;
+            /** Comment */
+            comment?: string | null;
+        };
         /** ScheduleSyncResult */
         ScheduleSyncResult: {
             /** Doctors Synced */
@@ -2440,8 +2922,11 @@ export interface components {
             capacity?: number | null;
             /** Remaining Places */
             remaining_places?: number | null;
-            /** Is Past */
-            is_past?: boolean;
+            /**
+             * Is Past
+             * @default false
+             */
+            is_past: boolean;
         };
         /** SlotUpdate */
         SlotUpdate: {
@@ -2462,6 +2947,13 @@ export interface components {
             name: string;
             /** Description */
             description?: string | null;
+        };
+        /** SpecialtyExplanation */
+        SpecialtyExplanation: {
+            /** Specialty Id */
+            specialty_id: number;
+            /** Reason */
+            reason: string;
         };
         /** SpecialtyOut */
         SpecialtyOut: {
@@ -2548,6 +3040,25 @@ export interface components {
             /** Expires In */
             expires_in: number;
             user: components["schemas"]["UserMe"];
+        };
+        /**
+         * TraceStep
+         * @description One step of the AI pipeline, shown in the "How we got this" panel.
+         */
+        TraceStep: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Rows */
+            rows: Record<string, never>[];
+            /**
+             * Skipped
+             * @default false
+             */
+            skipped: boolean;
         };
         /** UserMe */
         UserMe: {
@@ -3231,6 +3742,8 @@ export interface operations {
                 specialty_id?: number | null;
                 available_from?: string | null;
                 available_to?: string | null;
+                min_rating?: number | null;
+                sort?: "name" | "rating";
                 page?: number;
                 page_size?: number;
             };
@@ -3374,6 +3887,46 @@ export interface operations {
             };
         };
     };
+    getDoctorReviewSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctor_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSummaryOut"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getDoctorAvailability: {
         parameters: {
             query: {
@@ -3438,6 +3991,48 @@ export interface operations {
             };
         };
     };
+    interpretSymptoms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterpretRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterpretResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too many requests (TooManyRequests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     recommendSpecialties: {
         parameters: {
             query?: never;
@@ -3469,12 +4064,21 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Too many requests (TooManyRequests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listMyAppointments: {
         parameters: {
             query?: {
-                scope?: "upcoming" | "past" | "all";
+                scope?: "upcoming" | "completed" | "cancelled" | "past" | "all";
                 page?: number;
                 page_size?: number;
             };
@@ -3981,6 +4585,73 @@ export interface operations {
             };
         };
     };
+    cancelRefundRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     adminListRefunds: {
         parameters: {
             query?: {
@@ -4227,6 +4898,166 @@ export interface operations {
             };
             /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOut"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listReviewReportReasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    reportReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportCreate"];
+            };
+        };
+        responses: {
+            /** @description Already reported: the open report is returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5436,6 +6267,7 @@ export interface operations {
             query?: {
                 review_status?: components["schemas"]["ReviewStatus"] | null;
                 doctor_id?: number | null;
+                reported?: boolean;
                 page?: number;
                 page_size?: number;
             };
@@ -5465,6 +6297,62 @@ export interface operations {
             };
             /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adminDeleteReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5536,6 +6424,46 @@ export interface operations {
             };
             /** @description Validation failed (ValidationFailed) */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminRecomputeRatings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5987,6 +6915,308 @@ export interface operations {
             };
             /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminListSymptoms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSymptomOut"][];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminCreateSymptom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSymptomCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSymptomOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminUpdateSymptom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symptom_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSymptomUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSymptomOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminCreateSymptomRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symptom_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRuleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSymptomOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict (SlotTaken, SlotUnavailable, InvalidState, DuplicateReview, ...) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed (ValidationFailed) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminUpdateSymptomRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRuleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSymptomOut"];
+                };
+            };
+            /** @description Not authenticated (Unauthorized, InvalidToken, InvalidCredentials) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (Forbidden, AccountInactive, AccountNotVerified) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found (NotFound) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

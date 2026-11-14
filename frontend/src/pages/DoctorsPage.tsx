@@ -36,6 +36,8 @@ export default function DoctorsPage() {
         specialty_id: num('specialty_id'),
         available_from: params.get('available_from') ?? undefined,
         available_to: params.get('available_to') ?? undefined,
+        min_rating: num('min_rating'),
+        sort: params.get('sort') === 'rating' ? 'rating' : undefined,
         page,
       }),
     placeholderData: keepPreviousData,
@@ -136,10 +138,37 @@ export default function DoctorsPage() {
         )}
         <ErrorAlert error={doctors.error} />
         {doctors.data && (
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-medium text-muted" aria-live="polite">
               Found <span className="font-bold text-ink">{doctors.data.total}</span> matching {doctors.data.total === 1 ? 'doctor' : 'doctors'}
             </h2>
+            {/* SCRUM-48: filter and sort by patient rating */}
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-muted">
+                Rating
+                <select
+                  className="input mt-0 w-auto py-2"
+                  value={params.get('min_rating') ?? ''}
+                  onChange={(e) => update({ min_rating: e.target.value || undefined })}
+                >
+                  <option value="">Any</option>
+                  <option value="4.5">4.5★ and up</option>
+                  <option value="4">4★ and up</option>
+                  <option value="3">3★ and up</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                Sort
+                <select
+                  className="input mt-0 w-auto py-2"
+                  value={params.get('sort') === 'rating' ? 'rating' : 'name'}
+                  onChange={(e) => update({ sort: e.target.value === 'rating' ? 'rating' : undefined })}
+                >
+                  <option value="name">Name (A–Z)</option>
+                  <option value="rating">Highest rated</option>
+                </select>
+              </label>
+            </div>
           </div>
         )}
         {doctors.data?.items.length === 0 && (

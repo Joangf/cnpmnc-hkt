@@ -574,16 +574,19 @@ async def admin_list_reviews(
     paging: PageDep,
     review_status: ReviewStatus | None = None,
     doctor_id: int | None = None,
+    reported: bool = False,
 ) -> Page[AdminReviewOut]:
     items, total = await review_repo.list_admin(
         session,
         status=review_status,
         doctor_id=doctor_id,
+        reported=reported,
         page=paging.page,
         page_size=paging.page_size,
     )
+    reports = await review_repo.open_reports(session, [r.id for r in items])
     return Page[AdminReviewOut](
-        items=[presenters.admin_review(r) for r in items],
+        items=[presenters.admin_review(r, reports.get(r.id, [])) for r in items],
         total=total,
         page=paging.page,
         page_size=paging.page_size,
@@ -614,6 +617,25 @@ async def moderate_review(
 async def delete_review(review_id: int, admin: AdminUser, session: SessionDep) -> Response:
     await review_service.delete_review(session, admin, review_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/reviews/recompute-ratings",
+    operation_id="adminRecomputeRatings",
+    description="Reconciliation (SCRUM-49): rebuild every doctor's rating from the reviews.",
+)
+async def recompute_ratings(admin: AdminUser, session: SessionDep) -> dict[str, int]:
+    count = await review_repo.recompute_all_ratings(session)
+    audit.record(
+        session,
+        "review.ratings_recomputed",
+        "doctor",
+        None,
+        actor_id=admin.id,
+        details={"doctors": count},
+    )
+    await session.commit()
+    return {"doctors": count}
 
 
 # --- Appointments, reports, audit (FR-ADM-05/06, FR-RPT) ---------------------------------------

@@ -79,6 +79,20 @@ def _terms(symptom: Symptom) -> SymptomTerms:
     return SymptomTerms(symptom.id, (symptom.name, *keywords))
 
 
+def urgent_warning(red_flags: Sequence[Symptom]) -> str | None:
+    """One message for the warning-sign symptoms present (FR-REC-06); None when there are none."""
+    if not red_flags:
+        return None
+    messages = dict.fromkeys(
+        s.red_flag_message or f"'{s.name}' can be a warning sign." for s in red_flags
+    )
+    return (
+        " ".join(messages)
+        + f" If symptoms are severe or sudden, call {settings.emergency_number} or go to the"
+        " nearest emergency department now."
+    )
+
+
 async def recommend(
     session: AsyncSession, symptom_ids: Sequence[int], free_text: str | None
 ) -> RecommendationResponse:
@@ -98,7 +112,9 @@ async def recommend(
             )
             .join(Specialty, Specialty.id == SymptomSpecialtyRule.specialty_id)
             .where(
-                Specialty.is_active.is_(True), SymptomSpecialtyRule.symptom_id.in_(sorted(selected))
+                Specialty.is_active.is_(True),
+                SymptomSpecialtyRule.is_active.is_(True),
+                SymptomSpecialtyRule.symptom_id.in_(sorted(selected)),
             )
         )
     ).all()
@@ -113,17 +129,7 @@ async def recommend(
     }
     departments = await directory_repo.departments_for_specialties(session, specialty_ids)
 
-    red_flags = [by_id[i] for i in sorted(selected) if by_id[i].is_red_flag]
-    urgent_warning = None
-    if red_flags:
-        messages = dict.fromkeys(
-            s.red_flag_message or f"'{s.name}' can be a warning sign." for s in red_flags
-        )
-        urgent_warning = (
-            " ".join(messages)
-            + f" If symptoms are severe or sudden, call {settings.emergency_number} or go to the"
-            " nearest emergency department now."
-        )
+    urgent = urgent_warning([by_id[i] for i in sorted(selected) if by_id[i].is_red_flag])
 
     for item in scored:
         session.add(RecommendationLog(specialty_id=item.specialty_id))
@@ -152,6 +158,6 @@ async def recommend(
             )
             for d in departments
         ],
-        urgent_warning=urgent_warning,
+        urgent_warning=urgent,
         disclaimer=DISCLAIMER,
     )

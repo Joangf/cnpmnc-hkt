@@ -8,6 +8,7 @@ const items = [
   { to: '/admin/schedules', label: 'Schedules' },
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/reviews', label: 'Reviews' },
+  { to: '/admin/symptoms', label: 'Symptom rules' },
   { to: '/admin/refunds', label: 'Refunds' },
   { to: '/admin/audit-logs', label: 'Audit logs' },
 ]

@@ -223,11 +223,26 @@ async def list_doctors(
     specialty_id: int | None = None,
     available_from: datetime | None = None,
     available_to: datetime | None = None,
+    min_rating: float | None = None,
+    sort: str = "name",
     include_inactive: bool = False,
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[Doctor], int]:
-    stmt = select(Doctor).options(*_doctor_options()).order_by(Doctor.full_name)
+    """`sort="rating"`: highest average first, more reviews first on ties, unrated last."""
+    order = (
+        (
+            (Doctor.rating_count > 0).desc(),
+            Doctor.rating_avg.desc(),
+            Doctor.rating_count.desc(),
+            Doctor.full_name,
+        )
+        if sort == "rating"
+        else (Doctor.full_name,)
+    )
+    stmt = select(Doctor).options(*_doctor_options()).order_by(*order)
+    if min_rating is not None:
+        stmt = stmt.where(Doctor.rating_count > 0, Doctor.rating_avg >= min_rating)
     if not include_inactive:
         stmt = stmt.where(_published_doctor())
     if q:

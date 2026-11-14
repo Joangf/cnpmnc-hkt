@@ -35,6 +35,10 @@ export const responseContract: {
   ReviewPage: Fits<S['Page_ReviewPublic_'], T.Page<T.ReviewPublic>>
   Symptom: Fits<S['SymptomOut'], T.Symptom>
   Recommendation: Fits<S['RecommendationResponse'], T.Recommendation>
+  Interpretation: Fits<S['InterpretResponse'], T.Interpretation>
+  ReviewSummary: Fits<S['ReviewSummaryOut'], T.ReviewSummary>
+  AdminSymptom: Fits<S['AdminSymptomOut'], T.AdminSymptom>
+  ReviewReport: Fits<S['ReportOut'], T.ReviewReport>
   Notifications: Fits<S['NotificationList'], T.NotificationList>
   PasswordReset: Fits<S['PasswordResetRequested'], T.PasswordResetRequested>
   RegistrationPending: Fits<S['RegistrationPending'], T.RegistrationPending>
@@ -70,6 +74,10 @@ export const responseContract: {
   ReviewPage: true,
   Symptom: true,
   Recommendation: true,
+  Interpretation: true,
+  ReviewSummary: true,
+  AdminSymptom: true,
+  ReviewReport: true,
   Notifications: true,
   PasswordReset: true,
   RegistrationPending: true,

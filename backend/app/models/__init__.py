@@ -7,8 +7,9 @@ from app.models.directory import Department, Doctor, Hospital, Specialty
 from app.models.erp import ErpSyncState
 from app.models.notification import Notification
 from app.models.payment import Payment
-from app.models.review import Review
+from app.models.review import Review, ReviewReport
 from app.models.scheduling import AppointmentType, DoctorSchedule, DoctorSlot
+from app.models.search import DoctorReviewSummary, SearchDocument
 from app.models.symptom import RecommendationLog, Symptom, SymptomSpecialtyRule
 from app.models.user import PatientProfile, User
 
@@ -21,6 +22,7 @@ __all__ = [
     "Base",
     "Department",
     "Doctor",
+    "DoctorReviewSummary",
     "DoctorSchedule",
     "DoctorSlot",
     "Hospital",
@@ -29,6 +31,8 @@ __all__ = [
     "Payment",
     "RecommendationLog",
     "Review",
+    "ReviewReport",
+    "SearchDocument",
     "Specialty",
     "Symptom",
     "SymptomSpecialtyRule",

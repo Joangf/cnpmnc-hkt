@@ -7,15 +7,18 @@ import { EmptyState, ErrorAlert, FilterChip, Pagination, Spinner, Stars } from '
 import { formatDateTime, humanize } from '../../lib/format'
 import { AdminNav } from './AdminNav'
 
-const FILTERS: (ReviewStatus | '')[] = ['', 'PUBLISHED', 'HIDDEN']
+const FILTERS: (ReviewStatus | '' | 'REPORTED')[] = ['', 'REPORTED', 'PUBLISHED', 'HIDDEN']
 
 export default function AdminReviewsPage() {
   const queryClient = useQueryClient()
-  const [status, setStatus] = useState<ReviewStatus | ''>('')
+  const [status, setStatus] = useState<ReviewStatus | '' | 'REPORTED'>('')
   const [page, setPage] = useState(1)
   const reviews = useQuery({
     queryKey: ['admin', 'reviews', status, page],
-    queryFn: () => api.admin.reviews({ review_status: status || undefined, page }),
+    queryFn: () =>
+      api.admin.reviews(
+        status === 'REPORTED' ? { reported: true, page } : { review_status: status || undefined, page },
+      ),
     placeholderData: keepPreviousData,
   })
   const moderate = useMutation({
@@ -27,10 +30,19 @@ export default function AdminReviewsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'reviews'] }),
   })
 
+  const recompute = useMutation({ mutationFn: api.admin.recomputeRatings })
+
   return (
     <div>
       <h1 className="page-title mb-6">Administration</h1>
       <AdminNav />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {/* SCRUM-49: reconciliation if a rating ever drifts from its reviews */}
+        <button className="btn-secondary btn-sm" disabled={recompute.isPending} onClick={() => recompute.mutate()}>
+          {recompute.isPending ? 'Recalculating…' : 'Recalculate doctor ratings'}
+        </button>
+        {recompute.data && <span className="caption">Recalculated {recompute.data.doctors} doctors.</span>}
+      </div>
       <div className="mb-6 flex flex-wrap gap-3">
         {FILTERS.map((f) => (
           <FilterChip
@@ -41,12 +53,12 @@ export default function AdminReviewsPage() {
               setPage(1)
             }}
           >
-            {f ? humanize(f) : 'All'}
+            {f === 'REPORTED' ? 'Reported' : f ? humanize(f) : 'All'}
           </FilterChip>
         ))}
       </div>
       {reviews.isLoading && <Spinner />}
-      <ErrorAlert error={reviews.error ?? moderate.error ?? remove.error} />
+      <ErrorAlert error={reviews.error ?? moderate.error ?? remove.error ?? recompute.error} />
       {reviews.data?.items.length === 0 && <EmptyState>No reviews.</EmptyState>}
       {!!reviews.data?.items.length && (
       <ul className="card divide-y divide-line p-0 sm:p-0">
@@ -59,6 +71,11 @@ export default function AdminReviewsPage() {
                   <Stars value={r.rating} />
                 </span>
                 {r.comment && <p className="mt-1">{r.comment}</p>}
+                {r.open_reports > 0 && (
+                  <p className="mt-1 text-sm font-semibold text-alert">
+                    Reported {r.open_reports}× — {r.report_reasons.join('; ')}
+                  </p>
+                )}
                 <p className="caption mt-1">
                   Patient #{r.patient_id} · {formatDateTime(r.created_at)}
                 </p>
@@ -66,6 +83,11 @@ export default function AdminReviewsPage() {
               <div className="flex flex-col items-end gap-2">
                 <StatusBadge status={r.status} />
                 <div className="flex flex-wrap gap-2">
+                  {r.status === 'PUBLISHED' && r.open_reports > 0 && (
+                    <button className="btn-secondary btn-sm" onClick={() => moderate.mutate({ id: r.id, next: 'PUBLISHED' })}>
+                      Keep (dismiss reports)
+                    </button>
+                  )}
                   {r.status === 'PUBLISHED' ? (
                     <button className="btn-secondary btn-sm" onClick={() => moderate.mutate({ id: r.id, next: 'HIDDEN' })}>
                       Hide
