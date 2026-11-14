@@ -95,34 +95,54 @@ export function EmptyState({ children }: { children: ReactNode }) {
   return <p className="rounded-lg border border-dashed border-line bg-surface px-6 py-10 text-center text-muted">{children}</p>
 }
 
+export function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ml-1 text-berry">
+      (*)
+    </span>
+  )
+}
+
 /** Label above the control, then a hint or an error. The hint/error sit outside the <label>
  * (so they aren't part of the accessible name) and are linked via aria-describedby. */
 export function Field({
   label,
   hint,
   error,
+  required = false,
   children,
   className = '',
 }: {
   label: string
   hint?: string
   error?: string
+  required?: boolean
   children: ReactNode
   className?: string
 }) {
   const describedId = useId()
   const description = error ?? hint
-  const control =
-    description && isValidElement(children)
-      ? cloneElement(children as ReactElement<{ 'aria-invalid'?: boolean; 'aria-describedby'?: string }>, {
+  const control = isValidElement(children)
+    ? cloneElement(
+        children as ReactElement<{
+          'aria-invalid'?: boolean
+          'aria-describedby'?: string
+          'aria-required'?: boolean
+        }>,
+        {
           'aria-invalid': error ? true : undefined,
-          'aria-describedby': describedId,
-        })
-      : children
+          'aria-required': required || undefined,
+          ...(description ? { 'aria-describedby': describedId } : {}),
+        },
+      )
+    : children
   return (
     <div className={className}>
       <label className="block">
-        <span className="label">{label}</span>
+        <span className="label">
+          {label}
+          {required && <RequiredMark />}
+        </span>
         {control}
       </label>
       {description && (

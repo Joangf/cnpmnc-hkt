@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { api } from '../../api/endpoints'
 import type { AdminRefund, RefundStatus } from '../../api/types'
 import { StatusBadge } from '../../components/StatusBadge'
-import { EmptyState, ErrorAlert, FilterChip, Pagination, Spinner } from '../../components/ui'
+import { EmptyState, ErrorAlert, FilterChip, Pagination, RequiredMark, Spinner } from '../../components/ui'
 import { formatDateTime, formatMoney, humanize } from '../../lib/format'
 import { AdminNav } from './AdminNav'
 
@@ -158,6 +158,7 @@ function RefundDetail({ refund: r, onDone }: { refund: AdminRefund; onDone: () =
             <div className="pt-1">
               <label htmlFor="refund-note-input" className="label block">
                 Note / Rejection reason
+                <RequiredMark />
               </label>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <input
@@ -193,7 +194,7 @@ function RefundDetail({ refund: r, onDone }: { refund: AdminRefund; onDone: () =
                 <p className="field-error mt-2">{reasonError}</p>
               ) : (
                 <p className="field-hint mt-2">
-                  Bank reference if transferred (optional), or reason if rejecting (required).
+                  Add the bank reference for a transfer. A rejection reason is required.
                 </p>
               )}
             </div>

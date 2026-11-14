@@ -169,14 +169,14 @@ export default function AdminSchedulesPage() {
     <p className="caption mb-4">{slots.data?.synced_at ? `Last synced: ${formatDateTime(slots.data.synced_at)}` : 'Awaiting ERP synchronization.'}</p>
     <ErrorAlert error={doctors.error ?? slots.error} />
     <div className="mb-6 grid gap-5 sm:grid-cols-2">
-      <Field label="Doctor">
+      <Field label="Doctor" required>
         <DoctorCombobox
           doctors={doctors.data ?? []}
           selectedId={doctorId}
           onSelect={(id) => setSelected(String(id))}
         />
       </Field>
-      <Field label="Slot date"><input className="input" type="date" value={day} onChange={e => setDay(e.target.value)} /></Field>
+      <Field label="Slot date" required><input className="input" type="date" value={day} onChange={e => setDay(e.target.value)} /></Field>
     </div>
     {(doctors.isLoading || slots.isLoading) && <Spinner />}
     <Card><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="section-title">Slots on {day}</h2><button className="btn-secondary btn-sm" disabled={!doctorId || slots.isFetching} onClick={() => slots.refetch()}>Refresh slots</button></div>

@@ -7,7 +7,7 @@ import type { DoctorDetail, Slot } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { clinicIsoDay, formatDateTime, formatMoney, formatTime, humanize, upcomingDays } from '../lib/format'
 import { newIdempotencyKey } from '../lib/ids'
-import { ErrorAlert, Field, Notice, Spinner } from './ui'
+import { ErrorAlert, Field, Notice, RequiredMark, Spinner } from './ui'
 
 /** FR-BOOK-01..04: choose date and slot; the server revalidates on submit. */
 export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
@@ -162,6 +162,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
         <div>
           <p id={dateLabelId} className="label">
             Date
+            <RequiredMark />
           </p>
           <div role="group" aria-labelledby={dateLabelId} className="mt-2 flex gap-2 overflow-x-auto pb-2">
             {days.map((d) => (
@@ -184,7 +185,10 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
         </div>
 
         <div className="space-y-3">
-          <p className="label">Available times</p>
+          <p className="label">
+            Available times
+            <RequiredMark />
+          </p>
           {availability.isLoading && <Spinner />}
           <ErrorAlert error={availability.error} />
           <ErrorAlert error={book.error} />
@@ -264,7 +268,7 @@ export function BookingPanel({ doctor }: { doctor: DoctorDetail }) {
                 </Link>
               </Notice>
             )}
-            <Field label="Reason for visit (optional)" hint="Helps the doctor prepare. Only the hospital sees it.">
+            <Field label="Reason for visit" hint="Helps the doctor prepare. Only the hospital sees it.">
               <textarea className="input" rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
             </Field>
             <dl className="divide-y divide-line overflow-hidden rounded-lg border border-line">

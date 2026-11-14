@@ -67,7 +67,7 @@ export default function SymptomCheckerPage() {
                 ))}
               </div>
             </div>
-            <Field label="Or describe them in your own words (optional)">
+            <Field label="Or describe them in your own words">
               <textarea className="input" rows={2} maxLength={500} value={freeText} onChange={(e) => setFreeText(e.target.value)} placeholder="e.g. itchy rash on my arms" />
             </Field>
             <ErrorAlert error={recommend.error} />
