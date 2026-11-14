@@ -26,10 +26,19 @@ x-backend-env: &backend-env
   DEMO_PATIENT_PASSWORD: ${DEMO_PATIENT_PASSWORD:-Patient12345!}
   LOADTEST_PASSWORD: ${LOADTEST_PASSWORD:-LoadTest123!}
   SEED_ON_START: "true"
+  # AI symptom search + review summaries through an OpenAI-compatible gateway (LiteLLM).
+  # Empty LLM_BASE_URL = AI off: the symptom checker falls back to its rule-only matching.
+  LLM_BASE_URL: ${LLM_BASE_URL:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-deepseek-v4-flash}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-embedding}
+  RERANK_MODEL: ${RERANK_MODEL:-embedding-colbert}
+  LLM_DAILY_TOKEN_BUDGET: ${LLM_DAILY_TOKEN_BUDGET:-200000}
 
 services:
   postgres:
-    image: postgres:16.4-alpine
+    build: ./postgres
+    image: carebook-postgres:16.4-pgvector
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-healthcare}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-healthcare}

@@ -1,17 +1,33 @@
-import { useQuery } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints'
+import type { ReviewPublic } from '../api/types'
+import { useAuth } from '../auth/AuthContext'
 import { BookingPanel } from '../components/BookingPanel'
 import { DoctorAvatar, Rating } from '../components/DoctorCard'
-import { EmptyState, ErrorAlert, Spinner, Stars } from '../components/ui'
+import { EmptyState, ErrorAlert, Field, Spinner, Stars } from '../components/ui'
 import { formatDateTime } from '../lib/format'
 
 export default function DoctorDetailPage() {
   const id = Number(useParams().doctorId)
   const { hash } = useLocation()
   const doctor = useQuery({ queryKey: ['doctor', id], queryFn: () => api.directory.doctor(id) })
-  const reviews = useQuery({ queryKey: ['doctor-reviews', id], queryFn: () => api.directory.doctorReviews(id) })
+  // SCRUM-46: page through every published review, newest first, without dropping any.
+  const reviews = useInfiniteQuery({
+    queryKey: ['doctor-reviews', id],
+    queryFn: ({ pageParam }) => api.directory.doctorReviews(id, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page * last.page_size < last.total ? last.page + 1 : undefined),
+  })
+  const reviewItems = reviews.data?.pages.flatMap((p) => p.items) ?? []
+  const reviewTotal = reviews.data?.pages[0]?.total ?? 0
+  // A failing AI summary must never block the profile, so its errors are not shown.
+  const summary = useQuery({
+    queryKey: ['doctor-review-summary', id],
+    queryFn: () => api.directory.doctorReviewSummary(id),
+    retry: false,
+  })
 
   // "Book" on a doctor card links to #book; scroll there once the panel exists.
   const loaded = !!doctor.data
@@ -73,11 +89,35 @@ export default function DoctorDetailPage() {
         </section>
 
         <section className="card">
-          <h2 className="section-title mb-4">Patient reviews</h2>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="section-title">Patient reviews</h2>
+            {reviews.data && reviewTotal > 0 && (
+              <span className="caption">
+                {reviewTotal} {reviewTotal === 1 ? 'review' : 'reviews'}
+              </span>
+            )}
+          </div>
+          {summary.data?.status === 'ready' && summary.data.summary && (
+            <div className="mb-6 rounded-xl border border-berry/30 bg-blush p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-berry">AI summary of {summary.data.review_count} reviews</p>
+              <p className="mt-2 text-sm text-ink">{summary.data.summary}</p>
+              {summary.data.points.length > 0 && (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink/90">
+                  {summary.data.points.map((p) => (
+                    <li key={p.text}>
+                      {p.text} <span className="caption text-xs">({p.review_ids.length} review{p.review_ids.length === 1 ? '' : 's'})</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="caption mt-2 text-xs">Written by AI from published reviews only. Read the reviews below for details.</p>
+            </div>
+          )}
           {reviews.isLoading && <Spinner />}
-          {reviews.data?.items.length === 0 && <EmptyState>No reviews yet.</EmptyState>}
+          <ErrorAlert error={reviews.error} />
+          {reviews.data && reviewTotal === 0 && <EmptyState>No reviews yet.</EmptyState>}
           <ul className="divide-y divide-line">
-            {reviews.data?.items.map((r) => (
+            {reviewItems.map((r) => (
               <li key={r.id} className="py-4 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>
@@ -89,14 +129,79 @@ export default function DoctorDetailPage() {
                   </span>
                 </div>
                 {r.comment && <p className="mt-1">{r.comment}</p>}
+                <ReportReview review={r} />
               </li>
             ))}
           </ul>
+          {reviews.hasNextPage && (
+            <button className="btn-secondary btn-sm mt-4" disabled={reviews.isFetchingNextPage} onClick={() => reviews.fetchNextPage()}>
+              {reviews.isFetchingNextPage ? 'Loading…' : `Show more reviews (${reviewTotal - reviewItems.length} left)`}
+            </button>
+          )}
         </section>
       </div>
       <aside id="book" className="min-w-0 scroll-mt-4">
         <BookingPanel doctor={d} />
       </aside>
     </div>
+  )
+}
+
+/** SCRUM-50: a signed-in patient reports a review; a moderator decides what happens to it. */
+function ReportReview({ review }: { review: ReviewPublic }) {
+  const { user } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [details, setDetails] = useState('')
+  const reasons = useQuery({ queryKey: ['review-report-reasons'], queryFn: api.directory.reportReasons, enabled: open })
+  const report = useMutation({ mutationFn: () => api.directory.reportReview(review.id, { reason, details: details.trim() || undefined }) })
+  if (user?.role !== 'PATIENT') return null
+  if (report.data) {
+    return (
+      <p className="caption mt-2 text-xs">
+        {report.data.already_reported
+          ? 'You have already reported this review. A moderator will look at it.'
+          : 'Thanks — a moderator will look at this review. It stays visible until they decide.'}
+      </p>
+    )
+  }
+  if (!open) {
+    return (
+      <button type="button" className="link mt-1 text-xs" onClick={() => setOpen(true)}>
+        Report this review
+      </button>
+    )
+  }
+  return (
+    <form
+      className="mt-2 space-y-2 rounded-lg border border-line p-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (reason) report.mutate()
+      }}
+    >
+      <Field label="Why is this review inappropriate?">
+        <select className="input" value={reason} onChange={(e) => setReason(e.target.value)} required>
+          <option value="">Choose a reason…</option>
+          {reasons.data?.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Details (optional)">
+        <input className="input" maxLength={500} value={details} onChange={(e) => setDetails(e.target.value)} />
+      </Field>
+      <ErrorAlert error={report.error} />
+      <div className="flex gap-2">
+        <button className="btn-primary btn-sm" disabled={!reason || report.isPending}>
+          {report.isPending ? 'Sending…' : 'Send report'}
+        </button>
+        <button type="button" className="btn-secondary btn-sm" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }

@@ -36,6 +36,8 @@ class SymptomSpecialtyRule(Base):
         ForeignKey("specialties.id", ondelete="CASCADE"), index=True
     )
     weight: Mapped[float] = mapped_column(default=1.0)
+    # Admins disable a mapping instead of deleting it (SCRUM-43); only active rules score.
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
 
 
 class RecommendationLog(Base):
